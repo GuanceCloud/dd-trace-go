@@ -5,11 +5,11 @@ go 1.19
 require (
 	cloud.google.com/go/pubsub v1.33.0
 	github.com/99designs/gqlgen v0.17.36
-	github.com/DataDog/appsec-internal-go v1.4.1
+	github.com/DataDog/appsec-internal-go v1.5.0
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.48.0
 	github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.48.1
 	github.com/DataDog/datadog-go/v5 v5.3.0
-	github.com/DataDog/go-libddwaf/v2 v2.3.1
+	github.com/DataDog/go-libddwaf/v2 v2.3.2
 	github.com/DataDog/gostackparse v0.7.0
 	github.com/DataDog/sketches-go v1.4.2
 	github.com/IBM/sarama v1.40.0
@@ -70,6 +70,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/microsoft/go-mssqldb v0.21.0
 	github.com/miekg/dns v1.1.55
+	github.com/nsqio/go-nsq v1.1.0
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/redis/go-redis/v9 v9.1.0
 	github.com/richardartoul/molecule v1.0.1-0.20221107223329-32cfee06a052
@@ -100,8 +101,8 @@ require (
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/jinzhu/gorm.v1 v1.9.2
 	gopkg.in/olivere/elastic.v3 v3.0.75
-	gopkg.in/olivere/elastic.v5 v5.0.84
-	gorm.io/driver/mysql v1.0.1
+	gopkg.in/olivere/elastic.v5 v5.0.86
+	gorm.io/driver/mysql v1.1.2
 	gorm.io/driver/postgres v1.4.6
 	gorm.io/driver/sqlserver v1.4.2
 	gorm.io/gorm v1.25.3
