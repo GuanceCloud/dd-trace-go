@@ -48,7 +48,20 @@ func (s *contextStack) Peek(key any) any {
 		return nil
 	}
 
-	return (*s)[key][len(stack)-1]
+	for len(stack) > 0 {
+		r, ok := stack[len(stack)-1].(reclaimable)
+		if !ok || !r.GLSReclaimable() {
+			break
+		}
+		stack[len(stack)-1] = nil
+		stack = stack[:len(stack)-1]
+	}
+	if len(stack) == 0 {
+		delete(*s, key)
+		return nil
+	}
+	(*s)[key] = stack
+	return stack[len(stack)-1]
 }
 
 // Push adds a context to the stack.
