@@ -12,36 +12,42 @@ import (
 	"database/sql/driver"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"testing"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
+	"time"
 
 	mssql "github.com/denisenkom/go-mssqldb"
 	"github.com/go-sql-driver/mysql"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/DataDog/dd-trace-go/contrib/database/sql/v2/internal"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
 )
 
 func TestDBMPropagation(t *testing.T) {
-	// Ensure the global service name is set to the previous value after we finish the test, since the
-	// tracer.WithService option overrides it.
-	prevServiceName := globalconfig.ServiceName()
-	defer globalconfig.SetServiceName(prevServiceName)
-
 	testCases := []struct {
-		name     string
-		opts     []RegisterOption
-		callDB   func(ctx context.Context, db *sql.DB) error
-		prepared []string
-		executed []*regexp.Regexp
+		name                     string
+		opts                     []Option
+		callDB                   func(ctx context.Context, db *sql.DB) error
+		prepared                 []string
+		dsn                      string
+		executed                 []*regexp.Regexp
+		peerServiceTag           string
+		peerServiceCtx           string
+		peerServiceCustomOpenTag string
+		containerTagsHash        string
+		assertExecuted           func(t *testing.T, d *internal.MockDriver)
 	}{
 		{
 			name: "prepare",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.PrepareContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -50,7 +56,7 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "prepare-disabled",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.PrepareContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -59,7 +65,7 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "prepare-service",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeService)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeService)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.PrepareContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -68,7 +74,18 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "prepare-full",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			callDB: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.PrepareContext(ctx, "SELECT 1 from DUAL")
+				return err
+			},
+			dsn:            "postgres://postgres:postgres@127.0.0.1:5432/fakepreparedb?sslmode=disable",
+			prepared:       []string{"/*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',ddh='127.0.0.1',dddb='fakepreparedb',ddprs='test-peer-service'*/ SELECT 1 from DUAL"},
+			peerServiceCtx: "test-peer-service",
+		},
+		{
+			name: "prepare-dynamic_service-no-container-hash",
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDynamicService)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.PrepareContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -77,7 +94,7 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "query",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.QueryContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -86,7 +103,7 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "query-disabled",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.QueryContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -95,7 +112,7 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "query-service",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeService)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeService)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.QueryContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -104,16 +121,18 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "query-full",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.QueryContext(ctx, "SELECT 1 from DUAL")
 				return err
 			},
-			executed: []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01'\\*/ SELECT 1 from DUAL")},
+			dsn:            "postgres://postgres:postgres@127.0.0.1:5432/fakequerydb?sslmode=disable",
+			executed:       []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01',ddh='127.0.0.1',dddb='fakequerydb',ddprs='test-peer-service'\\*/ SELECT 1 from DUAL")},
+			peerServiceCtx: "test-peer-service",
 		},
 		{
 			name: "exec",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -122,7 +141,7 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "exec-disabled",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -131,7 +150,7 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "exec-service",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeService)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeService)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -140,33 +159,131 @@ func TestDBMPropagation(t *testing.T) {
 		},
 		{
 			name: "exec-full",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
 				return err
 			},
-			executed: []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01'\\*/ SELECT 1 from DUAL")},
+			dsn:            "postgres://postgres:postgres@127.0.0.1:5432/fakeexecdb?sslmode=disable",
+			executed:       []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01',ddh='127.0.0.1',dddb='fakeexecdb',ddprs='test-peer-service'\\*/ SELECT 1 from DUAL")},
+			peerServiceCtx: "test-peer-service",
+		},
+		{
+			name: "exec-full-peer-service-tag",
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			callDB: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
+				return err
+			},
+			dsn:            "postgres://postgres:postgres@127.0.0.1:5432/fakeexecdb?sslmode=disable",
+			executed:       []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01',ddh='127.0.0.1',dddb='fakeexecdb',ddprs='test-peer-service-tag'\\*/ SELECT 1 from DUAL")},
+			peerServiceTag: "test-peer-service-tag",
+		},
+		{
+			name: "exec-full-peer-service-custom-tag",
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			callDB: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
+				return err
+			},
+			dsn:                      "postgres://postgres:postgres@127.0.0.1:5432/fakeexecdb?sslmode=disable",
+			executed:                 []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01',ddh='127.0.0.1',dddb='fakeexecdb',ddprs='test-peer-service-custom-tag'\\*/ SELECT 1 from DUAL")},
+			peerServiceCustomOpenTag: "test-peer-service-custom-tag",
+		},
+		{
+			name: "exec-full-peer-service-precedence-tag-over-conn-context",
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			callDB: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
+				return err
+			},
+			dsn:            "postgres://postgres:postgres@127.0.0.1:5432/fakeexecdb?sslmode=disable",
+			executed:       []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01',ddh='127.0.0.1',dddb='fakeexecdb',ddprs='test-peer-service-tag'\\*/ SELECT 1 from DUAL")},
+			peerServiceCtx: "test-peer-service-ctx",
+			peerServiceTag: "test-peer-service-tag",
+		},
+		{
+			name: "exec-full-peer-service-precedence-conn-context-over-open-custom-tag",
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			callDB: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
+				return err
+			},
+			dsn:                      "postgres://postgres:postgres@127.0.0.1:5432/fakeexecdb?sslmode=disable",
+			executed:                 []*regexp.Regexp{regexp.MustCompile("/\\*dddbs='test.db',dde='test-env',ddps='test-service',ddpv='1.0.0',traceparent='00-00000000000000000000000000000001-[\\da-f]{16}-01',ddh='127.0.0.1',dddb='fakeexecdb',ddprs='test-peer-service-ctx'\\*/ SELECT 1 from DUAL")},
+			peerServiceCtx:           "test-peer-service-ctx",
+			peerServiceCustomOpenTag: "test-peer-service-custom-tag",
+		},
+		{
+			name: "dynamic_service-exec-no-container-hash",
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDynamicService)},
+			callDB: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1")
+				return err
+			},
+			executed: []*regexp.Regexp{
+				regexp.MustCompile(`/\*.*dddbs=.*\*/`),
+			},
+		},
+		{
+			name:              "dynamic_service-exec-with-hash",
+			opts:              []Option{WithDBMPropagation(tracer.DBMPropagationModeDynamicService)},
+			containerTagsHash: "testhash42",
+			callDB: func(ctx context.Context, db *sql.DB) error {
+				_, err := db.ExecContext(ctx, "SELECT 1")
+				return err
+			},
+			executed: []*regexp.Regexp{
+				regexp.MustCompile(`/\*.*ddsh='[^']+'.*\*/`),
+			},
+			assertExecuted: func(t *testing.T, d *internal.MockDriver) {
+				require.Len(t, d.Executed, 1)
+				assert.NotContains(t, d.Executed[0], "traceparent=", "dynamic_service must not inject traceparent")
+				expectedHash := testutils.DBMBaseHash("test-service", "testhash42")
+				assert.Contains(t, d.Executed[0], "ddsh='"+expectedHash+"'", "ddsh must equal computed base hash")
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tracer.Start(
-				tracer.WithService("test-service"),
+			err := tracer.Start(
 				tracer.WithEnv("test-env"),
 				tracer.WithServiceVersion("1.0.0"),
-				tracer.WithHTTPRoundTripper(&mockRoundTripper{}),
+				tracer.WithHTTPClient(&http.Client{Transport: &mockRoundTripper{}}),
+				tracer.WithLogger(testutils.DiscardLogger()),
 			)
+			require.NoError(t, err)
 			defer tracer.Stop()
+			testutils.SetGlobalServiceName(t, "test-service")
+			if tc.containerTagsHash != "" {
+				testutils.SetContainerTagsHash(t, tc.containerTagsHash)
+			}
 
 			d := &internal.MockDriver{}
 			Register("test", d, tc.opts...)
 			defer unregister("test")
 
-			db, err := Open("test", "dn")
+			dsn := "dn"
+			if tc.dsn != "" {
+				dsn = tc.dsn
+			}
+			var options = []Option{}
+			if tc.peerServiceCustomOpenTag != "" {
+				options = append(options, WithCustomTag(ext.PeerService, tc.peerServiceCustomOpenTag))
+			}
+			db, err := Open("test", dsn, options...)
 			require.NoError(t, err)
-
 			s, ctx := tracer.StartSpanFromContext(context.Background(), "test.call", tracer.WithSpanID(1))
+			if tc.peerServiceCtx != "" {
+				vars := map[string]string{
+					ext.PeerService: tc.peerServiceCtx,
+				}
+				ctx = WithSpanTags(ctx, vars)
+			}
+			if tc.peerServiceTag != "" {
+				s.SetTag(ext.PeerService, tc.peerServiceTag)
+			}
 			err = tc.callDB(ctx, db)
 			s.Finish()
 
@@ -182,21 +299,59 @@ func TestDBMPropagation(t *testing.T) {
 				// the injected span ID should not be the parent's span ID
 				assert.NotContains(t, d.Executed[i], "traceparent='00-00000000000000000000000000000001-0000000000000001")
 			}
+			if tc.assertExecuted != nil {
+				tc.assertExecuted(t, d)
+			}
 		})
 	}
+}
+
+func TestDBMPropagationFullOnPqCopy(t *testing.T) {
+	if _, ok := os.LookupEnv("INTEGRATION"); !ok {
+		t.Skip("skipping integration test")
+	}
+	tr := mocktracer.Start()
+	defer tr.Stop()
+
+	Register("postgres", &pq.Driver{}, WithDBMPropagation(tracer.DBMPropagationModeFull))
+	db, err := Open("postgres", "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		// Using a new 10s-timeout context, as we may be running cleanup after the original context expired.
+		_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		assert.NoError(t, db.Close())
+	})
+
+	tx, err := db.Begin()
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	s := pq.CopyInSchema("public", "testsql", "name")
+	stmt, err := tx.Prepare(s)
+	require.NoError(t, err)
+	defer stmt.Close()
+
+	_, err = stmt.Exec("name-0")
+	require.NoError(t, err)
+
+	spans := tr.FinishedSpans()
+	require.Len(t, spans, 4) // 1 for the connection, 1 for the transaction, 1 for the copy's prepare, 1 for the copy's exec
+	assert.Equal(t, `COPY "public"."testsql" ("name") FROM STDIN`, spans[3].Tags()[ext.ResourceName])
 }
 
 func TestDBMTraceContextTagging(t *testing.T) {
 	testCases := []struct {
 		name                    string
-		opts                    []RegisterOption
+		opts                    []Option
 		callDB                  func(ctx context.Context, db *sql.DB) error
 		spanType                string
 		traceContextInjectedTag bool
 	}{
 		{
 			name: "prepare",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.PrepareContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -206,7 +361,7 @@ func TestDBMTraceContextTagging(t *testing.T) {
 		},
 		{
 			name: "query-disabled",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.QueryContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -216,7 +371,7 @@ func TestDBMTraceContextTagging(t *testing.T) {
 		},
 		{
 			name: "query-service",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeService)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeService)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.QueryContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -226,7 +381,7 @@ func TestDBMTraceContextTagging(t *testing.T) {
 		},
 		{
 			name: "query-full",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.QueryContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -236,7 +391,7 @@ func TestDBMTraceContextTagging(t *testing.T) {
 		},
 		{
 			name: "exec-disabled",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeDisabled)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -246,7 +401,7 @@ func TestDBMTraceContextTagging(t *testing.T) {
 		},
 		{
 			name: "exec-service",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeService)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeService)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -256,7 +411,7 @@ func TestDBMTraceContextTagging(t *testing.T) {
 		},
 		{
 			name: "exec-full",
-			opts: []RegisterOption{WithDBMPropagation(tracer.DBMPropagationModeFull)},
+			opts: []Option{WithDBMPropagation(tracer.DBMPropagationModeFull)},
 			callDB: func(ctx context.Context, db *sql.DB) error {
 				_, err := db.ExecContext(ctx, "SELECT 1 from DUAL")
 				return err
@@ -289,7 +444,7 @@ func TestDBMTraceContextTagging(t *testing.T) {
 			for _, s := range sps {
 				tags := s.Tags()
 				if tc.traceContextInjectedTag {
-					assert.Equal(t, true, tags[keyDBMTraceInjected])
+					assert.Equal(t, "true", tags[keyDBMTraceInjected])
 				} else {
 					_, ok := tags[keyDBMTraceInjected]
 					assert.False(t, ok)
@@ -446,8 +601,112 @@ func TestDBMFullModeUnsupported(t *testing.T) {
 	}
 }
 
-func spansOfType(spans []mocktracer.Span, spanType string) (filtered []mocktracer.Span) {
-	filtered = make([]mocktracer.Span, 0)
+func TestDBMDynamicServicePropagatedHashTag(t *testing.T) {
+	// Start real tracer first to populate service/env config used by computeBaseHash.
+	// Register its cleanup before mocktracer so that t.Cleanup (LIFO) stops the mock
+	// first and the real tracer second — matching reverse start order.
+	err := tracer.Start(tracer.WithService("test-svc"), tracer.WithEnv("test-env"))
+	require.NoError(t, err)
+	t.Cleanup(tracer.Stop)
+
+	testutils.SetContainerTagsHash(t, "testhash42")
+	expectedHash := testutils.DBMBaseHash("test-svc", "testhash42")
+
+	mt := mocktracer.Start()
+	t.Cleanup(mt.Stop)
+
+	Register("mock", &internal.MockDriver{}, WithDBMPropagation(tracer.DBMPropagationModeDynamicService))
+	defer unregister("mock")
+	db, err := Open("mock", "")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.ExecContext(context.Background(), "SELECT 1")
+	require.NoError(t, err)
+
+	execSpans := spansOfType(mt.FinishedSpans(), QueryTypeExec)
+	require.Len(t, execSpans, 1)
+	assert.Equal(t, expectedHash, execSpans[0].Tag("_dd.propagated_hash"),
+		"_dd.propagated_hash must equal the computed base hash")
+	assert.Nil(t, execSpans[0].Tag("_dd.dbm_trace_injected"),
+		"dynamic_service must not set _dd.dbm_trace_injected (that is full mode only)")
+}
+
+func TestDBMDynamicServicePrepareContextWithHash(t *testing.T) {
+	err := tracer.Start(tracer.WithService("test-svc"), tracer.WithEnv("test-env"))
+	require.NoError(t, err)
+	t.Cleanup(tracer.Stop)
+
+	testutils.SetContainerTagsHash(t, "testhash42")
+	expectedHash := testutils.DBMBaseHash("test-svc", "testhash42")
+
+	mt := mocktracer.Start()
+	t.Cleanup(mt.Stop)
+
+	d := &internal.MockDriver{}
+	Register("mock", d, WithDBMPropagation(tracer.DBMPropagationModeDynamicService))
+	defer unregister("mock")
+	db, err := Open("mock", "")
+	require.NoError(t, err)
+	defer db.Close()
+
+	stmt, err := db.PrepareContext(context.Background(), "SELECT 1")
+	require.NoError(t, err)
+
+	require.Len(t, d.Prepared, 1)
+	assert.Contains(t, d.Prepared[0], "ddsh='"+expectedHash+"'",
+		"ddsh must be baked into the prepared statement (dynamic_service is not downgraded)")
+	assert.NotContains(t, d.Prepared[0], "traceparent=",
+		"dynamic_service PrepareContext must not inject traceparent")
+
+	prepareSpans := spansOfType(mt.FinishedSpans(), QueryTypePrepare)
+	require.Len(t, prepareSpans, 1)
+	assert.Equal(t, expectedHash, prepareSpans[0].Tag("_dd.propagated_hash"),
+		"_dd.propagated_hash must be set on the prepare span")
+
+	_, err = stmt.ExecContext(context.Background())
+	require.NoError(t, err)
+
+	execSpans := spansOfType(mt.FinishedSpans(), QueryTypeExec)
+	require.Len(t, execSpans, 1)
+	assert.Equal(t, expectedHash, execSpans[0].Tag("_dd.propagated_hash"),
+		"_dd.propagated_hash must be set on prepared-statement exec spans")
+}
+
+func TestDBMNoPropagatedHashTagInOtherModes(t *testing.T) {
+	err := tracer.Start(tracer.WithService("test-svc"), tracer.WithEnv("test-env"))
+	require.NoError(t, err)
+	t.Cleanup(tracer.Stop)
+
+	testutils.SetContainerTagsHash(t, "testhash42")
+
+	for _, mode := range []tracer.DBMPropagationMode{
+		tracer.DBMPropagationModeService,
+		tracer.DBMPropagationModeFull,
+	} {
+		t.Run(string(mode), func(t *testing.T) {
+			mt := mocktracer.Start()
+			t.Cleanup(mt.Stop)
+
+			Register("mock", &internal.MockDriver{}, WithDBMPropagation(mode))
+			defer unregister("mock")
+			db, err := Open("mock", "")
+			require.NoError(t, err)
+			defer db.Close()
+
+			_, err = db.ExecContext(context.Background(), "SELECT 1")
+			require.NoError(t, err)
+
+			execSpans := spansOfType(mt.FinishedSpans(), QueryTypeExec)
+			require.Len(t, execSpans, 1)
+			assert.Nil(t, execSpans[0].Tag("_dd.propagated_hash"),
+				"_dd.propagated_hash must not be set in %s mode", mode)
+		})
+	}
+}
+
+func spansOfType(spans []*mocktracer.Span, spanType string) (filtered []*mocktracer.Span) {
+	filtered = make([]*mocktracer.Span, 0)
 	for _, s := range spans {
 		if s.Tag("sql.query_type") == spanType {
 			filtered = append(filtered, s)

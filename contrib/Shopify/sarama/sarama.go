@@ -4,33 +4,43 @@
 // Copyright 2016 Datadog, Inc.
 
 // Package sarama provides functions to trace the Shopify/sarama package (https://github.com/Shopify/sarama).
-package sarama // import "gopkg.in/DataDog/dd-trace-go.v1/contrib/Shopify/sarama"
+//
+// Deprecated: github.com/Shopify/sarama is no longer maintained. Please migrate to github.com/IBM/sarama
+// and use the corresponding integration. This integration will be removed in a future release.
+package sarama // import "github.com/DataDog/dd-trace-go/contrib/Shopify/sarama/v2"
 
 import (
 	"context"
 	"math"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/datastreams"
-	"gopkg.in/DataDog/dd-trace-go.v1/datastreams/options"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/telemetry"
+	"github.com/DataDog/dd-trace-go/v2/datastreams"
+	"github.com/DataDog/dd-trace-go/v2/datastreams/options"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 
 	"github.com/Shopify/sarama"
 )
 
-const componentName = "Shopify/sarama"
+var instr *instrumentation.Instrumentation
 
 func init() {
-	telemetry.LoadIntegration(componentName)
-	tracer.MarkIntegrationImported("github.com/Shopify/sarama")
+	instr = instrumentation.Load(instrumentation.PackageShopifySarama)
 }
 
 type partitionConsumer struct {
 	sarama.PartitionConsumer
-	messages chan *sarama.ConsumerMessage
+	messages   chan *sarama.ConsumerMessage
+	closeAsync []func()
+}
+
+// Close shuts down the partition consumer and cancels any in-flight async jobs.
+func (pc *partitionConsumer) Close() error {
+	for _, stop := range pc.closeAsync {
+		stop()
+	}
+	return pc.PartitionConsumer.Close()
 }
 
 // Messages returns the read channel for the messages that are returned by
@@ -41,32 +51,36 @@ func (pc *partitionConsumer) Messages() <-chan *sarama.ConsumerMessage {
 
 // WrapPartitionConsumer wraps a sarama.PartitionConsumer causing each received
 // message to be traced.
+// Deprecated: use `IBM/sarama` instead.
 func WrapPartitionConsumer(pc sarama.PartitionConsumer, opts ...Option) sarama.PartitionConsumer {
 	cfg := new(config)
 	defaults(cfg)
 	for _, opt := range opts {
-		opt(cfg)
+		opt.apply(cfg)
 	}
-	log.Debug("contrib/Shopify/sarama: Wrapping Partition Consumer: %#v", cfg)
+	instr.Logger().Debug("contrib/Shopify/sarama: Wrapping Partition Consumer: %#v", cfg)
 	wrapped := &partitionConsumer{
 		PartitionConsumer: pc,
 		messages:          make(chan *sarama.ConsumerMessage),
 	}
 	go func() {
 		msgs := pc.Messages()
-		var prev ddtrace.Span
+		var prev *tracer.Span
 		for msg := range msgs {
 			// create the next span from the message
 			opts := []tracer.StartSpanOption{
-				tracer.ServiceName(cfg.consumerServiceName),
+				instrumentation.ServiceNameWithSource(cfg.consumerServiceName, cfg.serviceSource),
 				tracer.ResourceName("Consume Topic " + msg.Topic),
 				tracer.SpanType(ext.SpanTypeMessageConsumer),
 				tracer.Tag(ext.MessagingKafkaPartition, msg.Partition),
 				tracer.Tag("offset", msg.Offset),
-				tracer.Tag(ext.Component, componentName),
+				tracer.Tag(ext.Component, instrumentation.PackageShopifySarama),
 				tracer.Tag(ext.SpanKind, ext.SpanKindConsumer),
 				tracer.Tag(ext.MessagingSystem, ext.MessagingSystemKafka),
 				tracer.Measured(),
+			}
+			if clusterID := cfg.ClusterID(); clusterID != "" {
+				opts = append(opts, tracer.Tag(ext.MessagingKafkaClusterID, clusterID))
 			}
 			if !math.IsNaN(cfg.analyticsRate) {
 				opts = append(opts, tracer.Tag(ext.EventSampleRate, cfg.analyticsRate))
@@ -74,12 +88,16 @@ func WrapPartitionConsumer(pc sarama.PartitionConsumer, opts ...Option) sarama.P
 			// kafka supports headers, so try to extract a span context
 			carrier := NewConsumerMessageCarrier(msg)
 			if spanctx, err := tracer.Extract(carrier); err == nil {
+				// If there are span links as a result of context extraction, add them as a StartSpanOption
+				if spanctx != nil && spanctx.SpanLinks() != nil {
+					opts = append(opts, tracer.WithSpanLinks(spanctx.SpanLinks()))
+				}
 				opts = append(opts, tracer.ChildOf(spanctx))
 			}
 			next := tracer.StartSpan(cfg.consumerSpanName, opts...)
 			// reinject the span context so consumers can pick it up
 			tracer.Inject(next.Context(), carrier)
-			setConsumeCheckpoint(cfg.dataStreamsEnabled, cfg.groupID, msg)
+			setConsumeCheckpoint(cfg.dataStreamsEnabled, cfg.groupID, cfg.ClusterID(), msg)
 
 			wrapped.messages <- msg
 
@@ -95,12 +113,17 @@ func WrapPartitionConsumer(pc sarama.PartitionConsumer, opts ...Option) sarama.P
 		}
 		close(wrapped.messages)
 	}()
+	if cfg.dataStreamsEnabled && len(cfg.brokerAddrs) > 0 {
+		wrapped.closeAsync = append(wrapped.closeAsync, startClusterIDFetch(cfg))
+	}
 	return wrapped
 }
 
 type consumer struct {
 	sarama.Consumer
-	opts []Option
+	opts       []Option
+	cfg        *config
+	closeAsync []func()
 }
 
 // ConsumePartition invokes Consumer.ConsumePartition and wraps the resulting
@@ -113,29 +136,57 @@ func (c *consumer) ConsumePartition(topic string, partition int32, offset int64)
 	return WrapPartitionConsumer(pc, c.opts...), nil
 }
 
+// Close shuts down the consumer and cancels any in-flight async jobs.
+func (c *consumer) Close() error {
+	for _, stop := range c.closeAsync {
+		stop()
+	}
+	return c.Consumer.Close()
+}
+
 // WrapConsumer wraps a sarama.Consumer wrapping any PartitionConsumer created
 // via Consumer.ConsumePartition.
+// Deprecated: use `IBM/sarama` instead.
 func WrapConsumer(c sarama.Consumer, opts ...Option) sarama.Consumer {
-	return &consumer{
+	cfg := new(config)
+	defaults(cfg)
+	for _, opt := range opts {
+		opt.apply(cfg)
+	}
+	wrapped := &consumer{
 		Consumer: c,
 		opts:     opts,
+		cfg:      cfg,
 	}
+	if cfg.dataStreamsEnabled && len(cfg.brokerAddrs) > 0 {
+		wrapped.closeAsync = append(wrapped.closeAsync, startClusterIDFetch(cfg))
+	}
+	return wrapped
 }
 
 type syncProducer struct {
 	sarama.SyncProducer
-	version sarama.KafkaVersion
-	cfg     *config
+	version    sarama.KafkaVersion
+	cfg        *config
+	closeAsync []func() // async jobs to cancel and wait for on Close
+}
+
+// Close shuts down the producer and cancels any in-flight async jobs.
+func (p *syncProducer) Close() error {
+	for _, stop := range p.closeAsync {
+		stop()
+	}
+	return p.SyncProducer.Close()
 }
 
 // SendMessage calls sarama.SyncProducer.SendMessage and traces the request.
 func (p *syncProducer) SendMessage(msg *sarama.ProducerMessage) (partition int32, offset int64, err error) {
 	span := startProducerSpan(p.cfg, p.version, msg)
-	setProduceCheckpoint(p.cfg.dataStreamsEnabled, msg, p.version)
+	setProduceCheckpoint(p.cfg.dataStreamsEnabled, p.cfg.ClusterID(), msg, p.version)
 	partition, offset, err = p.SyncProducer.SendMessage(msg)
 	finishProducerSpan(span, partition, offset, err)
 	if err == nil && p.cfg.dataStreamsEnabled {
-		tracer.TrackKafkaProduceOffset(msg.Topic, partition, offset)
+		tracer.TrackKafkaProduceOffsetWithCluster(p.cfg.ClusterID(), msg.Topic, partition, offset)
 	}
 	return partition, offset, err
 }
@@ -144,9 +195,9 @@ func (p *syncProducer) SendMessage(msg *sarama.ProducerMessage) (partition int32
 func (p *syncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
 	// although there's only one call made to the SyncProducer, the messages are
 	// treated individually, so we create a span for each one
-	spans := make([]ddtrace.Span, len(msgs))
+	spans := make([]*tracer.Span, len(msgs))
 	for i, msg := range msgs {
-		setProduceCheckpoint(p.cfg.dataStreamsEnabled, msg, p.version)
+		setProduceCheckpoint(p.cfg.dataStreamsEnabled, p.cfg.ClusterID(), msg, p.version)
 		spans[i] = startProducerSpan(p.cfg, p.version, msg)
 	}
 	err := p.SyncProducer.SendMessages(msgs)
@@ -156,7 +207,7 @@ func (p *syncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
 	if err == nil && p.cfg.dataStreamsEnabled {
 		// we only track Kafka lag if messages have been sent successfully. Otherwise, we have no way to know to which partition data was sent to.
 		for _, msg := range msgs {
-			tracer.TrackKafkaProduceOffset(msg.Topic, msg.Partition, msg.Offset)
+			tracer.TrackKafkaProduceOffsetWithCluster(p.cfg.ClusterID(), msg.Topic, msg.Partition, msg.Offset)
 		}
 	}
 	return err
@@ -164,28 +215,51 @@ func (p *syncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
 
 // WrapSyncProducer wraps a sarama.SyncProducer so that all produced messages
 // are traced.
+// Deprecated: use `IBM/sarama` instead.
 func WrapSyncProducer(saramaConfig *sarama.Config, producer sarama.SyncProducer, opts ...Option) sarama.SyncProducer {
 	cfg := new(config)
 	defaults(cfg)
 	for _, opt := range opts {
-		opt(cfg)
+		opt.apply(cfg)
 	}
-	log.Debug("contrib/Shopify/sarama: Wrapping Sync Producer: %#v", cfg)
+	instr.Logger().Debug("contrib/Shopify/sarama: Wrapping Sync Producer: %#v", cfg)
 	if saramaConfig == nil {
 		saramaConfig = sarama.NewConfig()
 	}
-	return &syncProducer{
+	cfg.saramaConfig = saramaConfig
+	wrapped := &syncProducer{
 		SyncProducer: producer,
 		version:      saramaConfig.Version,
 		cfg:          cfg,
 	}
+	if cfg.dataStreamsEnabled && len(cfg.brokerAddrs) > 0 {
+		wrapped.closeAsync = append(wrapped.closeAsync, startClusterIDFetch(cfg))
+	}
+	return wrapped
 }
 
 type asyncProducer struct {
 	sarama.AsyncProducer
-	input     chan *sarama.ProducerMessage
-	successes chan *sarama.ProducerMessage
-	errors    chan *sarama.ProducerError
+	input      chan *sarama.ProducerMessage
+	successes  chan *sarama.ProducerMessage
+	errors     chan *sarama.ProducerError
+	closeAsync []func() // async jobs to cancel and wait for on Close
+}
+
+// Close shuts down the async producer and cancels any in-flight async jobs.
+func (p *asyncProducer) Close() error {
+	for _, stop := range p.closeAsync {
+		stop()
+	}
+	return p.AsyncProducer.Close()
+}
+
+// AsyncClose triggers a shutdown of the producer and cancels any in-flight async jobs.
+func (p *asyncProducer) AsyncClose() {
+	for _, stop := range p.closeAsync {
+		stop()
+	}
+	p.AsyncProducer.AsyncClose()
 }
 
 // Input returns the input channel.
@@ -208,19 +282,21 @@ func (p *asyncProducer) Errors() <-chan *sarama.ProducerError {
 // or not successes will be returned. Tracing requires at least sarama.V0_11_0_0
 // version which is the first version that supports headers. Only spans of
 // successfully published messages have partition and offset tags set.
+// Deprecated: use `IBM/sarama` instead.
 func WrapAsyncProducer(saramaConfig *sarama.Config, p sarama.AsyncProducer, opts ...Option) sarama.AsyncProducer {
 	cfg := new(config)
 	defaults(cfg)
 	for _, opt := range opts {
-		opt(cfg)
+		opt.apply(cfg)
 	}
-	log.Debug("contrib/Shopify/sarama: Wrapping Async Producer: %#v", cfg)
+	instr.Logger().Debug("contrib/Shopify/sarama: Wrapping Async Producer: %#v", cfg)
 	if saramaConfig == nil {
 		saramaConfig = sarama.NewConfig()
 		saramaConfig.Version = sarama.V0_11_0_0
 	} else if !saramaConfig.Version.IsAtLeast(sarama.V0_11_0_0) {
-		log.Error("Tracing Sarama async producer requires at least sarama.V0_11_0_0 version")
+		instr.Logger().Error("Tracing Sarama async producer requires at least sarama.V0_11_0_0 version")
 	}
+	cfg.saramaConfig = saramaConfig
 	wrapped := &asyncProducer{
 		AsyncProducer: p,
 		input:         make(chan *sarama.ProducerMessage),
@@ -228,7 +304,7 @@ func WrapAsyncProducer(saramaConfig *sarama.Config, p sarama.AsyncProducer, opts
 		errors:        make(chan *sarama.ProducerError),
 	}
 	go func() {
-		spans := make(map[uint64]ddtrace.Span)
+		spans := make(map[uint64]*tracer.Span)
 		defer close(wrapped.input)
 		defer close(wrapped.successes)
 		defer close(wrapped.errors)
@@ -236,7 +312,7 @@ func WrapAsyncProducer(saramaConfig *sarama.Config, p sarama.AsyncProducer, opts
 			select {
 			case msg := <-wrapped.input:
 				span := startProducerSpan(cfg, saramaConfig.Version, msg)
-				setProduceCheckpoint(cfg.dataStreamsEnabled, msg, saramaConfig.Version)
+				setProduceCheckpoint(cfg.dataStreamsEnabled, cfg.ClusterID(), msg, saramaConfig.Version)
 				p.Input() <- msg
 				if saramaConfig.Producer.Return.Successes {
 					spanID := span.Context().SpanID()
@@ -254,7 +330,7 @@ func WrapAsyncProducer(saramaConfig *sarama.Config, p sarama.AsyncProducer, opts
 				}
 				if cfg.dataStreamsEnabled {
 					// we only track Kafka lag if returning successes is enabled. Otherwise, we have no way to know to which partition data was sent to.
-					tracer.TrackKafkaProduceOffset(msg.Topic, msg.Partition, msg.Offset)
+					tracer.TrackKafkaProduceOffsetWithCluster(cfg.ClusterID(), msg.Topic, msg.Partition, msg.Offset)
 				}
 				if spanctx, spanFound := getSpanContext(msg); spanFound {
 					spanID := spanctx.SpanID()
@@ -280,24 +356,35 @@ func WrapAsyncProducer(saramaConfig *sarama.Config, p sarama.AsyncProducer, opts
 			}
 		}
 	}()
+	if cfg.dataStreamsEnabled && len(cfg.brokerAddrs) > 0 {
+		wrapped.closeAsync = append(wrapped.closeAsync, startClusterIDFetch(cfg))
+	}
 	return wrapped
 }
 
-func startProducerSpan(cfg *config, version sarama.KafkaVersion, msg *sarama.ProducerMessage) ddtrace.Span {
+func startProducerSpan(cfg *config, version sarama.KafkaVersion, msg *sarama.ProducerMessage) *tracer.Span {
 	carrier := NewProducerMessageCarrier(msg)
 	opts := []tracer.StartSpanOption{
-		tracer.ServiceName(cfg.producerServiceName),
+		instrumentation.ServiceNameWithSource(cfg.producerServiceName, cfg.serviceSource),
 		tracer.ResourceName("Produce Topic " + msg.Topic),
 		tracer.SpanType(ext.SpanTypeMessageProducer),
-		tracer.Tag(ext.Component, componentName),
+		tracer.Tag(ext.Component, instrumentation.PackageShopifySarama),
 		tracer.Tag(ext.SpanKind, ext.SpanKindProducer),
 		tracer.Tag(ext.MessagingSystem, ext.MessagingSystemKafka),
+		tracer.Tag(ext.MessagingDestinationName, msg.Topic),
+	}
+	if clusterID := cfg.ClusterID(); clusterID != "" {
+		opts = append(opts, tracer.Tag(ext.MessagingKafkaClusterID, clusterID))
 	}
 	if !math.IsNaN(cfg.analyticsRate) {
 		opts = append(opts, tracer.Tag(ext.EventSampleRate, cfg.analyticsRate))
 	}
 	// if there's a span context in the headers, use that as the parent
 	if spanctx, err := tracer.Extract(carrier); err == nil {
+		// If there are span links as a result of context extraction, add them as a StartSpanOption
+		if spanctx != nil && spanctx.SpanLinks() != nil {
+			opts = append(opts, tracer.WithSpanLinks(spanctx.SpanLinks()))
+		}
 		opts = append(opts, tracer.ChildOf(spanctx))
 	}
 	span := tracer.StartSpan(cfg.producerSpanName, opts...)
@@ -308,7 +395,7 @@ func startProducerSpan(cfg *config, version sarama.KafkaVersion, msg *sarama.Pro
 	return span
 }
 
-func finishProducerSpan(span ddtrace.Span, partition int32, offset int64, err error) {
+func finishProducerSpan(span *tracer.Span, partition int32, offset int64, err error) {
 	span.SetTag(ext.MessagingKafkaPartition, partition)
 	span.SetTag("offset", offset)
 	span.Finish(tracer.WithError(err))
@@ -324,11 +411,14 @@ func getSpanContext(msg *sarama.ProducerMessage) (ddtrace.SpanContext, bool) {
 	return spanctx, true
 }
 
-func setProduceCheckpoint(enabled bool, msg *sarama.ProducerMessage, version sarama.KafkaVersion) {
+func setProduceCheckpoint(enabled bool, clusterID string, msg *sarama.ProducerMessage, version sarama.KafkaVersion) {
 	if !enabled || msg == nil {
 		return
 	}
 	edges := []string{"direction:out", "topic:" + msg.Topic, "type:kafka"}
+	if clusterID != "" {
+		edges = append(edges, "kafka_cluster_id:"+clusterID)
+	}
 	carrier := NewProducerMessageCarrier(msg)
 	ctx, ok := tracer.SetDataStreamsCheckpointWithParams(datastreams.ExtractFromBase64Carrier(context.Background(), carrier), options.CheckpointParams{PayloadSize: getProducerMsgSize(msg)}, edges...)
 	if !ok || !version.IsAtLeast(sarama.V0_11_0_0) {
@@ -337,13 +427,16 @@ func setProduceCheckpoint(enabled bool, msg *sarama.ProducerMessage, version sar
 	datastreams.InjectToBase64Carrier(ctx, carrier)
 }
 
-func setConsumeCheckpoint(enabled bool, groupID string, msg *sarama.ConsumerMessage) {
+func setConsumeCheckpoint(enabled bool, groupID string, clusterID string, msg *sarama.ConsumerMessage) {
 	if !enabled || msg == nil {
 		return
 	}
 	edges := []string{"direction:in", "topic:" + msg.Topic, "type:kafka"}
 	if groupID != "" {
 		edges = append(edges, "group:"+groupID)
+	}
+	if clusterID != "" {
+		edges = append(edges, "kafka_cluster_id:"+clusterID)
 	}
 	carrier := NewConsumerMessageCarrier(msg)
 	ctx, ok := tracer.SetDataStreamsCheckpointWithParams(datastreams.ExtractFromBase64Carrier(context.Background(), carrier), options.CheckpointParams{PayloadSize: getConsumerMsgSize(msg)}, edges...)
@@ -354,7 +447,7 @@ func setConsumeCheckpoint(enabled bool, groupID string, msg *sarama.ConsumerMess
 	if groupID != "" {
 		// only track Kafka lag if a consumer group is set.
 		// since there is no ack mechanism, we consider that messages read are committed right away.
-		tracer.TrackKafkaCommitOffset(groupID, msg.Topic, msg.Partition, msg.Offset)
+		tracer.TrackKafkaCommitOffsetWithCluster(clusterID, groupID, msg.Topic, msg.Partition, msg.Offset)
 	}
 }
 

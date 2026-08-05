@@ -2,12 +2,13 @@
 
 ## Supported Versions
 
-Please see our [Support Policy](README.md#support-policy)
+Please see our [Support Policy](README.md#go-support-policy)
 
 ## Reporting a Vulnerability
 
 Please note that we rely on golang.org/x/vuln/vulncheck to indicate whether any of our dependencies have a vulnerability that could impact any of the users of our APIs.
 We have chosen this tool since it works differently from other vulnerability scanners.
+Scanners which rely only on `dd-trace-go`'s `go.mod` may report vulnerabilities that are not reachable in this library's code. Additionally, Go modules only specify the minimum required version of a dependency; a program's main `go.mod` file can specify newer versions that what this library's `go.mod` requires.
 From the [blog post](https://go.dev/blog/vuln): "Govulncheck analyzes your codebase and only surfaces vulnerabilities that actually affect you, based on which functions in your code are transitively calling vulnerable functions."
 
 It's possible that other vulnerability scanners could report that our codebase has vulnerabilities.
@@ -22,7 +23,7 @@ If you have found a security issue in our code directly, please contact the secu
 If you are using a vulnerability checker other than `golang.org/x/vuln/vulncheck` you may detect vulnerabilities in our contrib dependencies.
 In general we like to specify non-vulnerable minimum versions of dependencies when we can do so in a non-breaking way. To avoid breaking users of this library
 there may be contrib libraries that are deprecated/vulnerable but still appear in our go.mod file. If you are not using these contrib packages you are not vulnerable (i.e. if they do not appear in your go.sum file).
-At the next major version we will drop support for these packages. (e.g. as of dd-trace-go@v1 labstack/echo v3 is considered deprecated and users should migrate to labstack/echo.v4)
+At the next major version we will drop support for these packages.
 
 Note that since library go.mod files only specify minimum version requirements you are welcome to specify a newer version of any dependencies to satisfy your tooling.
 For example, if you would like to require a library like `github.com/labstack/echo/v4` use version v4.10.0 you can do so by running `go get github.com/labstack/echo/v4@v4.10.0`.

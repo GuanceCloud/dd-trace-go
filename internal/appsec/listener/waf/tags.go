@@ -1,0 +1,129 @@
+// Unless explicitly stated otherwise all files in this repository are licensed
+// under the Apache License Version 2.0.
+// This product includes software developed at Datadog (https://www.datadoghq.com/).
+// Copyright 2024 Datadog, Inc.
+
+package waf
+
+import (
+	"slices"
+	"time"
+
+	"github.com/DataDog/go-libddwaf/v5"
+	"github.com/DataDog/go-libddwaf/v5/timer"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/trace"
+	"github.com/DataDog/dd-trace-go/v2/internal"
+	emitter "github.com/DataDog/dd-trace-go/v2/internal/appsec/emitter/waf"
+	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
+)
+
+const (
+	wafSpanTagPrefix     = "_dd.appsec."
+	eventRulesVersionTag = wafSpanTagPrefix + "event_rules.version"
+	wafVersionTag        = wafSpanTagPrefix + "waf.version"
+	wafErrorTag          = wafSpanTagPrefix + "waf.error"
+	wafTimeoutTag        = wafSpanTagPrefix + "waf.timeouts"
+	raspRuleEvalTag      = wafSpanTagPrefix + "rasp.rule.eval"
+	raspErrorTag         = wafSpanTagPrefix + "rasp.error"
+	raspTimeoutTag       = wafSpanTagPrefix + "rasp.timeout"
+	truncationTagPrefix  = wafSpanTagPrefix + "truncated."
+
+	durationExtSuffix = ".duration_ext"
+
+	blockedRequestTag  = "appsec.blocked"
+	downwardRequestTag = wafSpanTagPrefix + "downstream_request"
+)
+
+// AddRulesMonitoringTags adds the tags related to security rules monitoring
+func AddRulesMonitoringTags(th trace.TagSetter, rcClientID string) {
+	th.SetTag(wafVersionTag, libddwaf.Version())
+	th.SetTag(ext.ManualKeep, samplernames.AppSec)
+	if rcClientID != "" {
+		th.SetTag("_dd.rc.client_id", rcClientID)
+	}
+}
+
+func addDownwardRequestTag(th trace.TagSetter, value int) {
+	if value == 0 {
+		return
+	}
+
+	th.SetTag(downwardRequestTag, value)
+}
+
+// AddWAFMonitoringTags adds the tags related to the monitoring of the WAF
+func AddWAFMonitoringTags(th trace.TagSetter, metrics *emitter.ContextMetrics, rulesVersion string, truncations libddwaf.Truncations, timerStats map[timer.Key]time.Duration) {
+	// Rules version is set for every request to help the backend associate Feature duration metrics with rule version
+	th.SetTag(eventRulesVersionTag, rulesVersion)
+
+	if raspCallsCount := metrics.SumRASPCalls.Load(); raspCallsCount > 0 {
+		th.SetTag(raspRuleEvalTag, raspCallsCount)
+	}
+
+	if errCode := metrics.WAFErrorCode.Load(); errCode != 0 {
+		th.SetTag(wafErrorTag, errCode)
+	}
+
+	var raspErrCode int32
+	for i := range metrics.RASPErrorCodes {
+		if c := metrics.RASPErrorCodes[i].Load(); c != 0 {
+			if raspErrCode == 0 || c > raspErrCode {
+				raspErrCode = c
+			}
+		}
+	}
+	if raspErrCode != 0 {
+		th.SetTag(raspErrorTag, raspErrCode)
+	}
+
+	if errType := metrics.ExceptionType(); errType != "" {
+		th.SetTag("_dd.appsec.error.type", errType)
+		th.SetTag("_dd.appsec.error.message", metrics.ExceptionMsg())
+	}
+
+	// Add metrics like `waf.duration` and `rasp.duration_ext`
+	for scope, value := range timerStats {
+		scope := addresses.Scope(scope)
+		th.SetTag(wafSpanTagPrefix+string(scope)+durationExtSuffix, float64(value.Nanoseconds())/float64(time.Microsecond.Nanoseconds()))
+		for component, atomicValue := range metrics.SumDurations[scope] {
+			if value := atomicValue.Load(); value > 0 {
+				th.SetTag(wafSpanTagPrefix+string(scope)+"."+string(component), float64(value)/float64(time.Microsecond.Nanoseconds()))
+			}
+		}
+	}
+
+	if value := metrics.SumWAFTimeouts.Load(); value > 0 {
+		th.SetTag(wafTimeoutTag, value)
+	}
+
+	var sumRASPTimeouts uint32
+	for ruleType := range metrics.SumRASPTimeouts {
+		sumRASPTimeouts += metrics.SumRASPTimeouts[ruleType].Load()
+	}
+
+	if sumRASPTimeouts > 0 {
+		th.SetTag(raspTimeoutTag, sumRASPTimeouts)
+	}
+
+	addTruncationTag(th, libddwaf.StringTooLong, truncations.StringTooLong)
+	addTruncationTag(th, libddwaf.ContainerTooLarge, truncations.ContainerTooLarge)
+	addTruncationTag(th, libddwaf.ObjectTooDeep, truncations.ObjectTooDeep)
+}
+
+func addTruncationTag(th trace.TagSetter, reason libddwaf.TruncationReason, sizes []int) {
+	if len(sizes) == 0 {
+		return
+	}
+	th.SetTag(truncationTagPrefix+reason.String(), slices.Max(sizes))
+}
+
+// SetEventSpanTags sets the security event span tags related to an appsec event
+func SetEventSpanTags(span trace.TagSetter) {
+	span.SetTag("_dd.origin", "appsec")
+	// Set the appsec.event tag needed by the appsec backend
+	span.SetTag("appsec.event", true)
+	span.SetTag("_dd.p.ts", internal.TraceSourceTagValue{Value: internal.ASMTraceSource})
+}

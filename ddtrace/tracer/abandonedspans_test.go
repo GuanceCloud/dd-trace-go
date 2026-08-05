@@ -7,44 +7,37 @@ package tracer
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/version"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/statsdtest"
+	"github.com/DataDog/dd-trace-go/v2/internal/version"
 
 	"github.com/stretchr/testify/assert"
 )
 
 var warnPrefix = fmt.Sprintf("Datadog Tracer %v WARN: ", version.Tag)
-var spanStart = time.Date(2023, time.August, 18, 0, 0, 0, 0, time.UTC)
-
-// setTestTime() sets the current time, which will be used to calculate the
-// duration of abandoned spans.
-func setTestTime() func() {
-	current := spanStart.UnixNano() + 10*time.Minute.Nanoseconds() // use a fixed time instead of now
-	now = func() int64 { return current }
-
-	return func() {
-		now = func() int64 { return time.Now().UnixNano() }
-	}
-}
+var spanStartTime = time.Date(2023, time.August, 18, 0, 0, 0, 0, time.UTC)
 
 // spanAge takes in a span and returns the current test duration of the
 // span in seconds as a string
-func spanAge(s *span) string {
-	return fmt.Sprintf("%d sec", (now()-s.Start)/int64(time.Second))
+func spanAge(s *Span) string {
+	return fmt.Sprintf("%d sec", (now()-s.start)/int64(time.Second))
 }
 
-func assertProcessedSpans(assert *assert.Assertions, t *tracer, startedSpans, finishedSpans int) {
+func assertProcessedSpans(assert *assert.Assertions, t *tracer, startedSpans, finishedSpans int, ticker time.Duration) {
 	d := t.abandonedSpansDebugger
 	cond := func() bool {
 		return atomic.LoadUint32(&d.addedSpans) >= uint32(startedSpans) &&
 			atomic.LoadUint32(&d.removedSpans) >= uint32(finishedSpans)
 	}
-	assert.Eventually(cond, 1*time.Second, 75*time.Millisecond)
+	assert.Eventually(cond, 1*time.Second, ticker)
 	// We expect logs to be generated when startedSpans and finishedSpans are different.
 	// At least there should be 3 lines: 1. debugger activation, 2. detected spans warn, and 3. the details.
 	if startedSpans == finishedSpans {
@@ -53,206 +46,334 @@ func assertProcessedSpans(assert *assert.Assertions, t *tracer, startedSpans, fi
 	cond = func() bool {
 		return len(t.config.logger.(*log.RecordLogger).Logs()) > 2
 	}
-	assert.Eventually(cond, 1*time.Second, 75*time.Millisecond)
+	assert.Eventually(cond, 1*time.Second, ticker)
 }
 
-func formatSpanString(s *span) string {
-	s.Lock()
-	msg := fmt.Sprintf("[name: %s, span_id: %d, trace_id: %d, age: %s],", s.Name, s.SpanID, s.TraceID, spanAge(s))
-	s.Unlock()
+func formatSpanString(s *Span) string {
+	name, spanID, traceID, integration := s.debugInfo()
+	msg := fmt.Sprintf("[name: %s, integration: %s, span_id: %d, trace_id: %d, age: %s],", name, integration, spanID, traceID, spanAge(s))
 	return msg
 }
 
-func TestReportAbandonedSpans(t *testing.T) {
-	assert := assert.New(t)
+func TestAbandonedSpansMetric(t *testing.T) {
 	tp := new(log.RecordLogger)
-
 	tickerInterval = 100 * time.Millisecond
-
-	t.Run("on", func(t *testing.T) {
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(100*time.Millisecond))
-		defer stop()
-		assert.True(tracer.config.debugAbandonedSpans)
-		assert.Equal(tracer.config.spanTimeout, 100*time.Millisecond)
-	})
-
 	t.Run("finished", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond))
-		defer stop()
-		s := tracer.StartSpan("operation", StartTime(spanStart)).(*span)
-		s.Finish()
-		assertProcessedSpans(assert, tracer, 1, 1)
-		expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s))
-		assert.NotContains(tp.Logs(), expected)
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			var tg statsdtest.TestStatsdClient
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withStatsdClient(&tg), withNoopInfoHTTPClient())
+			assert.NoError(err)
+			defer stop()
+			s := tracer.StartSpan("operation", StartTime(bubbleNow.Add(-10*time.Minute)))
+			s.Finish()
+			assertProcessedSpans(assert, tracer, 1, 1, tickerInterval/10)
+			assert.Empty(tg.GetCallsByName("datadog.tracer.abandoned_spans"))
+		})
 	})
-
 	t.Run("open", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond))
-		defer stop()
-		s := tracer.StartSpan("operation", StartTime(spanStart)).(*span)
-		assertProcessedSpans(assert, tracer, 1, 0)
-		assert.Contains(tp.Logs(), fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 1))
-		assert.Contains(tp.Logs(), fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s)))
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			var tg statsdtest.TestStatsdClient
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withStatsdClient(&tg), withNoopInfoHTTPClient())
+			assert.NoError(err)
+			defer stop()
+			tracer.StartSpan("operation", StartTime(bubbleNow.Add(-10*time.Minute)), Tag(ext.Component, "some_integration_name"))
+			assertProcessedSpans(assert, tracer, 1, 0, tickerInterval/10)
+			// Wait for the ticker to fire and send metrics
+			assert.Eventually(func() bool {
+				calls := tg.GetCallsByName("datadog.tracer.abandoned_spans")
+				return len(calls) == 1
+			}, 2*time.Second, tickerInterval/10)
+			calls := tg.GetCallsByName("datadog.tracer.abandoned_spans")
+			assert.Len(calls, 1)
+			call := calls[0]
+			assert.Equal([]string{"name:operation", "integration:some_integration_name"}, call.Tags())
+		})
 	})
 
 	t.Run("both", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond))
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			var tg statsdtest.TestStatsdClient
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withStatsdClient(&tg), withNoopInfoHTTPClient())
+			assert.NoError(err)
+			defer stop()
+			sf := tracer.StartSpan("op", StartTime(bubbleNow.Add(-10*time.Minute)))
+			sf.Finish()
+			s := tracer.StartSpan("op2", StartTime(bubbleNow.Add(-10*time.Minute)))
+			assertProcessedSpans(assert, tracer, 2, 1, tickerInterval/10)
+			// Wait for the ticker to fire and send metrics
+			assert.Eventually(func() bool {
+				calls := tg.GetCallsByName("datadog.tracer.abandoned_spans")
+				return len(calls) == 1
+			}, 2*time.Second, tickerInterval/10)
+			calls := tg.GetCallsByName("datadog.tracer.abandoned_spans")
+			assert.Len(calls, 1)
+			s.Finish()
+		})
+	})
+}
+
+func TestReportAbandonedSpans(t *testing.T) {
+	tp := new(log.RecordLogger)
+	tickerInterval = 100 * time.Millisecond
+
+	t.Run("on", func(t *testing.T) {
+		assert := assert.New(t)
+		tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(100*time.Millisecond))
+		assert.Nil(err)
 		defer stop()
-		sf := tracer.StartSpan("op", StartTime(spanStart)).(*span)
-		sf.Finish()
-		s := tracer.StartSpan("op2", StartTime(spanStart)).(*span)
-		notExpected := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(sf), formatSpanString(s))
-		expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s))
-		assertProcessedSpans(assert, tracer, 2, 1)
-		assert.Contains(tp.Logs(), fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 1))
-		assert.NotContains(tp.Logs(), notExpected)
-		assert.Contains(tp.Logs(), expected)
-		s.Finish()
+		assert.True(tracer.config.internalConfig.DebugAbandonedSpans())
+		assert.Equal(tracer.config.internalConfig.SpanTimeout(), 100*time.Millisecond)
+	})
+
+	t.Run("finished", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
+			s := tracer.StartSpan("operation", StartTime(bubbleNow.Add(-10*time.Minute)))
+			s.Finish()
+			assertProcessedSpans(assert, tracer, 1, 1, tickerInterval/10)
+			expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s))
+			assert.NotContains(tp.Logs(), expected)
+		})
+	})
+
+	t.Run("open", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
+			s := tracer.StartSpan("operation", StartTime(bubbleNow.Add(-10*time.Minute)))
+			assertProcessedSpans(assert, tracer, 1, 0, tickerInterval/10)
+			expectedCount := fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 1)
+			expectedSpan := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s))
+			assert.Eventually(func() bool {
+				logs := tp.Logs()
+				return slices.Contains(logs, expectedCount) && slices.Contains(logs, expectedSpan)
+			}, 2*time.Second, tickerInterval/10)
+		})
+	})
+
+	t.Run("both", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
+			sf := tracer.StartSpan("op", StartTime(bubbleNow.Add(-10*time.Minute)))
+			sf.Finish()
+			s := tracer.StartSpan("op2", StartTime(bubbleNow.Add(-10*time.Minute)))
+			notExpected := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(sf), formatSpanString(s))
+			expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s))
+			expectedCount := fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 1)
+			assertProcessedSpans(assert, tracer, 2, 1, tickerInterval/10)
+			assert.Eventually(func() bool {
+				logs := tp.Logs()
+				return slices.Contains(logs, expectedCount) &&
+					!slices.Contains(logs, notExpected) &&
+					slices.Contains(logs, expected)
+			}, 2*time.Second, tickerInterval/10)
+			s.Finish()
+		})
 	})
 
 	t.Run("timeout", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(3*time.Minute))
-		defer stop()
-		s1 := tracer.StartSpan("op", StartTime(spanStart)).(*span)
-		delayedStart := spanStart.Add(8 * time.Minute)
-		s2 := tracer.StartSpan("op2", StartTime(delayedStart)).(*span)
-		notExpected := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(s1), formatSpanString(s2))
-		expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s1))
-		assertProcessedSpans(assert, tracer, 2, 0)
-		assert.Contains(tp.Logs(), fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 1))
-		assert.NotContains(tp.Logs(), notExpected)
-		assert.Contains(tp.Logs(), expected)
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(3*time.Minute), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
+			// s1 is 10 min old (older than 3 min timeout) → should be logged
+			s1 := tracer.StartSpan("op", StartTime(bubbleNow.Add(-10*time.Minute)))
+			// s2 is 2 min old (newer than 3 min timeout) → should not be logged
+			s2 := tracer.StartSpan("op2", StartTime(bubbleNow.Add(-2*time.Minute)))
+			notExpected := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(s1), formatSpanString(s2))
+			expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s1))
+			expectedCount := fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 1)
+			assertProcessedSpans(assert, tracer, 2, 0, tickerInterval/10)
+			assert.Eventually(func() bool {
+				logs := tp.Logs()
+				return slices.Contains(logs, expectedCount) &&
+					!slices.Contains(logs, notExpected) &&
+					slices.Contains(logs, expected)
+			}, 2*time.Second, tickerInterval/10)
+		})
 	})
 
 	// This test ensures that the debug mode works as expected and returns invalid information
 	// given invalid inputs.
 	t.Run("invalid", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(10*time.Minute))
-		defer stop()
-		delayedStart := spanStart.Add(1 * time.Minute)
-		s1 := tracer.StartSpan("op", StartTime(delayedStart)).(*span)
-		s2 := tracer.StartSpan("op2", StartTime(spanStart)).(*span)
-		notExpected := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(s1), formatSpanString(s2))
-		notExpected2 := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(s1), formatSpanString(s2))
-		assertProcessedSpans(assert, tracer, 2, 0)
-		assert.NotContains(tp.Logs(), notExpected)
-		assert.NotContains(tp.Logs(), notExpected2)
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(10*time.Minute), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
+			// s1 is 9 min old (newer than 10 min timeout) → should not be logged
+			s1 := tracer.StartSpan("op", StartTime(bubbleNow.Add(-9*time.Minute)))
+			// s2 is 10 min old (at the boundary) → will be logged individually but s1+s2 combined won't appear
+			s2 := tracer.StartSpan("op2", StartTime(bubbleNow.Add(-10*time.Minute)))
+			notExpected := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(s1), formatSpanString(s2))
+			notExpected2 := fmt.Sprintf("%s%s,%s,", warnPrefix, formatSpanString(s1), formatSpanString(s2))
+			assertProcessedSpans(assert, tracer, 2, 0, tickerInterval/10)
+			assert.NotContains(tp.Logs(), notExpected)
+			assert.NotContains(tp.Logs(), notExpected2)
+		})
 	})
 
 	t.Run("many", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond))
-		defer stop()
-		var sb strings.Builder
-		sb.WriteString(warnPrefix)
-		for i := 0; i < 10; i++ {
-			s := tracer.StartSpan(fmt.Sprintf("operation%d", i), StartTime(spanStart)).(*span)
-			if i%2 == 0 {
-				s.Finish()
-			} else {
-				sb.WriteString(formatSpanString(s))
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
+			var sb strings.Builder
+			sb.WriteString(warnPrefix)
+			for i := range 10 {
+				s := tracer.StartSpan(fmt.Sprintf("operation%d", i), StartTime(bubbleNow.Add(-10*time.Minute)))
+				if i%2 == 0 {
+					s.Finish()
+				} else {
+					sb.WriteString(formatSpanString(s))
+				}
 			}
-		}
-		assertProcessedSpans(assert, tracer, 10, 5)
-		b := sb.String()
-		assert.Contains(tp.Logs(), b)
+			assertProcessedSpans(assert, tracer, 10, 5, tickerInterval/10)
+			expected := sb.String()
+			assert.Eventually(func() bool {
+				return slices.Contains(tp.Logs(), expected)
+			}, 2*time.Second, tickerInterval/10)
+		})
 	})
 
 	t.Run("many buckets", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(100*time.Millisecond))
-		defer stop()
-		var sb strings.Builder
-		sb.WriteString(warnPrefix)
-		for i := 0; i < 5; i++ {
-			s := tracer.StartSpan(fmt.Sprintf("operation%d", i), StartTime(spanStart))
-			s.Finish()
-			time.Sleep(15 * time.Millisecond)
-		}
-		for i := 0; i < 5; i++ {
-			s := tracer.StartSpan(fmt.Sprintf("operation2-%d", i), StartTime(spanStart)).(*span)
-			sb.WriteString(formatSpanString(s))
-			time.Sleep(15 * time.Millisecond)
-		}
-		assertProcessedSpans(assert, tracer, 10, 5)
-		assert.Contains(tp.Logs(), fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 5))
-		assert.Contains(tp.Logs(), sb.String())
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(100*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
+			var sb strings.Builder
+			sb.WriteString(warnPrefix)
+			for i := range 5 {
+				s := tracer.StartSpan(fmt.Sprintf("operation%d", i), StartTime(bubbleNow.Add(-10*time.Minute)))
+				s.Finish()
+				time.Sleep(15 * time.Millisecond) // instant: fake clock advances 15ms
+			}
+			for i := range 5 {
+				s := tracer.StartSpan(fmt.Sprintf("operation2-%d", i), StartTime(bubbleNow.Add(-10*time.Minute)))
+				sb.WriteString(formatSpanString(s))
+				time.Sleep(15 * time.Millisecond) // instant: fake clock advances 15ms
+			}
+			assertProcessedSpans(assert, tracer, 10, 5, tickerInterval/2)
+			// Wait for the ticker to fire and log the abandoned spans
+			time.Sleep(tickerInterval + 10*time.Millisecond) // instant: advances past ticker
+			assert.Eventually(func() bool {
+				logs := tp.Logs()
+				return slices.Contains(logs, fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 5)) && assert.Contains(logs, sb.String())
+			}, 2*time.Second, tickerInterval/10)
+		})
 	})
 
 	t.Run("stop", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(100*time.Millisecond))
-		var sb strings.Builder
-		sb.WriteString(warnPrefix)
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(100*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			var sb strings.Builder
+			sb.WriteString(warnPrefix)
 
-		for i := 0; i < 5; i++ {
-			s := tracer.StartSpan(fmt.Sprintf("operation%d", i), StartTime(spanStart)).(*span)
-			sb.WriteString(formatSpanString(s))
-		}
-		assertProcessedSpans(assert, tracer, 5, 0)
-		stop()
-		assert.Contains(tp.Logs(), fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 5))
-		assert.Contains(tp.Logs(), sb.String())
+			for i := range 5 {
+				s := tracer.StartSpan(fmt.Sprintf("operation%d", i), StartTime(bubbleNow.Add(-10*time.Minute)))
+				sb.WriteString(formatSpanString(s))
+			}
+			assertProcessedSpans(assert, tracer, 5, 0, tickerInterval/10)
+			stop()
+			assert.Contains(tp.Logs(), fmt.Sprintf("%s%d abandoned spans:", warnPrefix, 5))
+			assert.Contains(tp.Logs(), sb.String())
+		})
 	})
 
 	t.Run("wait", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond))
-		defer stop()
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			defer stop()
 
-		s := tracer.StartSpan("operation", StartTime(spanStart)).(*span)
-		expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s))
+			s := tracer.StartSpan("operation", StartTime(bubbleNow.Add(-10*time.Minute)))
+			expected := fmt.Sprintf("%s%s", warnPrefix, formatSpanString(s))
 
-		assert.NotContains(tp.Logs(), expected)
-		assertProcessedSpans(assert, tracer, 1, 0)
-		assert.Contains(tp.Logs(), expected)
-		s.Finish()
+			assert.NotContains(tp.Logs(), expected)
+			assertProcessedSpans(assert, tracer, 1, 0, tickerInterval/10)
+			assert.Eventually(func() bool {
+				return slices.Contains(tp.Logs(), expected)
+			}, 2*time.Second, tickerInterval/10)
+			s.Finish()
+		})
 	})
 
 	t.Run("truncate", func(t *testing.T) {
-		tp.Reset()
-		defer setTestTime()()
-		tracer, _, _, stop := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond))
-		// Forget to revert this global variable will lead to broken tests if run multiples times through `-count`.
-		logSize = 10
-		defer func() {
-			logSize = 9000
-		}()
+		synctest.Test(t, func(t *testing.T) {
+			bubbleNow := time.Now()
+			assert := assert.New(t)
+			tp.Reset()
+			tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp), WithDebugSpansMode(500*time.Millisecond), withNoopInfoHTTPClient(), withNoopStats())
+			assert.Nil(err)
+			// Forget to revert this global variable will lead to broken tests if run multiples times through `-count`.
+			logSize = 10
+			defer func() {
+				logSize = 9000
+			}()
 
-		s := tracer.StartSpan("operation", StartTime(spanStart)).(*span)
-		msg := formatSpanString(s)
-		assertProcessedSpans(assert, tracer, 1, 0)
-		stop()
-		assert.NotContains(tp.Logs(), msg)
-		assert.Contains(tp.Logs(), fmt.Sprintf("%sToo many abandoned spans. Truncating message.", warnPrefix))
+			s := tracer.StartSpan("operation", StartTime(bubbleNow.Add(-10*time.Minute)))
+			msg := formatSpanString(s)
+			assertProcessedSpans(assert, tracer, 1, 0, tickerInterval/10)
+			stop()
+			assert.NotContains(tp.Logs(), msg)
+			assert.Contains(tp.Logs(), warnPrefix+"Too many abandoned spans. Truncating message.")
+		})
 	})
 }
 
 func TestDebugAbandonedSpansOff(t *testing.T) {
-	assert := assert.New(t)
 	tp := new(log.RecordLogger)
-	tracer, _, _, stop := startTestTracer(t, WithLogger(tp))
+	tracer, _, _, stop, err := startTestTracer(t, WithLogger(tp))
+	assert.Nil(t, err)
 	defer stop()
 
 	t.Run("default", func(t *testing.T) {
-		assert.False(tracer.config.debugAbandonedSpans)
-		assert.Equal(time.Duration(0), tracer.config.spanTimeout)
-		expected := fmt.Sprintf("Abandoned spans logs enabled.")
-		s := tracer.StartSpan("operation", StartTime(spanStart))
+		assert := assert.New(t)
+		assert.False(tracer.config.internalConfig.DebugAbandonedSpans())
+		assert.Equal(10*time.Minute, tracer.config.internalConfig.SpanTimeout())
+		expected := "Abandoned spans logs enabled."
+		s := tracer.StartSpan("operation", StartTime(spanStartTime))
 		time.Sleep(100 * time.Millisecond)
 		assert.NotContains(tp.Logs(), expected)
 		s.Finish()

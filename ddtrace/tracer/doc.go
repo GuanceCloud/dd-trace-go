@@ -67,7 +67,7 @@
 // not approach this limit as traces of this size are not useful and impossible to
 // visualize.
 //
-// See the contrib package ( https://pkg.go.dev/gopkg.in/DataDog/dd-trace-go.v1/contrib )
+// See the contrib package ( https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/contrib )
 // for integrating datadog with various libraries, frameworks and clients.
 //
 // All spans created by the tracer contain a context hereby referred to as the span
@@ -86,7 +86,7 @@
 // interfaces. An example alternate implementation is the MDCarrier in our gRPC integration.
 //
 // As an example, injecting a span's context into an HTTP request would look like this.
-// (See the net/http contrib package for more examples https://pkg.go.dev/gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http):
+// (See the net/http contrib package for more examples https://pkg.go.dev/github.com/DataDog/dd-trace-go/contrib/net/http/v2):
 //
 //	req, err := http.NewRequest("GET", "http://example.com", nil)
 //	// ...
@@ -106,5 +106,50 @@
 //
 // Some libraries and frameworks are supported out-of-the-box by using one
 // of our integrations. You can see a list of supported integrations here:
-// https://godoc.org/gopkg.in/DataDog/dd-trace-go.v1/contrib
-package tracer // import "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+// https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/contrib
+//
+// # Client-Side Stats Cardinality Controls
+//
+// When client-side stats computation is enabled (WithStatsComputation or
+// DD_TRACE_STATS_COMPUTATION_ENABLED), the tracer aggregates span metrics
+// locally before sending them to the agent. High-cardinality services can
+// produce an unbounded number of unique aggregation keys, which increases
+// memory usage and backend cost. Six limits cap the number of distinct values
+// per aggregation dimension before collapsing excess values to a placeholder:
+//
+//   - DD_TRACE_STATS_CARDINALITY_LIMIT / WithStatsCardinalityLimit
+//     Whole-key limit: caps the total number of unique aggregation keys per
+//     flush bucket across all dimensions combined. Default: 2048.
+//
+//   - DD_TRACE_STATS_RESOURCE_CARDINALITY_LIMIT / WithStatsResourceCardinalityLimit
+//     Per-resource limit: caps distinct resource values within a service+name
+//     combination. Default: 1024.
+//
+//   - DD_TRACE_STATS_HTTP_ENDPOINT_CARDINALITY_LIMIT / WithStatsHTTPEndpointCardinalityLimit
+//     Per-http_endpoint limit. Default: 512.
+//
+//   - DD_TRACE_STATS_PEER_TAGS_CARDINALITY_LIMIT / WithStatsPeerTagsCardinalityLimit
+//     Per-peer-tags combination limit. Default: 512.
+//
+//   - DD_TRACE_STATS_ORIGIN_CARDINALITY_LIMIT / WithStatsOriginCardinalityLimit
+//     Per-origin limit. Default: 20.
+//
+//   - DD_TRACE_STATS_ADDITIONAL_TAGS_CARDINALITY_LIMIT
+//     Per-additional-metric-tags combination limit (see below). Default: 100.
+//
+// When a limit is reached, excess spans are still counted but their grouping
+// dimension is replaced with a sentinel value. The tracer emits a
+// datadog.tracer.stats.collapsed_spans statsd metric tagged with the dimension
+// that was capped (e.g. collapsed:resource) so the event is observable.
+//
+// # Additional Metric Tags
+//
+// By default, client-side stats group spans by service, resource, name, type,
+// HTTP method, HTTP endpoint, peer tags, and origin. Additional span tag keys
+// can be included as extra grouping dimensions using:
+//
+//	tracer.Start(tracer.WithStatsAdditionalTags([]string{"region", "tenant_id"}))
+//
+// or the environment variable DD_TRACE_STATS_ADDITIONAL_TAGS (comma-separated).
+// This feature requires DD_TRACE_EXPERIMENTAL_FEATURES_ENABLED=true.
+package tracer // import "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"

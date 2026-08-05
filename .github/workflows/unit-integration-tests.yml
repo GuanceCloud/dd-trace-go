@@ -6,50 +6,69 @@ on:
       go-version:
         required: true
         type: string
-      ref:
-        description: 'The branch to run the workflow on'
-        required: true
+      build_tags:
+        description: 'Build tags to use for testing (e.g., "debug,deadlock")'
+        required: false
         type: string
+        default: ""
+
+env:
+  DD_APPSEC_WAF_TIMEOUT: 1m # Increase time WAF time budget to reduce CI flakiness
+  # Users may build our library with GOTOOLCHAIN=local. If they do, and our
+  # go.mod file specifies a newer Go version than their local toolchain, their
+  # build will break. Run our tests with GOTOOLCHAIN=local to ensure that
+  # our library builds with all of the Go versions we claim to support,
+  # without having to download a newer one.
+  GOTOOLCHAIN: local
+  GODEBUG: "x509negativeserial=1"
+  TEST_RESULT_PATH: /tmp/test-results
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  copyright:
+  set-up:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
+      - name: Restore repo cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git
+          key: gitdb-${{ github.repository_id }}-${{ github.sha }}
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.ref }}
-
-      - name: Copyright
-        run: |
-          go run checkcopyright.go
-
-  lint:
-    runs-on:
-      group: "APM Larger Runners"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+          persist-credentials: false
+          ref: ${{ github.sha }}
+          clean: false
+          submodules: recursive
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          go-version: stable
+          cache: false
 
-      - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@v2
-        with:
-          go_version: ${{ inputs.go-version }}
-          golangci_lint_version: v1.52.2
-          fail_on_error: true
-          reporter: github-pr-review
+      - name: Compute Matrix
+        id: matrix
+        run: |-
+          echo -n "matrix="                      >> "${GITHUB_OUTPUT}"
+          go run ./scripts/ci_contrib_matrix.go  >> "${GITHUB_OUTPUT}"
 
-  test-contrib:
+  test-contrib-matrix:
+    needs: set-up
     runs-on:
       group: "APM Larger Runners"
     env:
-       TEST_RESULTS: /tmp/test-results # path to where test results will be saved
-       INTEGRATION: true
+      INTEGRATION: true
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: ${{ fromJson(needs.set-up.outputs.matrix) }}
     services:
       datadog-agent:
-        image: datadog/agent:latest
+        image: registry.datadoghq.com/agent:latest
         env:
           DD_HOSTNAME: "github-actions-worker"
           DD_APM_ENABLED: true
@@ -66,7 +85,9 @@ jobs:
           - 8125:8125/udp
           - 8126:8126
       testagent:
-        image: ghcr.io/datadog/dd-apm-test-agent/ddapm-test-agent:v1.11.0
+        image: ghcr.io/datadog/dd-apm-test-agent/ddapm-test-agent:v1.61.1@sha256:0b428281c1ba33f4af9f81efe79330a7577c8810609a7bcd1cecf8c7de82abec
+        options: >-
+          --health-cmd "bash -c '</dev/tcp/127.0.0.1/9126'"
         ports:
           - 9126:9126
         env:
@@ -78,13 +99,16 @@ jobs:
           DD_POOL_TRACE_CHECK_FAILURES: true
           DD_DISABLE_ERROR_RESPONSES: true
       cassandra:
-        image: cassandra:3.7
+        image: cassandra:3.11@sha256:9a14b18eb658851e8939cfdeca8fcbca389f5f0d00fca4a995d80b6accfcbd96
         env:
           JVM_OPTS: "-Xms750m -Xmx750m"
+          CASSANDRA_CLUSTER_NAME: "dd-trace-go-test-cluster"
+          CASSANDRA_DC: "dd-trace-go-test-datacenter"
+          CASSANDRA_ENDPOINT_SNITCH: "GossipingPropertyFileSnitch"
         ports:
           - 9042:9042
       mysql:
-        image: circleci/mysql:5.7
+        image: cimg/mysql:8.0@sha256:3f14424dee82da7c784350ac9b7d292edcc2eac921d24fd0099dd4c45edd1fcd
         env:
           MYSQL_ROOT_PASSWORD: admin
           MYSQL_PASSWORD: test
@@ -93,7 +117,7 @@ jobs:
         ports:
           - 3306:3306
       postgres:
-        image: circleci/postgres:9.5
+        image: cimg/postgres:16.4@sha256:2e4f1a965bdd9ba77aa6a0a7b93968c07576ba2a8a7cf86d5eb7b31483db1378
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
@@ -101,112 +125,168 @@ jobs:
         ports:
           - 5432:5432
       mssql:
-        image: mcr.microsoft.com/mssql/server:2019-latest
+        image: mcr.microsoft.com/mssql/server:2019-latest@sha256:fdee98d3f631673cd8fb9be6d29d7883d7111be9fc0246103dc0cfbbffdabd5a
         env:
-         SA_PASSWORD: myPassw0rd
-         ACCEPT_EULA: Y
+          SA_PASSWORD: myPassw0rd
+          ACCEPT_EULA: Y
         ports:
           - 1433:1433
       consul:
-        image: consul:1.6.0
+        image: consul:1.6.0@sha256:63e1a07260418ba05be08b6dc53f4a3bb95aa231cd53922f7b5b5ee5fd77ef3f
         ports:
           - 8500:8500
       redis:
-        image: redis:3.2
+        image: redis:3.2@sha256:7b0a40301bc1567205e6461c5bf94c38e1e1ad0169709e49132cafc47f6b51f3
         ports:
           - 6379:6379
+      valkey:
+        image: valkey/valkey:8@sha256:1f84517eca8e0dd9585ed57c572796f32839e1b0e7ce07ad28e6bce098468371
+        env:
+          VALKEY_EXTRA_FLAGS: "--port 6380 --requirepass password-for-default"
+        ports:
+          - 6380:6380
       elasticsearch2:
-        image: elasticsearch:2
+        image: elasticsearch:2@sha256:41ed3a1a16b63de740767944d5405843db00e55058626c22838f23b413aa4a39
         env:
           ES_JAVA_OPTS: "-Xms750m -Xmx750m" # https://github.com/10up/wp-local-docker/issues/6
         ports:
           - 9200:9200
       elasticsearch5:
-        image: elasticsearch:5
+        image: elasticsearch:5@sha256:d0e119779df7ddf9d476102691d9d0b8783c13434e00d77f01327019c1297839
         env:
           ES_JAVA_OPTS: "-Xms750m -Xmx750m" # https://github.com/10up/wp-local-docker/issues/6
         ports:
           - 9201:9200
       elasticsearch6:
-        image: elasticsearch:6.8.13
+        image: elasticsearch:6.8.13@sha256:8d4e29332dc159e7c256efa131453bd62a35b6e90f32aa9ab3f76632e29372c3
         env:
           ES_JAVA_OPTS: "-Xms750m -Xmx750m" # https://github.com/10up/wp-local-docker/issues/6
         ports:
           - 9202:9200
       elasticsearch7:
-        image: elasticsearch:7.14.1
+        image: elasticsearch:7.14.1@sha256:80bc3fe9d3ab2da410abadc2245eb5833c7ef7bb58ce2d89b24dabfb8c3d5233
         env:
           ES_JAVA_OPTS: "-Xms750m -Xmx750m" # https://github.com/10up/wp-local-docker/issues/6
           discovery.type: single-node
         ports:
           - 9203:9200
       elasticsearch8:
-        image: elasticsearch:8.6.2
+        image: elasticsearch:8.6.2@sha256:93bc71907ca0e6e3b4f181e0dc850b90bb6cb2686c2778def0b8542398983c28
         env:
           ES_JAVA_OPTS: "-Xms750m -Xmx750m" # https://github.com/10up/wp-local-docker/issues/6
           discovery.type: single-node
           xpack.security.enabled: false
         ports:
           - 9204:9200
+      mongo3:
+        image: mongo:3@sha256:146c1fd999a660e697aac40bc6da842b005c7868232eb0b7d8996c8f3545b05d
+        ports:
+          - 27018:27017
       mongo:
-        image: circleci/mongo:latest-ram
+        image: mongo:8@sha256:7abfba0d07c9330373f8173981ea4d09cd8a82cdf0e86ccaf7008848d1d24f62
         ports:
           - 27017:27017
       memcached:
-        image: memcached:1.5.9
+        image: memcached:1.5.9@sha256:dc68a9ffa03b81dde70ce536bc96655e3d23503916b0d931078391d752bb4e27
         ports:
           - 11211:11211
-      zookeeper:
-        image: bitnami/zookeeper:latest
-        env:
-          ALLOW_ANONYMOUS_LOGIN: "yes"
-        ports:
-          - 2181:2181
       kafka:
-        image: wurstmeister/kafka:2.13-2.8.1
+        image: confluentinc/confluent-local:7.5.0@sha256:8e391de42cfcd3498e7317dcf159790f1f1cc3f3ffce900b30d7da23888687fd
         env:
-          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-          KAFKA_CREATE_TOPICS: gotest:1:1,gosegtest:1:1
-          KAFKA_BROKER_ID: 1
+          KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9093,BROKER://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094"
+          KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9093,BROKER://localhost:9092"
+          KAFKA_REST_BOOTSTRAP_SERVERS: "PLAINTEXT://0.0.0.0:9093,BROKER://0.0.0.0:9092"
+          KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9094"
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+          KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+          KAFKA_BROKER_ID: "1"
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+          KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: "1"
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+          KAFKA_NODE_ID: "1"
+          KAFKA_PROCESS_ROLES: "broker,controller"
+          KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
         ports:
           - 9092:9092
+          - 9093:9093
+        options: >-
+          --name "kafka"
       localstack:
-        image: localstack/localstack:latest
+        image: localstack/localstack:4.14.0@sha256:3ebc37595918b8accb852f8048fef2aff047d465167edd655528065b07bc364a
         ports:
           - 4566:4566
+      aerospike:
+        image: aerospike:ce-7.2.0.6@sha256:79c30951edab8878b14b650f32db416106a21d458be994344e488756fe8b651f
+        ports:
+          - 3000:3000
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Restore repo cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          path: .git
+          key: gitdb-${{ github.repository_id }}-${{ github.sha }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+          clean: false
+          submodules: recursive
 
-      - name: Setup Go
+      - name: Setup Go and development tools
         uses: ./.github/actions/setup-go
         with:
           go-version: ${{ inputs.go-version }}
-
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
       - name: Test Contrib
+        if: always()
+        env:
+          TEST_RESULTS: ${{ env.TEST_RESULT_PATH }}
+          BUILD_TAGS: ${{ inputs.build_tags }}
         run: |
-            mkdir -p $TEST_RESULTS
-            PACKAGE_NAMES=$(go list ./contrib/... | grep -v -e grpc.v12 -e google.golang.org/api)
-            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES -v -race -coverprofile=coverage.txt -covermode=atomic
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          ./scripts/ci_test_contrib.sh default ${{ toJson(matrix.chunk) }}
+
+      - name: Get Datadog credentials
+        id: dd-sts
+        continue-on-error: true
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
+        with:
+          policy: dd-trace-go
 
       - name: Upload the results to Datadog CI App
         if: always()
         continue-on-error: true
         uses: ./.github/actions/dd-ci-upload
         with:
-          dd-api-key: ${{ secrets.DD_CI_API_KEY }}
-          files: ${{ env.TEST_RESULTS }}/gotestsum-report*.xml
-          tags: go:${{ inputs.go-version }},arch:${{ runner.arch }},os:${{ runner.os }},distribution:${{ runner.distribution }}
+          dd-api-key: ${{ steps.dd-sts.outputs.api_key }}
+          path: ${{ env.TEST_RESULT_PATH }}
+          tags: go:${{ inputs.go-version }},arch:${{ runner.arch }},os:${{ runner.os }},analysis:${{ inputs.build_tags || 'standard' }}
 
-      - name: Upload Coverage
+      - name: Merge contrib coverage files
+        if: always()
+        run: |
+          echo "mode: atomic" > coverage-contrib-merged.txt
+          find . \( -path "*/contrib/*" -o -path "*/instrumentation/*" \) \
+            -name "coverage-*.txt" -print0 \
+            | xargs -0 grep -h -v "^mode:" >> coverage-contrib-merged.txt 2>/dev/null || true
+
+      - name: Upload Coverage to Datadog
         if: always()
         continue-on-error: true
-        shell: bash
-        run: bash <(curl -s https://codecov.io/bash)
+        uses: DataDog/coverage-upload-github-action@d9548b1c3c4ab639d5d3ab29a1508af188975f77
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
+          files: coverage-contrib-merged.txt
+          format: go-coverprofile
+
+      # Check for changes in the supported_configurations.json file
+      - name: Supported Configurations Diff Check
+        if: always()
+        uses: ./.github/actions/supported_configurations_validation
 
       - name: Get Datadog APM Test Agent Logs
         if: always()
@@ -217,58 +297,99 @@ jobs:
         if: always()
         shell: bash
         run: |
-              RESPONSE=$(curl -s -w "\n%{http_code}" -o response.txt "http://127.0.0.1:9126/test/trace_check/failures?return_all=true")
-              RESPONSE_CODE=$(echo "$RESPONSE" | awk 'END {print $NF}')
-              SUMMARY_RESPONSE=$(curl -s -w "\n%{http_code}" -o summary_response.txt "http://127.0.0.1:9126/test/trace_check/summary?return_all=true")
-              SUMMARY_RESPONSE_CODE=$(echo "$SUMMARY_RESPONSE" | awk 'END {print $NF}')
-              if [[ $RESPONSE_CODE -eq 200 ]]; then
-                  echo " "
-                  cat response.txt
-                  echo " - All APM Test Agent Check Traces returned successful!"
-                  echo "APM Test Agent Check Traces Summary Results:"
-                  cat summary_response.txt | jq "."
-              else
-                  echo "APM Test Agent Check Traces failed with response code: $RESPONSE_CODE"
-                  echo "Failures:"
-                  cat response.txt
-                  echo "APM Test Agent Check Traces Summary Results:"
-                  cat summary_response.txt | jq "."
-                  exit 1
+          mkdir -p /tmp/trace-check-results
+          RESPONSE_CODE=$(curl -s -w "%{http_code}" -o /tmp/trace-check-results/failures-${{ strategy.job-index }}.json "http://127.0.0.1:9126/test/trace_check/failures?return_all=true")
+          curl -s -o /tmp/trace-check-results/summary-${{ strategy.job-index }}.json "http://127.0.0.1:9126/test/trace_check/summary?return_all=true"
+          echo "$RESPONSE_CODE" > /tmp/trace-check-results/response_code-${{ strategy.job-index }}.txt
+          echo "APM Test Agent Check Traces Summary Results:"
+          jq "." /tmp/trace-check-results/summary-${{ strategy.job-index }}.json
+          if [[ $RESPONSE_CODE -eq 200 ]]; then
+              echo " - All APM Test Agent Check Traces returned successful!"
+          else
+              echo "APM Test Agent Check Traces failed with response code: $RESPONSE_CODE"
+              echo "Failures:"
+              cat /tmp/trace-check-results/failures-${{ strategy.job-index }}.json
+              exit 1
+          fi
+
+      - name: Upload Trace Check Results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: trace-check-results-${{ strategy.job-index }}
+          path: /tmp/trace-check-results/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  test-contrib:
+    needs:
+      - test-contrib-matrix
+    runs-on:
+      group: "APM Larger Runners"
+    if: success() || failure()
+    continue-on-error: true
+    steps:
+      - name: Download Trace Check Results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: /tmp/trace-check-results
+          pattern: trace-check-results-*
+          merge-multiple: true
+
+      - name: Aggregate Trace Check Results
+        if: always()
+        shell: bash
+        run: |
+          echo "=== Aggregated APM Test Agent Trace Check Results ==="
+          FOUND_RESPONSE_CODES=0
+          FAILED=0
+          for rc_file in /tmp/trace-check-results/response_code-*.txt; do
+              if [[ -f "$rc_file" ]]; then
+                  FOUND_RESPONSE_CODES=1
+                  RC=$(cat "$rc_file")
+                  if [[ "$RC" -ne 200 ]]; then
+                      FAILED=1
+                  fi
               fi
+          done
+          if [[ $FOUND_RESPONSE_CODES -eq 0 ]]; then
+              echo "::warning::No trace-check artifacts were downloaded; skipping strict aggregation."
+              exit 0
+          fi
+          for summary in /tmp/trace-check-results/summary-*.json; do
+              if [[ -f "$summary" ]]; then
+                  echo "Summary ($summary):"
+                  jq "." "$summary"
+              fi
+          done
+          if [[ $FAILED -ne 0 ]]; then
+              echo "Trace check failures detected:"
+              for f in /tmp/trace-check-results/failures-*.json; do
+                  if [[ -f "$f" ]]; then
+                      echo "--- $f ---"
+                      cat "$f"
+                  fi
+              done
+              exit 1
+          fi
+          echo " - All APM Test Agent Check Traces returned successful!"
 
-      - name: Testing outlier google.golang.org/api
-        run: |
-              go get google.golang.org/api@v0.121.0 # version used to generate code
-              go mod tidy # Go1.16 doesn't update the sum file correctly after the go get, this tidy fixes it
-              go test -v ./contrib/google.golang.org/api/...
-
-      - name: Testing outlier gRPC v1.2
-        run: |
-              # This hacky approach is necessary because running the tests regularly
-              # do not allow using grpc-go@v1.2.0 alongside sketches-go@v1.0.0
-              go mod vendor
-
-              # Checkout grpc-go@v1.2.0
-              cd vendor/google.golang.org && rm -rf grpc
-              git clone https://github.com/grpc/grpc-go grpc && cd grpc
-              git fetch origin && git checkout v1.2.0 && cd ../..
-
-              # Checkout sketches-go@v1.0.0
-              cd vendor/github.com/DataDog && rm -rf sketches-go
-              git clone https://github.com/DataDog/sketches-go && cd sketches-go
-              git fetch origin && git checkout v1.0.0 && cd ../..
-
-              go test -mod=vendor -v ./contrib/google.golang.org/grpc.v12/...
+      - name: Success
+        if: needs.test-contrib-matrix.result == 'success'
+        run: echo "Success!"
+      - name: Failure
+        if: needs.test-contrib-matrix.result != 'success'
+        run: echo "Failure!" && exit 1
 
   test-core:
     runs-on:
       group: "APM Larger Runners"
     env:
-       TEST_RESULTS: /tmp/test-results # path to where test results will be saved
        INTEGRATION: true
     services:
       datadog-agent:
-        image: datadog/agent:latest
+        image: registry.datadoghq.com/agent:latest
         env:
           DD_HOSTNAME: "github-actions-worker"
           DD_APM_ENABLED: true
@@ -283,31 +404,61 @@ jobs:
           - 8125:8125/udp
           - 8126:8126
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Restore repo cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
-
-      - name: Setup Go
+          path: .git
+          key: gitdb-${{ github.repository_id }}-${{ github.sha }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: always()
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+          clean: false
+          submodules: recursive
+      - name: Setup Go and development tools
         uses: ./.github/actions/setup-go
         with:
           go-version: ${{ inputs.go-version }}
-
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
       - name: Test Core
+        env:
+          DD_APPSEC_WAF_TIMEOUT: 1h
+          TEST_RESULTS: ${{ env.TEST_RESULT_PATH }}
+          BUILD_TAGS: ${{ inputs.build_tags }}
         run: |
-            mkdir -p $TEST_RESULTS
-            PACKAGE_NAMES=$(go list ./... | grep -v /contrib/)
-            gotestsum --junitfile ${TEST_RESULTS}/gotestsum-report.xml -- $PACKAGE_NAMES -v -race -coverprofile=coverage.txt -covermode=atomic
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          ls -al "${{ github.workspace }}/bin"
+          ./scripts/ci_test_core.sh
+
+      - name: Get Datadog credentials
+        id: dd-sts
+        continue-on-error: true
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
+        with:
+          policy: dd-trace-go
 
       - name: Upload the results to Datadog CI App
         if: always()
         continue-on-error: true
         uses: ./.github/actions/dd-ci-upload
         with:
-          dd-api-key: ${{ secrets.DD_CI_API_KEY }}
-          files: ${{ env.TEST_RESULTS }}/gotestsum-report.xml
-          tags: go:${{ inputs.go-version }}},arch:${{ runner.arch }},os:${{ runner.os }},distribution:${{ runner.distribution }}
-      - name: Upload Coverage
+          dd-api-key: ${{ steps.dd-sts.outputs.api_key }}
+          path: ${{ env.TEST_RESULT_PATH }}
+          tags: go:${{ inputs.go-version }},arch:${{ runner.arch }},os:${{ runner.os }},analysis:${{ inputs.build_tags || 'standard' }}
+
+      - name: Upload Coverage to Datadog
         if: always()
-        shell: bash
-        run: bash <(curl -s https://codecov.io/bash)
+        continue-on-error: true
+        uses: DataDog/coverage-upload-github-action@d9548b1c3c4ab639d5d3ab29a1508af188975f77
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
+          files: coverage.txt coverage-noshuffle.txt internal/exectracetest/coverage.txt
+          format: go-coverprofile
+
+      # Check for changes in the supported_configurations.json file
+      - name: Supported Configurations Diff Check
+        if: always()
+        uses: ./.github/actions/supported_configurations_validation

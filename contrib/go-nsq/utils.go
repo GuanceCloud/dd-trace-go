@@ -5,8 +5,7 @@ import (
 	"encoding/gob"
 	"sync"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 )
 
 var bfp = sync.Pool{
@@ -30,8 +29,8 @@ var sep []byte
 
 // after injection data pattern
 // sep|origin body|sep|tracing carrier
-func inject(span tracer.Span, body []byte) ([]byte, error) {
-	if hasSpanContext(body) || span == nil || span.Context() == nil || span.Context().TraceID() <= 0 || span.Context().SpanID() <= 0 {
+func inject(span *tracer.Span, body []byte) ([]byte, error) {
+	if hasSpanContext(body) || span == nil || span.Context() == nil || span.Context().TraceID() == "" || span.Context().SpanID() == 0 {
 		return body, nil
 	}
 
@@ -57,7 +56,7 @@ func inject(span tracer.Span, body []byte) ([]byte, error) {
 	return bts, nil
 }
 
-func extract(body []byte) (ddtrace.SpanContext, []byte, error) {
+func extract(body []byte) (*tracer.SpanContext, []byte, error) {
 	if !hasSpanContext(body) {
 		return nil, body, nil
 	}

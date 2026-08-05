@@ -1,0 +1,44 @@
+name: Outdated Integrations
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Runs every Sunday at midnight UTC
+  workflow_dispatch:
+
+concurrency:
+  # Automatically cancel previous runs if a new one is triggered to conserve resources.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Find new major versions for the contrib package dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      # Retrieve temporary github token
+      - name: Get Github token
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        id: octo-sts
+        with:
+          policy: self.outdated-integrations
+          scope: DataDog/dd-trace-go
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - run: go clean -modcache
+      
+      - name: Add dependencies
+        run: |
+          go get github.com/go-git/go-billy/v5/memfs
+          go get github.com/go-git/go-git/v5
+          go get github.com/go-git/go-git/v5/plumbing
+          go get github.com/go-git/go-git/v5/storage/memory
+
+      - run: go run .github/workflows/apps/latest_major_versions.go
+        env:
+          GITHUB_TOKEN: ${{ steps.octo-sts.outputs.token }}

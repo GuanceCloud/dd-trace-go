@@ -10,15 +10,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"time"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/aws/internal/tags"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/namingschema"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/telemetry"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
@@ -31,13 +24,28 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
+
+	"github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal"
+	eventBridgeTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/eventbridge"
+	kinesisTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/kinesis"
+	sfnTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sfn"
+	snsTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sns"
+	"github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/spanpointers"
+	sqsTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sqs"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 )
 
 const componentName = "aws/aws-sdk-go-v2/aws"
 
-func init() {
-	telemetry.LoadIntegration(componentName)
-	tracer.MarkIntegrationImported("github.com/aws/aws-sdk-go-v2")
+var instr = internal.Instr
+
+var tagMapPool = sync.Pool{
+	New: func() interface{} {
+		return make(map[string]string, 2)
+	},
 }
 
 type spanTimestampKey struct{}
@@ -49,7 +57,7 @@ func AppendMiddleware(awsCfg *aws.Config, opts ...Option) {
 
 	defaults(cfg)
 	for _, opt := range opts {
-		opt(cfg)
+		opt.apply(cfg)
 	}
 
 	tm := traceMiddleware{cfg: cfg}
@@ -80,30 +88,61 @@ func (mw *traceMiddleware) startTraceMiddleware(stack *middleware.Stack) error {
 	) {
 		operation := awsmiddleware.GetOperationName(ctx)
 		serviceID := awsmiddleware.GetServiceID(ctx)
+		region := awsmiddleware.GetRegion(ctx)
+		partition := awsmiddleware.GetPartitionID(ctx)
 
-		opts := []ddtrace.StartSpanOption{
+		// if partition ID isn't set, derive partition from region
+		if partition == "" {
+			partition = awsPartition(region)
+		}
+
+		opts := []tracer.StartSpanOption{
 			tracer.SpanType(ext.SpanTypeHTTP),
-			tracer.ServiceName(serviceName(mw.cfg, serviceID)),
+			serviceNameWithSource(mw.cfg, serviceID),
 			tracer.ResourceName(fmt.Sprintf("%s.%s", serviceID, operation)),
-			tracer.Tag(tags.OldAWSRegion, awsmiddleware.GetRegion(ctx)),
-			tracer.Tag(tags.AWSRegion, awsmiddleware.GetRegion(ctx)),
-			tracer.Tag(tags.AWSOperation, operation),
-			tracer.Tag(tags.OldAWSService, serviceID),
-			tracer.Tag(tags.AWSService, serviceID),
+			tracer.Tag(ext.AWSRegionLegacy, region),
+			tracer.Tag(ext.AWSRegion, region),
+			tracer.Tag(ext.AWSPartition, partition),
+			tracer.Tag(ext.AWSOperation, operation),
+			tracer.Tag(ext.AWSServiceLegacy, serviceID),
+			tracer.Tag(ext.AWSService, serviceID),
 			tracer.StartTime(ctx.Value(spanTimestampKey{}).(time.Time)),
 			tracer.Tag(ext.Component, componentName),
 			tracer.Tag(ext.SpanKind, ext.SpanKindClient),
 		}
-		k, v, err := resourceNameFromParams(in, serviceID)
-		if err != nil {
-			log.Debug("Error: %v", err)
+		resourceTags, ok := resourceTagsFromParams(in, serviceID, region, partition)
+		if !ok {
+			instr.Logger().Debug("attempted to extract resourceTagsFromParams of an unsupported AWS service: %s", serviceID)
 		} else {
-			opts = append(opts, tracer.Tag(k, v))
+			for k, v := range resourceTags {
+				if v != "" {
+					opts = append(opts, tracer.Tag(k, v))
+				}
+				delete(resourceTags, k)
+			}
+			tagMapPool.Put(resourceTags)
 		}
+
 		if !math.IsNaN(mw.cfg.analyticsRate) {
 			opts = append(opts, tracer.Tag(ext.EventSampleRate, mw.cfg.analyticsRate))
 		}
 		span, spanctx := tracer.StartSpanFromContext(ctx, spanName(serviceID, operation), opts...)
+
+		// Inject trace context
+		switch serviceID {
+		case "SQS":
+			sqsTracer.EnrichOperation(spanctx, span, in, operation)
+		case "SNS":
+			snsTracer.EnrichOperation(spanctx, span, in, operation)
+		case "Kinesis":
+			kinesisTracer.EnrichOperation(spanctx, span, in, operation)
+		case "EventBridge":
+			eventBridgeTracer.EnrichOperation(spanctx, span, in, operation)
+		case "SFN":
+			sfnTracer.EnrichOperation(span, in, operation)
+		case "DynamoDB":
+			spanctx = spanpointers.SetDynamoDbParamsOnContext(spanctx, in.Parameters)
+		}
 
 		// Handle initialize and continue through the middleware chain.
 		out, metadata, err = next.HandleInitialize(spanctx, in)
@@ -116,47 +155,84 @@ func (mw *traceMiddleware) startTraceMiddleware(stack *middleware.Stack) error {
 	}), middleware.After)
 }
 
-func resourceNameFromParams(requestInput middleware.InitializeInput, awsService string) (string, string, error) {
-	var k, v string
+func awsPartition(region string) string {
+	var partition string
+	switch {
+	case strings.HasPrefix(region, "cn-"):
+		partition = "aws-cn"
+	case strings.HasPrefix(region, "us-gov-"):
+		partition = "aws-us-gov"
+	default:
+		partition = "aws"
+	}
+
+	return partition
+}
+
+func resourceTagsFromParams(requestInput middleware.InitializeInput, awsService string, region string, partition string) (map[string]string, bool) {
+	tags := tagMapPool.Get().(map[string]string)
 
 	switch awsService {
 	case "SQS":
-		k, v = tags.SQSQueueName, queueName(requestInput)
+		if url := queueURL(requestInput); url != "" {
+			queueName, arn := extractSQSMetadata(url, region, partition)
+			tags[ext.SQSQueueName] = queueName
+			tags[ext.CloudResourceID] = arn
+		}
 	case "S3":
-		k, v = tags.S3BucketName, bucketName(requestInput)
+		tags[ext.S3BucketName] = bucketName(requestInput)
 	case "SNS":
-		k, v = destinationTagValue(requestInput)
+		k, v := destinationTagValue(requestInput)
+		tags[k] = v
 	case "DynamoDB":
-		k, v = tags.DynamoDBTableName, tableName(requestInput)
+		tags[ext.DynamoDBTableName] = tableName(requestInput)
 	case "Kinesis":
-		k, v = tags.KinesisStreamName, streamName(requestInput)
+		tags[ext.KinesisStreamName] = streamName(requestInput)
 	case "EventBridge":
-		k, v = tags.EventBridgeRuleName, ruleName(requestInput)
+		tags[ext.EventBridgeRuleName] = ruleName(requestInput)
 	case "SFN":
-		k, v = tags.SFNStateMachineName, stateMachineName(requestInput)
+		tags[ext.SFNStateMachineName] = stateMachineName(requestInput)
 	default:
-		return "", "", fmt.Errorf("attemped to extract ResourceNameFromParams of an unsupported AWS service: %s", awsService)
+		tagMapPool.Put(tags)
+		return nil, false
 	}
 
-	return k, v, nil
+	return tags, true
 }
 
-func queueName(requestInput middleware.InitializeInput) string {
-	var queueURL string
+func queueURL(requestInput middleware.InitializeInput) string {
 	switch params := requestInput.Parameters.(type) {
 	case *sqs.SendMessageInput:
-		queueURL = *params.QueueUrl
+		return *params.QueueUrl
 	case *sqs.DeleteMessageInput:
-		queueURL = *params.QueueUrl
+		return *params.QueueUrl
 	case *sqs.DeleteMessageBatchInput:
-		queueURL = *params.QueueUrl
+		return *params.QueueUrl
 	case *sqs.ReceiveMessageInput:
-		queueURL = *params.QueueUrl
+		return *params.QueueUrl
 	case *sqs.SendMessageBatchInput:
-		queueURL = *params.QueueUrl
+		return *params.QueueUrl
 	}
+	return ""
+}
+
+func extractSQSMetadata(queueURL string, region string, partition string) (queueName string, arn string) {
+	// Remove trailing slash if present
+	if len(queueURL) > 0 && queueURL[len(queueURL)-1] == '/' {
+		queueURL = queueURL[:len(queueURL)-1]
+	}
+
+	// *.amazonaws.com/{accountID}/{queueName}
 	parts := strings.Split(queueURL, "/")
-	return parts[len(parts)-1]
+	if len(parts) < 2 {
+		return "", ""
+	}
+
+	queueName = parts[len(parts)-1]
+	accountID := parts[len(parts)-2]
+
+	arn = strings.Join([]string{"arn", partition, "sqs", region, accountID, queueName}, ":")
+	return queueName, arn
 }
 
 func bucketName(requestInput middleware.InitializeInput) string {
@@ -178,7 +254,7 @@ func bucketName(requestInput middleware.InitializeInput) string {
 }
 
 func destinationTagValue(requestInput middleware.InitializeInput) (tag string, value string) {
-	tag = tags.SNSTopicName
+	tag = ext.SNSTopicName
 	var s string
 	switch params := requestInput.Parameters.(type) {
 	case *sns.PublishInput:
@@ -186,7 +262,7 @@ func destinationTagValue(requestInput middleware.InitializeInput) (tag string, v
 		case params.TopicArn != nil:
 			s = *params.TopicArn
 		case params.TargetArn != nil:
-			tag = tags.SNSTargetName
+			tag = ext.SNSTargetName
 			s = *params.TargetArn
 		default:
 			return "destination", "empty"
@@ -222,6 +298,8 @@ func tableName(requestInput middleware.InitializeInput) string {
 		return *params.TableName
 	case *dynamodb.UpdateItemInput:
 		return *params.TableName
+	case *dynamodb.DeleteItemInput:
+		return *params.TableName
 	}
 	return ""
 }
@@ -229,21 +307,23 @@ func tableName(requestInput middleware.InitializeInput) string {
 func streamName(requestInput middleware.InitializeInput) string {
 	switch params := requestInput.Parameters.(type) {
 	case *kinesis.PutRecordInput:
-		return *params.StreamName
+		return coalesceNameOrArnResource(params.StreamName, params.StreamARN)
 	case *kinesis.PutRecordsInput:
-		return *params.StreamName
+		return coalesceNameOrArnResource(params.StreamName, params.StreamARN)
 	case *kinesis.AddTagsToStreamInput:
-		return *params.StreamName
+		return coalesceNameOrArnResource(params.StreamName, params.StreamARN)
 	case *kinesis.RemoveTagsFromStreamInput:
-		return *params.StreamName
+		return coalesceNameOrArnResource(params.StreamName, params.StreamARN)
 	case *kinesis.CreateStreamInput:
-		return *params.StreamName
+		if params.StreamName != nil {
+			return *params.StreamName
+		}
 	case *kinesis.DeleteStreamInput:
-		return *params.StreamName
+		return coalesceNameOrArnResource(params.StreamName, params.StreamARN)
 	case *kinesis.DescribeStreamInput:
-		return *params.StreamName
+		return coalesceNameOrArnResource(params.StreamName, params.StreamARN)
 	case *kinesis.DescribeStreamSummaryInput:
-		return *params.StreamName
+		return coalesceNameOrArnResource(params.StreamName, params.StreamARN)
 	case *kinesis.GetRecordsInput:
 		if params.StreamARN != nil {
 			streamArnValue := *params.StreamARN
@@ -322,7 +402,7 @@ func (mw *traceMiddleware) deserializeTraceMiddleware(stack *middleware.Stack) e
 			url.User = nil // Do not include userinfo in the HTTPURL tag.
 			span.SetTag(ext.HTTPMethod, req.Method)
 			span.SetTag(ext.HTTPURL, url.String())
-			span.SetTag(tags.AWSAgent, req.Header.Get("User-Agent"))
+			span.SetTag(ext.AWSAgent, req.Header.Get("User-Agent"))
 		}
 
 		// Continue through the middleware chain which eventually sends the request.
@@ -335,21 +415,44 @@ func (mw *traceMiddleware) deserializeTraceMiddleware(stack *middleware.Stack) e
 
 		// Extract the request id.
 		if requestID, ok := awsmiddleware.GetRequestIDMetadata(metadata); ok {
-			span.SetTag(tags.AWSRequestID, requestID)
+			span.SetTag(ext.AWSRequestID, requestID)
 		}
+
+		// Create span pointers
+		spanpointers.AddSpanPointers(ctx, in, out, span)
 
 		return out, metadata, err
 	}), middleware.Before)
 }
 
 func spanName(awsService, awsOperation string) string {
-	return namingschema.AWSOpName(awsService, awsOperation, awsService+".request")
+	return instr.OperationName(instrumentation.ComponentDefault, instrumentation.OperationContext{
+		ext.AWSService:   awsService,
+		ext.AWSOperation: awsOperation,
+	})
 }
 
-func serviceName(cfg *config, awsService string) string {
+func serviceNameWithSource(cfg *config, awsService string) tracer.StartSpanOption {
 	if cfg.serviceName != "" {
-		return cfg.serviceName
+		return instrumentation.ServiceNameWithSource(cfg.serviceName, cfg.serviceSource)
 	}
-	defaultName := fmt.Sprintf("aws.%s", awsService)
-	return namingschema.ServiceNameOverrideV0(defaultName, defaultName)
+	return instrumentation.ServiceNameWithSource(
+		instr.ServiceName(instrumentation.ComponentDefault, instrumentation.OperationContext{
+			ext.AWSService: awsService,
+		}),
+		string(instrumentation.PackageAWSSDKGoV2),
+	)
+}
+
+func coalesceNameOrArnResource(name *string, arnVal *string) string {
+	if name != nil {
+		return *name
+	}
+
+	if arnVal != nil {
+		parts := strings.Split(*arnVal, "/")
+		return parts[len(parts)-1]
+	}
+
+	return ""
 }

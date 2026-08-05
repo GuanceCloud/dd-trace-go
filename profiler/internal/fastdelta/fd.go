@@ -62,11 +62,12 @@ will complain about it.
 package fastdelta
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/profiler/internal/pproflite"
-	"gopkg.in/DataDog/dd-trace-go.v1/profiler/internal/pprofutils"
+	"github.com/DataDog/dd-trace-go/v2/profiler/internal/pproflite"
+	"github.com/DataDog/dd-trace-go/v2/profiler/internal/pprofutils"
 
 	"github.com/spaolacci/murmur3"
 )
@@ -139,7 +140,7 @@ func (dc *DeltaComputer) Delta(p []byte, out io.Writer) error {
 		// already been written to out, but we return an error to
 		// indicate that the profile shouldn't be used.
 		dc.poisoned = false
-		return fmt.Errorf("delta profiler recovering from bad state, skipping this profile")
+		return errors.New("delta profiler recovering from bad state, skipping this profile")
 	}
 	return nil
 }

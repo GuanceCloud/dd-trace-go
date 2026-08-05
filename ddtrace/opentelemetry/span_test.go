@@ -17,10 +17,10 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/httpmem"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/httpmem"
+	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tinylib/msgp/msgp"
@@ -30,7 +30,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-type traces [][]map[string]interface{}
+type traces [][]map[string]any
 
 func mockTracerProvider(t *testing.T, opts ...tracer.StartOption) (tp *TracerProvider, payloads chan traces, cleanup func()) {
 	payloads = make(chan traces)
@@ -51,7 +51,7 @@ func mockTracerProvider(t *testing.T, opts ...tracer.StartOption) (tp *TracerPro
 			if err != nil {
 				t.Fatalf("Failed to unmarshal payload bytes as JSON: %v", err)
 			}
-			var tr [][]map[string]interface{}
+			var tr [][]map[string]any
 			err = json.Unmarshal(payload.Bytes(), &tr)
 			if err != nil || len(tr) == 0 {
 				t.Fatalf("Failed to unmarshal payload bytes as trace: %v", err)
@@ -86,7 +86,7 @@ func waitForPayload(payloads chan traces) (traces, error) {
 	case p := <-payloads:
 		return p, nil
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("Timed out waiting for traces")
+		return nil, errors.New("Timed out waiting for traces")
 	}
 }
 
@@ -104,7 +104,7 @@ func TestSpanResourceNameDefault(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal("internal", p[0]["name"])
@@ -127,10 +127,43 @@ func TestSpanSetName(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal(strings.ToLower("NewName"), p[0]["name"])
+}
+
+// TestSpanSetNameUpdatesResourceOtelSemantics verifies that under OTel semantics SetName
+// updates the resource (the OTLP span name) — e.g. otelhttp renames "GET" to "GET /users/{id}".
+func TestSpanSetNameUpdatesResourceOtelSemantics(t *testing.T) {
+	assert := assert.New(t)
+	// The flag is resolved when the provider is created; reload on cleanup so it
+	// doesn't leak (LIFO order runs this after t.Setenv restores the env).
+	t.Cleanup(func() { internalconfig.CreateNew() })
+	t.Setenv("DD_TRACE_OTEL_SEMANTICS_ENABLED", "true")
+	internalconfig.CreateNew()
+
+	_, payloads, cleanup := mockTracerProvider(t)
+	tr := otel.Tracer("")
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, sp := tr.Start(ctx, "GET")
+	sp.SetName("GET /users/{id}")
+	sp.End()
+
+	tracer.Flush()
+	traces, err := waitForPayload(payloads)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	p := traces[0]
+	// Resource follows the rename. Under OTel semantics the operation-name logic is
+	// skipped entirely (no remap, no computed default), so the operation name is left
+	// as it was set at Start and the span attributes pass through unchanged.
+	assert.Equal("GET /users/{id}", p[0]["resource"])
+	assert.Equal("GET", p[0]["name"])
 }
 
 func TestSpanLink(t *testing.T) {
@@ -165,13 +198,14 @@ func TestSpanLink(t *testing.T) {
 	tracer.Flush()
 	payload, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	assert.NotNil(payload)
 	assert.Len(payload, 1)    // only one trace
 	assert.Len(payload[0], 1) // only one span
 
-	var spanLinks []ddtrace.SpanLink
+	// Convert the span_links field from type []map[string]interface{} to a struct
+	var spanLinks []tracer.SpanLink
 	spanLinkBytes, _ := json.Marshal(payload[0][0]["span_links"])
 	json.Unmarshal(spanLinkBytes, &spanLinks)
 	assert.Len(spanLinks, 1) // only one span link
@@ -203,6 +237,10 @@ func TestSpanEnd(t *testing.T) {
 		sp.SetAttributes(attribute.String(k, v))
 	}
 	assert.True(sp.IsRecording())
+	now := time.Now()
+	nowUnixNano := now.UnixNano()
+	sp.AddEvent("evt1", oteltrace.WithTimestamp(now))
+	sp.AddEvent("evt2", oteltrace.WithTimestamp(now), oteltrace.WithAttributes(attribute.String("key1", "value"), attribute.Int("key2", 1234)))
 
 	sp.End()
 	assert.False(sp.IsRecording())
@@ -218,7 +256,7 @@ func TestSpanEnd(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 
@@ -233,6 +271,11 @@ func TestSpanEnd(t *testing.T) {
 	for k, v := range ignoredAttributes {
 		assert.NotContains(meta, fmt.Sprintf("%s:%s", k, v))
 	}
+	jsonMeta := fmt.Sprintf(
+		"events:[{\"name\":\"evt1\",\"time_unix_nano\":%v},{\"name\":\"evt2\",\"time_unix_nano\":%v,\"attributes\":{\"key1\":\"value\",\"key2\":1234}}]",
+		nowUnixNano, nowUnixNano,
+	)
+	assert.Contains(meta, jsonMeta)
 }
 
 // This test verifies that setting the status of a span
@@ -276,7 +319,7 @@ func TestSpanSetStatus(t *testing.T) {
 				tracer.Flush()
 				traces, err := waitForPayload(payloads)
 				if err != nil {
-					t.Fatalf(err.Error())
+					t.Fatal(err.Error())
 				}
 				p := traces[0]
 				// An error description is set IFF the span has an error
@@ -301,6 +344,205 @@ func TestSpanSetStatus(t *testing.T) {
 			testStatus()
 		})
 	}
+}
+
+func TestSpanAddEvent(t *testing.T) {
+	_, _, cleanup := mockTracerProvider(t)
+	tr := otel.Tracer("")
+	defer cleanup()
+
+	t.Run("event with attributes", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "span_event")
+		// When no timestamp option is provided, otel will generate a timestamp for the event
+		// We can't know the exact time that the event is added, but we can create start and end "bounds" and assert
+		// that the event's eventual timestamp is between those bounds
+		timeStartBound := time.Now().UnixNano()
+		sp.AddEvent("My event!", oteltrace.WithAttributes(
+			attribute.Int("pid", 4328),
+			attribute.String("signal", "SIGHUP"),
+			// two attributes with same key, last-set attribute takes precedence
+			attribute.Bool("condition", true),
+			attribute.Bool("condition", false),
+		))
+		timeEndBound := time.Now().UnixNano()
+		sp.End()
+		dd := sp.(*span)
+
+		// Assert event exists under span events
+		assert.Len(dd.events, 1)
+		e := dd.events[0]
+		assert.Equal(e.name, "My event!")
+
+		cfg := tracer.SpanEventConfig{}
+		for _, opt := range e.options {
+			opt(&cfg)
+		}
+		// assert event timestamp is [around] the expected time
+		assert.True((cfg.Time.UnixNano()) >= timeStartBound && cfg.Time.UnixNano() <= timeEndBound)
+		// Assert both attributes exist on the event
+		assert.Len(cfg.Attributes, 3)
+		// Assert attribute key-value fields
+		// note that attribute.Int("pid", 4328) created an attribute with value int64(4328), hence why the `want` is in int64 format
+		wantAttrs := map[string]any{
+			"pid":       int64(4328),
+			"signal":    "SIGHUP",
+			"condition": false,
+		}
+		for k, v := range wantAttrs {
+			assert.True(attributesContains(cfg.Attributes, k, v))
+		}
+	})
+	t.Run("event with timestamp", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "span_event")
+		// generate micro and nano second timestamps
+		now := time.Now()
+		timeMicro := now.UnixMicro()
+		// pass microsecond timestamp into timestamp option
+		sp.AddEvent("My event!", oteltrace.WithTimestamp(time.UnixMicro(timeMicro)))
+		sp.End()
+
+		dd := sp.(*span)
+		assert.Len(dd.events, 1)
+		e := dd.events[0]
+
+		cfg := tracer.SpanEventConfig{}
+		for _, opt := range e.options {
+			opt(&cfg)
+		}
+		// assert resulting timestamp is in nanoseconds
+		assert.Equal(timeMicro*1000, cfg.Time.UnixNano())
+	})
+	t.Run("mulitple events", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "sp")
+		now := time.Now()
+		sp.AddEvent("evt1", oteltrace.WithTimestamp(now))
+		sp.AddEvent("evt2", oteltrace.WithTimestamp(now))
+		sp.End()
+		dd := sp.(*span)
+		assert.Len(dd.events, 2)
+	})
+}
+
+// attributesContains returns true if attrs contains an attribute.KeyValue with the provided key and val
+func attributesContains(attrs map[string]any, key string, val any) bool {
+	for k, v := range attrs {
+		if k == key && v == val {
+			return true
+		}
+	}
+	return false
+}
+
+type recordErrorTestErr struct{ msg string }
+
+func (e recordErrorTestErr) Error() string { return e.msg }
+
+func TestSpanRecordError(t *testing.T) {
+	_, _, cleanup := mockTracerProvider(t)
+	tr := otel.Tracer("")
+	defer cleanup()
+
+	eventAttrs := func(sp oteltrace.Span) map[string]any {
+		dd := sp.(*span)
+		for _, ev := range dd.events {
+			if ev.name == "exception" {
+				cfg := tracer.SpanEventConfig{}
+				for _, opt := range ev.options {
+					opt(&cfg)
+				}
+				return cfg.Attributes
+			}
+		}
+		return nil
+	}
+
+	t.Run("records exception event with type and message", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "span_record_error")
+		sp.RecordError(errors.New("boom"))
+		sp.End()
+		dd := sp.(*span)
+
+		assert.Len(dd.events, 1)
+		assert.Equal("exception", dd.events[0].name)
+		attrs := eventAttrs(sp)
+		assert.True(attributesContains(attrs, "exception.type", "*errors.errorString"))
+		assert.True(attributesContains(attrs, "exception.message", "boom"))
+		// No stack trace unless explicitly requested.
+		_, hasStack := attrs["exception.stacktrace"]
+		assert.False(hasStack)
+	})
+
+	t.Run("records stack trace when requested", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "span_record_error_stack")
+		sp.RecordError(errors.New("boom"), oteltrace.WithStackTrace(true))
+		sp.End()
+
+		attrs := eventAttrs(sp)
+		stack, ok := attrs["exception.stacktrace"].(string)
+		assert.True(ok)
+		assert.NotEmpty(stack)
+	})
+
+	t.Run("named error type uses fully-qualified exception.type", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "span_record_error_named")
+		sp.RecordError(recordErrorTestErr{"boom"})
+		sp.End()
+
+		attrs := eventAttrs(sp)
+		// Named value types use the full pkg-path form, matching the OTel SDK.
+		assert.True(attributesContains(attrs,
+			"exception.type", "github.com/DataDog/dd-trace-go/v2/ddtrace/opentelemetry.recordErrorTestErr"))
+	})
+
+	t.Run("nil error is a no-op", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "span_record_error_nil")
+		sp.RecordError(nil)
+		sp.End()
+		dd := sp.(*span)
+		assert.Empty(dd.events)
+	})
+
+	t.Run("non-recording span is a no-op", func(t *testing.T) {
+		assert := assert.New(t)
+		_, sp := tr.Start(context.Background(), "span_record_error_finished")
+		sp.End() // span is no longer recording
+		assert.False(sp.IsRecording())
+		sp.RecordError(errors.New("boom"))
+		dd := sp.(*span)
+		assert.Empty(dd.events)
+	})
+}
+
+// TestSpanRecordErrorDoesNotSetStatus covers the spec contract that RecordError
+// records an exception event but must NOT mark the span as errored — the error
+// status is only set via SetStatus.
+func TestSpanRecordErrorDoesNotSetStatus(t *testing.T) {
+	assert := assert.New(t)
+	_, payloads, cleanup := mockTracerProvider(t)
+	tr := otel.Tracer("")
+	defer cleanup()
+
+	_, sp := tr.Start(context.Background(), "op")
+	sp.RecordError(errors.New("boom"))
+	sp.End()
+
+	tracer.Flush()
+	traces, err := waitForPayload(payloads)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	p := traces[0]
+	assert.NotEqual(1.0, p[0]["error"], "RecordError must not flag the span as errored")
+	meta := fmt.Sprintf("%v", p[0]["meta"])
+	assert.NotContains(meta, "error.message")
+	assert.NotContains(meta, "error.type")
 }
 
 func TestSpanContextWithStartOptions(t *testing.T) {
@@ -338,7 +580,7 @@ func TestSpanContextWithStartOptions(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	t.Logf("%v", p[0])
@@ -376,7 +618,7 @@ func TestSpanContextWithStartOptionsPriorityOrder(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal("persisted_srv", p[0]["service"])
@@ -415,7 +657,7 @@ func TestSpanEndOptionsPriorityOrder(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal(float64(duration.Nanoseconds()), p[0]["duration"])
@@ -444,7 +686,7 @@ func TestSpanEndOptions(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal("ctx_srv", p[0]["service"])
@@ -492,7 +734,7 @@ func TestSpanSetAttributes(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	meta := fmt.Sprintf("%v", p[0]["meta"])
@@ -533,7 +775,7 @@ func TestSpanSetAttributesWithRemapping(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal("graphql.server.request", p[0]["name"])
@@ -551,7 +793,7 @@ func TestTracerStartOptions(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal("test_serv", p[0]["service"])
@@ -574,7 +816,7 @@ func TestOperationNameRemapping(t *testing.T) {
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal("graphql.server.request", p[0]["name"])
@@ -701,7 +943,7 @@ func TestRemapName(t *testing.T) {
 			tracer.Flush()
 			traces, err := waitForPayload(payloads)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err.Error())
 			}
 			p := traces[0]
 			assert.Equal(test.out, p[0]["name"])
@@ -725,12 +967,13 @@ func TestRemapWithMultipleSetAttributes(t *testing.T) {
 	sp.SetAttributes(attribute.String("service.name", "new.service.name"))
 	sp.SetAttributes(attribute.String("span.type", "new.span.type"))
 	sp.SetAttributes(attribute.String("analytics.event", "true"))
+	sp.SetAttributes(attribute.Int("http.response.status_code", 200))
 	sp.End()
 
 	tracer.Flush()
 	traces, err := waitForPayload(payloads)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	p := traces[0]
 	assert.Equal("overriden.name", p[0]["name"])
@@ -739,4 +982,61 @@ func TestRemapWithMultipleSetAttributes(t *testing.T) {
 	assert.Equal("new.span.type", p[0]["type"])
 	metrics := fmt.Sprintf("%v", p[0]["metrics"])
 	assert.Contains(metrics, fmt.Sprintf("%s:%s", "_dd1.sr.eausr", "1"))
+	meta := fmt.Sprintf("%v", p[0]["meta"])
+	assert.Contains(meta, fmt.Sprintf("%s:%s", "http.status_code", "200"))
+}
+
+func TestToReservedAttributesOtelSemantics(t *testing.T) {
+	assert := assert.New(t)
+
+	// Under OTel semantics, reserved tags are passed through unchanged.
+	k, v := toReservedAttributes("operation.name", attribute.StringValue("Op"), true)
+	assert.Equal("operation.name", k)
+	assert.Equal("Op", v)
+
+	k, _ = toReservedAttributes("analytics.event", attribute.BoolValue(true), true)
+	assert.Equal("analytics.event", k)
+
+	k, v = toReservedAttributes("http.response.status_code", attribute.IntValue(500), true)
+	assert.Equal("http.response.status_code", k)
+	assert.Equal(int64(500), v)
+
+	// Without OTel semantics, the same tags are remapped to Datadog conventions.
+	k, _ = toReservedAttributes("operation.name", attribute.StringValue("Op"), false)
+	assert.Equal(ext.SpanName, k)
+	k, _ = toReservedAttributes("http.response.status_code", attribute.IntValue(500), false)
+	assert.Equal("http.status_code", k)
+}
+
+// TestRemapStatusCodeOtelSemantics verifies that under OTel semantics the bridge keeps
+// http.response.status_code instead of remapping it to the legacy http.status_code tag.
+func TestRemapStatusCodeOtelSemantics(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reload global config on cleanup so the flag doesn't leak; LIFO order runs this
+	// after t.Setenv restores the env.
+	t.Cleanup(func() { internalconfig.CreateNew() })
+	t.Setenv("DD_TRACE_OTEL_SEMANTICS_ENABLED", "true")
+	internalconfig.CreateNew()
+
+	_, payloads, cleanup := mockTracerProvider(t, tracer.WithEnv("test_env"), tracer.WithService("test_serv"))
+	tr := otel.Tracer("")
+	defer cleanup()
+
+	_, sp := tr.Start(context.Background(), "otel_span_name",
+		oteltrace.WithSpanKind(oteltrace.SpanKindServer))
+	sp.SetAttributes(attribute.Int("http.response.status_code", 200))
+	sp.End()
+
+	tracer.Flush()
+	traces, err := waitForPayload(payloads)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	p := traces[0]
+	meta := fmt.Sprintf("%v", p[0]["meta"])
+	metrics := fmt.Sprintf("%v", p[0]["metrics"])
+	// No legacy string remap; OTel key retained as a numeric tag.
+	assert.NotContains(meta, "http.status_code")
+	assert.Contains(metrics, "http.response.status_code:200")
 }

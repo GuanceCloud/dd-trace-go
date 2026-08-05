@@ -7,12 +7,10 @@ package grpc
 
 import (
 	"context"
+	"strings"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -40,21 +38,21 @@ func (ss *serverStream) Context() context.Context {
 }
 
 func (ss *serverStream) RecvMsg(m interface{}) (err error) {
-	_, im := ss.cfg.ignoredMethods[ss.method]
 	_, um := ss.cfg.untracedMethods[ss.method]
-	if ss.cfg.traceStreamMessages && !im && !um {
+	if ss.cfg.traceStreamMessages && !um {
 		span, _ := startSpanFromContext(
 			ss.ctx,
 			ss.method,
 			"grpc.message",
-			ss.cfg.serviceName,
+			ss.cfg.serviceName.String(),
+			ss.cfg.serviceSource,
 			ss.cfg.startSpanOptions(tracer.Measured())...,
 		)
 		span.SetTag(ext.Component, componentName)
 		defer func() {
 			withMetadataTags(ss.ctx, ss.cfg, span)
 			withRequestTags(ss.cfg, m, span)
-			finishWithError(span, err, ss.cfg)
+			finishWithError(span, err, ss.method, ss.cfg)
 		}()
 	}
 	err = ss.ServerStream.RecvMsg(m)
@@ -62,18 +60,18 @@ func (ss *serverStream) RecvMsg(m interface{}) (err error) {
 }
 
 func (ss *serverStream) SendMsg(m interface{}) (err error) {
-	_, im := ss.cfg.ignoredMethods[ss.method]
 	_, um := ss.cfg.untracedMethods[ss.method]
-	if ss.cfg.traceStreamMessages && !im && !um {
+	if ss.cfg.traceStreamMessages && !um {
 		span, _ := startSpanFromContext(
 			ss.ctx,
 			ss.method,
 			"grpc.message",
-			ss.cfg.serviceName,
+			ss.cfg.serviceName.String(),
+			ss.cfg.serviceSource,
 			ss.cfg.startSpanOptions(tracer.Measured())...,
 		)
 		span.SetTag(ext.Component, componentName)
-		defer func() { finishWithError(span, err, ss.cfg) }()
+		defer func() { finishWithError(span, err, ss.method, ss.cfg) }()
 	}
 	err = ss.ServerStream.SendMsg(m)
 	return err
@@ -84,21 +82,21 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 	cfg := new(config)
 	serverDefaults(cfg)
 	for _, fn := range opts {
-		fn(cfg)
+		fn.apply(cfg)
 	}
-	log.Debug("contrib/google.golang.org/grpc: Configuring StreamServerInterceptor: %#v", cfg)
+	instr.Logger().Debug("contrib/google.golang.org/grpc: Configuring StreamServerInterceptor: %#v", cfg)
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		ctx := ss.Context()
 		// if we've enabled call tracing, create a span
-		_, im := cfg.ignoredMethods[info.FullMethod]
 		_, um := cfg.untracedMethods[info.FullMethod]
-		if cfg.traceStreamCalls && !im && !um {
-			var span ddtrace.Span
+		if cfg.traceStreamCalls && !um {
+			var span *tracer.Span
 			span, ctx = startSpanFromContext(
 				ctx,
 				info.FullMethod,
 				cfg.spanName,
-				cfg.serviceName,
+				cfg.serviceName.String(),
+				cfg.serviceSource,
 				cfg.startSpanOptions(tracer.Measured(),
 					tracer.Tag(ext.Component, componentName),
 					tracer.Tag(ext.SpanKind, ext.SpanKindServer))...,
@@ -111,9 +109,9 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 			case info.IsClientStream:
 				span.SetTag(tagMethodKind, methodKindClientStream)
 			}
-			defer func() { finishWithError(span, err, cfg) }()
-			if appsec.Enabled() {
-				handler = appsecStreamHandlerMiddleware(span, handler)
+			defer func() { finishWithError(span, err, info.FullMethod, cfg) }()
+			if instr.AppSecEnabled() {
+				handler = appsecStreamHandlerMiddleware(info.FullMethod, span, handler)
 			}
 		}
 
@@ -133,20 +131,20 @@ func UnaryServerInterceptor(opts ...Option) grpc.UnaryServerInterceptor {
 	cfg := new(config)
 	serverDefaults(cfg)
 	for _, fn := range opts {
-		fn(cfg)
+		fn.apply(cfg)
 	}
-	log.Debug("contrib/google.golang.org/grpc: Configuring UnaryServerInterceptor: %#v", cfg)
+	instr.Logger().Debug("contrib/google.golang.org/grpc: Configuring UnaryServerInterceptor: %#v", cfg)
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		_, im := cfg.ignoredMethods[info.FullMethod]
 		_, um := cfg.untracedMethods[info.FullMethod]
-		if im || um {
+		if um {
 			return handler(ctx, req)
 		}
 		span, ctx := startSpanFromContext(
 			ctx,
 			info.FullMethod,
 			cfg.spanName,
-			cfg.serviceName,
+			cfg.serviceName.String(),
+			cfg.serviceSource,
 			cfg.startSpanOptions(tracer.Measured(),
 				tracer.Tag(ext.Component, componentName),
 				tracer.Tag(ext.SpanKind, ext.SpanKindServer))...,
@@ -154,27 +152,34 @@ func UnaryServerInterceptor(opts ...Option) grpc.UnaryServerInterceptor {
 		span.SetTag(tagMethodKind, methodKindUnary)
 		withMetadataTags(ctx, cfg, span)
 		withRequestTags(cfg, req, span)
-		if appsec.Enabled() {
-			handler = appsecUnaryHandlerMiddleware(span, handler)
+		if instr.AppSecEnabled() {
+			handler = appsecUnaryHandlerMiddleware(info.FullMethod, span, handler)
 		}
 		resp, err := handler(ctx, req)
-		finishWithError(span, err, cfg)
+		finishWithError(span, err, info.FullMethod, cfg)
 		return resp, err
 	}
 }
 
-func withMetadataTags(ctx context.Context, cfg *config, span ddtrace.Span) {
+func withMetadataTags(ctx context.Context, cfg *config, span *tracer.Span) {
 	if cfg.withMetadataTags {
 		md, _ := metadata.FromIncomingContext(ctx) // nil is ok
 		for k, v := range md {
-			if _, ok := cfg.ignoredMetadata[k]; !ok {
-				span.SetTag(tagMetadataPrefix+k, v)
+			if _, ok := cfg.ignoredMetadata[k]; ok {
+				continue
 			}
+
+			// gRPC binary metadata keys end in "-bin"; their values are
+			// arbitrary bytes and must not be stored as string span tags.
+			if strings.HasSuffix(k, "-bin") {
+				continue
+			}
+			span.SetTag(tagMetadataPrefix+k, v)
 		}
 	}
 }
 
-func withRequestTags(cfg *config, req interface{}, span ddtrace.Span) {
+func withRequestTags(cfg *config, req interface{}, span *tracer.Span) {
 	if cfg.withRequestTags {
 		if p, ok := req.(proto.Message); ok {
 			if b, err := protojson.Marshal(p); err == nil {

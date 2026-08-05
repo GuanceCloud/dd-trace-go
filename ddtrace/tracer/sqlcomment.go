@@ -8,28 +8,14 @@ package tracer
 import (
 	"strconv"
 	"strings"
+	"sync/atomic"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/samplernames"
-)
-
-// SQLCommentInjectionMode represents the mode of SQL comment injection.
-//
-// Deprecated: Use DBMPropagationMode instead.
-type SQLCommentInjectionMode DBMPropagationMode
-
-const (
-	// SQLInjectionUndefined represents the comment injection mode is not set. This is the same as SQLInjectionDisabled.
-	SQLInjectionUndefined SQLCommentInjectionMode = SQLCommentInjectionMode(DBMPropagationModeUndefined)
-	// SQLInjectionDisabled represents the comment injection mode where all injection is disabled.
-	SQLInjectionDisabled SQLCommentInjectionMode = SQLCommentInjectionMode(DBMPropagationModeDisabled)
-	// SQLInjectionModeService represents the comment injection mode where only service tags (name, env, version) are injected.
-	SQLInjectionModeService SQLCommentInjectionMode = SQLCommentInjectionMode(DBMPropagationModeService)
-	// SQLInjectionModeFull represents the comment injection mode where both service tags and tracing tags. Tracing tags include span id, trace id and sampling priority.
-	SQLInjectionModeFull SQLCommentInjectionMode = SQLCommentInjectionMode(DBMPropagationModeFull)
+	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
+	"github.com/DataDog/dd-trace-go/v2/internal/datastreams"
+	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
+	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
 )
 
 // DBMPropagationMode represents the mode of dbm propagation.
@@ -48,6 +34,12 @@ const (
 	DBMPropagationModeService DBMPropagationMode = "service"
 	// DBMPropagationModeFull represents the dbm propagation mode where both service tags and tracing tags are propagated. Tracing tags include span id, trace id and the sampled flag.
 	DBMPropagationModeFull DBMPropagationMode = "full"
+	// DBMPropagationModeDynamicService is like DBMPropagationModeService but also injects a
+	// base service hash (ddsh) and tags the span with _dd.propagated_hash. It does not inject
+	// traceparent. The hash is only injected once process tags are enabled
+	// (DD_EXPERIMENTAL_PROPAGATE_PROCESS_TAGS_ENABLED) and the Agent has returned a container
+	// tags hash; until then this mode behaves like DBMPropagationModeService.
+	DBMPropagationModeDynamicService DBMPropagationMode = "dynamic_service"
 )
 
 // Key names for SQL comment tags.
@@ -57,6 +49,13 @@ const (
 	sqlCommentDBService     = "dddbs"
 	sqlCommentParentVersion = "ddpv"
 	sqlCommentEnv           = "dde"
+	// These keys are for the database we are connecting to, instead of the service we are running in.
+	// "Peer" is the OpenTelemetry nomenclature for "thing I am talking to"
+	sqlCommentPeerHostname = "ddh"
+	sqlCommentPeerDBName   = "dddb"
+	// This is for when peer.service is explicitly set as a tag
+	sqlCommentPeerService = "ddprs"
+	sqlCommentBaseHash    = "ddsh"
 )
 
 // Current trace context version (see https://www.w3.org/TR/trace-context/#version)
@@ -66,14 +65,18 @@ const w3cContextVersion = "00"
 // of a sqlcommenter formatted comment prepended to the original query text.
 // See https://google.github.io/sqlcommenter/spec/ for more details.
 type SQLCommentCarrier struct {
-	Query         string
-	Mode          DBMPropagationMode
-	DBServiceName string
-	SpanID        uint64
+	Query          string
+	Mode           DBMPropagationMode
+	DBServiceName  string
+	SpanID         uint64
+	PeerDBHostname string
+	PeerDBName     string
+	PeerService    string
+	BaseHash       string
 }
 
 // Inject injects a span context in the carrier's Query field as a comment.
-func (c *SQLCommentCarrier) Inject(spanCtx ddtrace.SpanContext) error {
+func (c *SQLCommentCarrier) Inject(ctx *SpanContext) error {
 	c.SpanID = generateSpanID(now())
 	tags := make(map[string]string)
 	switch c.Mode {
@@ -82,37 +85,93 @@ func (c *SQLCommentCarrier) Inject(spanCtx ddtrace.SpanContext) error {
 	case DBMPropagationModeDisabled:
 		return nil
 	case DBMPropagationModeFull:
-		var (
-			sampled int64
-			traceID uint64
-		)
-		if ctx, ok := spanCtx.(*spanContext); ok {
+		var sampled int64
+		traceID := c.SpanID
+		if ctx != nil {
 			if sp, ok := ctx.SamplingPriority(); ok && sp > 0 {
 				sampled = 1
 			}
-			traceID = ctx.TraceID()
-		}
-		if traceID == 0 { // check if this is a root span
-			traceID = c.SpanID
+			traceID = ctx.traceID.Lower()
 		}
 		tags[sqlCommentTraceParent] = encodeTraceParent(traceID, c.SpanID, sampled)
-		fallthrough
+		c.injectServiceTags(ctx, tags)
+	case DBMPropagationModeDynamicService:
+		if hash := computeBaseHash(); hash != "" {
+			tags[sqlCommentBaseHash] = hash
+			c.BaseHash = hash
+		}
+		c.injectServiceTags(ctx, tags)
 	case DBMPropagationModeService:
-		if ctx, ok := spanCtx.(*spanContext); ok {
-			if e, ok := ctx.meta(ext.Environment); ok && e != "" {
-				tags[sqlCommentEnv] = e
-			}
-			if v, ok := ctx.meta(ext.Version); ok && v != "" {
-				tags[sqlCommentParentVersion] = v
-			}
-		}
-		if globalconfig.ServiceName() != "" {
-			tags[sqlCommentParentService] = globalconfig.ServiceName()
-		}
-		tags[sqlCommentDBService] = c.DBServiceName
+		c.injectServiceTags(ctx, tags)
 	}
 	c.Query = commentQuery(c.Query, tags)
 	return nil
+}
+
+func (c *SQLCommentCarrier) injectServiceTags(ctx *SpanContext, tags map[string]string) {
+	if ctx != nil {
+		spanSnapshot := ctx.getSpanSnapshot()
+		if spanSnapshot.env != "" {
+			tags[sqlCommentEnv] = spanSnapshot.env
+		}
+		if spanSnapshot.version != "" {
+			tags[sqlCommentParentVersion] = spanSnapshot.version
+		}
+		if spanSnapshot.peerService != "" {
+			tags[sqlCommentPeerService] = spanSnapshot.peerService
+		}
+	}
+	if c.PeerDBName != "" {
+		tags[sqlCommentPeerDBName] = c.PeerDBName
+	}
+	if c.PeerDBHostname != "" {
+		tags[sqlCommentPeerHostname] = c.PeerDBHostname
+	}
+	if tags[sqlCommentPeerService] == "" && c.PeerService != "" {
+		tags[sqlCommentPeerService] = c.PeerService
+	}
+	if globalconfig.ServiceName() != "" {
+		tags[sqlCommentParentService] = globalconfig.ServiceName()
+	}
+	tags[sqlCommentDBService] = c.DBServiceName
+}
+
+type baseHashEntry struct {
+	containerHash string
+	result        string
+}
+
+var cachedBaseHash atomic.Pointer[baseHashEntry]
+
+// computeBaseHash returns the DBM base hash as a signed decimal string.
+func computeBaseHash() string {
+	svc := globalconfig.ServiceName()
+	if svc == "" {
+		return ""
+	}
+	pTags := processtags.GlobalTags()
+	if pTags == nil {
+		return ""
+	}
+	containerTagsHash := processtags.ContainerTagsHash()
+	if containerTagsHash == "" {
+		return ""
+	}
+	// The cache is keyed only on containerTagsHash, yet the result also depends on svc, env
+	// and process tags. This is safe because those are assumed immutable for the cache's
+	// lifetime: svc/env are installed during newTracer and process tags are stable, while
+	// resetBaseHashCache() runs on every Start to drop stale values across tracer restarts.
+	if entry := cachedBaseHash.Load(); entry != nil && entry.containerHash == containerTagsHash {
+		return entry.result
+	}
+	env := internalconfig.Get().Env()
+	result := strconv.FormatInt(int64(datastreams.BaseHash(svc, env, pTags.Slice(), containerTagsHash)), 10)
+	cachedBaseHash.Store(&baseHashEntry{containerHash: containerTagsHash, result: result})
+	return result
+}
+
+func resetBaseHashCache() {
+	cachedBaseHash.Store(nil)
 }
 
 // encodeTraceParent encodes trace parent as per the w3c trace context spec (https://www.w3.org/TR/trace-context/#version).
@@ -155,7 +214,7 @@ func commentQuery(query string, tags map[string]string) string {
 	var b strings.Builder
 	// the sqlcommenter specification dictates that tags should be sorted. Since we know all injected keys,
 	// we skip a sorting operation by specifying the order of keys statically
-	orderedKeys := []string{sqlCommentDBService, sqlCommentEnv, sqlCommentParentService, sqlCommentParentVersion, sqlCommentTraceParent}
+	orderedKeys := []string{sqlCommentDBService, sqlCommentEnv, sqlCommentParentService, sqlCommentParentVersion, sqlCommentBaseHash, sqlCommentTraceParent, sqlCommentPeerHostname, sqlCommentPeerDBName, sqlCommentPeerService}
 	first := true
 	for _, k := range orderedKeys {
 		if v, ok := tags[k]; ok {
@@ -190,8 +249,8 @@ func commentQuery(query string, tags map[string]string) string {
 }
 
 // Extract parses for key value attributes in a sql query injected with trace information in order to build a span context
-func (c *SQLCommentCarrier) Extract() (ddtrace.SpanContext, error) {
-	var ctx *spanContext
+func (c *SQLCommentCarrier) Extract() (*SpanContext, error) {
+	var ctx *SpanContext
 	// There may be multiple comments within the sql query, so we must identify which one contains trace information.
 	// We look at each comment until we find one that contains a traceparent
 	if traceComment, found := findTraceComment(c.Query); found {
@@ -210,10 +269,10 @@ func (c *SQLCommentCarrier) Extract() (ddtrace.SpanContext, error) {
 
 // spanContextFromTraceComment looks for specific kv pairs in a comment containing trace information.
 // It returns a span context with the appropriate attributes
-func spanContextFromTraceComment(c string) (*spanContext, error) {
-	var ctx spanContext
-	kvs := strings.Split(c, ",")
-	for _, unparsedKV := range kvs {
+func spanContextFromTraceComment(c string) (*SpanContext, error) {
+	var ctx SpanContext
+	kvs := strings.SplitSeq(c, ",")
+	for unparsedKV := range kvs {
 		splitKV := strings.Split(unparsedKV, "=")
 		if len(splitKV) != 2 {
 			return nil, ErrSpanContextCorrupted
@@ -233,6 +292,7 @@ func spanContextFromTraceComment(c string) (*spanContext, error) {
 		default:
 		}
 	}
+	ctx.traceID.cacheHex()
 	return &ctx, nil
 }
 

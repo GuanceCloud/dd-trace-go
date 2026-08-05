@@ -11,9 +11,10 @@ import (
 	"math"
 	"time"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 	"github.com/nsqio/go-nsq"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 // Producer is a wrap-up class of nsq Producer.
@@ -204,15 +205,17 @@ func (prodc *Producer) DeferredPublishAsyncWithContext(ctx context.Context, topi
 	return err
 }
 
-func (prodc *Producer) startSpan(ctx context.Context, topic, operation string) (tracer.Span, context.Context) {
+func (prodc *Producer) startSpan(ctx context.Context, topic, operation string) (*tracer.Span, context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	opts := []tracer.StartSpanOption{
-		tracer.ServiceName(prodc.cfg.service),
+		instrumentation.ServiceNameWithSource(prodc.cfg.service, prodc.cfg.serviceSource),
 		tracer.ResourceName(topic),
 		tracer.SpanType(ext.SpanTypeMessageProducer),
+		tracer.Tag(ext.Component, component),
+		tracer.Tag(ext.SpanKind, ext.SpanKindProducer),
 	}
 	if !math.IsNaN(prodc.cfg.analyticsRate) {
 		opts = append(opts, tracer.Tag(ext.EventSampleRate, prodc.cfg.analyticsRate))

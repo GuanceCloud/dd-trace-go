@@ -5,42 +5,26 @@
 
 package pubsub
 
-import (
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/namingschema"
-)
+import "github.com/DataDog/dd-trace-go/v2/contrib/cloud.google.com/go/pubsubtrace"
 
-type config struct {
-	serviceName     string
-	publishSpanName string
-	receiveSpanName string
-	measured        bool
-}
+// Option describes options for the Pub/Sub integration.
+type Option = pubsubtrace.Option
 
-func defaultConfig() *config {
-	return &config{
-		serviceName:     namingschema.ServiceNameOverrideV0("", ""),
-		publishSpanName: namingschema.OpName(namingschema.GCPPubSubOutbound),
-		receiveSpanName: namingschema.OpName(namingschema.GCPPubSubInbound),
-		measured:        false,
-	}
-}
+// OptionFn represents options applicable to WrapReceiveHandler or Publish.
+type OptionFn = pubsubtrace.OptionFn
 
-// A Option is used to customize spans started by WrapReceiveHandler or Publish.
-type Option func(cfg *config)
-
-// A ReceiveOption has been deprecated in favor of Option.
-type ReceiveOption = Option
-
-// WithServiceName sets the service name tag for traces started by WrapReceiveHandler or Publish.
-func WithServiceName(serviceName string) Option {
-	return func(cfg *config) {
-		cfg.serviceName = serviceName
-	}
+// WithService sets the service name tag for traces started by WrapReceiveHandler or Publish.
+func WithService(serviceName string) Option {
+	return pubsubtrace.WithService(serviceName)
 }
 
 // WithMeasured sets the measured tag for traces started by WrapReceiveHandler or Publish.
 func WithMeasured() Option {
-	return func(cfg *config) {
-		cfg.measured = true
-	}
+	return pubsubtrace.WithMeasured()
+}
+
+// WithPropagationAsSpanLinks configures the receive handler to record the producer span as a span
+// link rather than as a parent span.
+func WithPropagationAsSpanLinks() Option {
+	return pubsubtrace.WithPropagationAsSpanLinks()
 }

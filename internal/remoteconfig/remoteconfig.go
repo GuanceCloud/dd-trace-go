@@ -13,14 +13,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/big"
 	"net/http"
 	"reflect"
-	"strings"
+	"slices"
 	"sync"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
 
 	rc "github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
 )
@@ -34,8 +37,10 @@ type Callback func(updates map[string]ProductUpdate) map[string]rc.ApplyStatus
 // ProductCallback is like Callback but for a specific product.
 type ProductCallback func(update ProductUpdate) map[string]rc.ApplyStatus
 
-// Capability represents a bit index to be set in clientData.Capabilites in order to register a client
-// for a specific capability
+// Capability represents a bit index to be set in clientData.Capabilites in
+// order to register a client for a specific capability. These bit indexes
+// correspond to the Remote Config specification, see
+// https://github.com/DataDog/dd-source/blob/9b29208565b6e9c9644d8488520a24eb252ca1cb/domains/remote-config/shared/libs/rc/capabilities.go#L28
 type Capability uint
 
 const (
@@ -70,10 +75,69 @@ const (
 	APMTracingHTTPHeaderTags
 	// APMTracingCustomTags enables APM client to set custom tags on all spans
 	APMTracingCustomTags
+	// ASMProcessorOverrides adds support for processor overrides through the ASM RC Product
+	ASMProcessorOverrides
+	// ASMCustomDataScanners adds support for custom data scanners through the ASM RC Product
+	ASMCustomDataScanners
+	// ASMExclusionData adds support configurable exclusion filter data from the ASM_DATA Product
+	ASMExclusionData
+	// APMTracingEnabled enables APM tracing
+	APMTracingEnabled
+	// APMTracingDataStreamsEnabled enables Data Streams Monitoring
+	APMTracingDataStreamsEnabled
+	// ASMRASPSQLI enables ASM support for runtime protection against SQL Injection attacks
+	ASMRASPSQLI
+	// ASMRASPLFI enables ASM support for runtime protection against Local File Inclusion attacks
+	ASMRASPLFI
+	// ASMRASPSSRF enables ASM support for runtime protection against SSRF attacks
+	ASMRASPSSRF
+	// ASMRASPSHI enables ASM support for runtime protection against XSS attacks
+	ASMRASPSHI
+	// ASMRASPXXE enables ASM support for runtime protection against XXE attacks
+	ASMRASPXXE
+	// ASMRASPRCE enables ASM support for runtime protection against Remote Code Execution
+	ASMRASPRCE
+	// ASMRASPNOSQLI enables ASM support for runtime protection against NoSQL Injection attacks
+	ASMRASPNOSQLI
+	// ASMRASPXSS enables ASM support for runtime protection against Cross Site Scripting attacks
+	ASMRASPXSS
+	// APMTracingSampleRules represents the sampling rate using matching rules from APM client libraries
+	APMTracingSampleRules
+	// CSMActivation represents the capability to activate CSM through remote configuration
+	CSMActivation
+	// ASMAutoUserInstrumMode represents the capability to enable the automatic user instrumentation mode
+	ASMAutoUserInstrumMode
+	// ASMEndpointFingerprinting represents the capability to enable endpoint fingerprinting
+	ASMEndpointFingerprinting
+	// ASMSessionFingerprinting represents the capability to enable session fingerprinting
+	ASMSessionFingerprinting
+	// ASMNetworkFingerprinting represents the capability to enable network fingerprinting
+	ASMNetworkFingerprinting
+	// ASMHeaderFingerprinting represents the capability to enable header fingerprinting
+	ASMHeaderFingerprinting
+	// ASMTruncationRules is the support for truncation payload rules
+	ASMTruncationRules
+	// ASMRASPCommandInjection represents the capability for ASM's RASP Command Injection prevention
+	ASMRASPCommandInjection
+	// APMTracingEnableDynamicInstrumentation represents the capability to enable dynamic instrumentation
+	APMTracingEnableDynamicInstrumentation
+	// APMTracingEnableExceptionReplay represents the capability to enable exception replay
+	APMTracingEnableExceptionReplay
+	// APMTracingEnableCodeOrigin represents the capability to enable code origin
+	APMTracingEnableCodeOrigin
+	// APMTracingEnableLiveDebugging represents the capability to enable live debugging
+	APMTracingEnableLiveDebugging
+	// ASMDDMultiConfig represents the capability to handle multiple ASM_DD configuration objects
+	ASMDDMultiConfig
+	// ASMTraceTaggingRules represents the capability to honor trace tagging rules
+	ASMTraceTaggingRules
+	ASMExtendedDataCollection
+	// APMTracingMulticonfig is the capability to handle cascading configs for the
+	// APMTracing product.
+	APMTracingMulticonfig
+	// FFEFlagEvaluation represents the capability for feature flag evaluation via OpenFeature
+	FFEFlagEvaluation
 )
-
-// APMTracingEnabled enables APM tracing
-const APMTracingEnabled Capability = 19
 
 // ErrClientNotStarted is returned when the remote config client is not started.
 var ErrClientNotStarted = errors.New("remote config client not started")
@@ -91,28 +155,49 @@ type Client struct {
 	clientID   string
 	endpoint   string
 	repository *rc.Repository
-	stop       chan struct{}
+	stop       chan struct{} // closed once (by Stop/Reset) to stop the poll goroutine
+	done       chan struct{} // closed by the poll goroutine on exit
+	stopOnce   sync.Once
+	// pollNow requests an out-of-cycle poll. Buffered(1): coalesced, non-blocking.
+	pollNow chan struct{}
 
 	// When acquiring several locks and using defer to release them, make sure to acquire the locks in the following order:
-	callbacks               []Callback
-	_callbacksMu            sync.RWMutex
-	products                map[string]struct{}
-	productsMu              sync.RWMutex
-	productsWithCallbacks   map[string]ProductCallback
-	productsWithCallbacksMu sync.RWMutex
-	capabilities            map[Capability]struct{}
-	capabilitiesMu          sync.RWMutex
+	callbacks       []Callback
+	_callbacksMu    sync.RWMutex
+	products        map[string]struct{}
+	productsMu      sync.RWMutex
+	subscriptionsMu struct {
+		sync.RWMutex
+		subs        []subscription
+		idAllocator int
+	}
+	// capabilities contains the capabilities that have been registered through
+	// RegisterCapability. The capabilities of the subscribers added through
+	// RegisterSubscribers are reflected inside subscriptions.
+	capabilities   map[Capability]struct{}
+	capabilitiesMu sync.RWMutex
 
-	lastError error
+	lastError        error
+	lastConfigStates []*configState
 }
 
-// client is a RC client singleton that can be accessed by multiple products (tracing, ASM, profiling etc.).
-// Using a single RC client instance in the tracer is a requirement for remote configuration.
-var client *Client
+// subscription represents a callback that was registered to run on updates to a
+// specific product.
+type subscription struct {
+	// id uniquely identifies this subscription. It is used to remove a specific
+	// subscription.
+	id           int
+	product      string
+	capabilities []Capability
+	callback     ProductCallback
+}
 
 var (
-	startOnce sync.Once
-	stopOnce  sync.Once
+	// client is a RC client singleton that can be accessed by multiple products (tracing, ASM, profiling etc.).
+	// Using a single RC client instance in the tracer is a requirement for remote configuration.
+	client    *Client
+	clientMux sync.Mutex
+	started   bool
 )
 
 // newClient creates a new remoteconfig Client
@@ -126,93 +211,155 @@ func newClient(config ClientConfig) (*Client, error) {
 	}
 
 	return &Client{
-		ClientConfig:          config,
-		clientID:              generateID(),
-		endpoint:              fmt.Sprintf("%s/v0.7/config", config.AgentURL),
-		repository:            repo,
-		stop:                  make(chan struct{}),
-		lastError:             nil,
-		callbacks:             []Callback{},
-		capabilities:          map[Capability]struct{}{},
-		products:              map[string]struct{}{},
-		productsWithCallbacks: make(map[string]ProductCallback),
+		ClientConfig: config,
+		clientID:     generateID(),
+		endpoint:     config.AgentURL + "/v0.7/config",
+		repository:   repo,
+		stop:         make(chan struct{}),
+		done:         make(chan struct{}),
+		pollNow:      make(chan struct{}, 1),
+		lastError:    nil,
+		callbacks:    []Callback{},
+		capabilities: map[Capability]struct{}{},
+		products:     map[string]struct{}{},
 	}, nil
 }
 
 // Start starts the client's update poll loop in a fresh goroutine.
 // Noop if the client has already started.
 func Start(config ClientConfig) error {
-	var err error
-	startOnce.Do(func() {
-		client, err = newClient(config)
-		if err != nil {
-			return
-		}
-		go func() {
-			ticker := time.NewTicker(client.PollInterval)
-			defer ticker.Stop()
+	if !internal.BoolEnv("DD_REMOTE_CONFIGURATION_ENABLED", true) {
+		// Don't start polling if the feature is disabled explicitly
+		return nil
+	}
+	clientMux.Lock()
+	defer clientMux.Unlock()
 
-			for {
-				select {
-				case <-client.stop:
-					close(client.stop)
-					return
-				case <-ticker.C:
-					client.Lock()
-					client.updateState()
-					client.Unlock()
-				}
+	if started {
+		// Return early if already started.
+		return nil
+	}
+	var err error
+	client, err = newClient(config)
+	if err != nil {
+		return err
+	}
+	started = true
+
+	// Capture client locally; the goroutine must not read the global (Stop/Reset mutate it).
+	var (
+		c            = client
+		pollInterval = c.PollInterval
+		stop         = c.stop
+		pollNow      = c.pollNow
+	)
+	go func() {
+		defer close(c.done)
+		ticker := time.NewTicker(pollInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-stop:
+				return
+			case <-pollNow: // Subscribe requested a poll
+			case <-ticker.C:
 			}
-		}()
-	})
-	return err
+			// stop may be ready alongside pollNow/ticker (select is random); don't poll after stop.
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			c.Lock()
+			c.updateState()
+			c.Unlock()
+		}
+	}()
+	return nil
 }
 
-// Stop stops the client's update poll loop.
-// Noop if the client has already been stopped.
-// The remote config client is supposed to have the same lifecycle as the tracer.
-// It can't be restarted after a call to Stop() unless explicitly calling Reset().
+// Stop ends the poll loop, waits for the goroutine to exit (up to the HTTP
+// timeout, since a poll may be in flight), then clears the singleton so a later
+// Start() is fresh. On wait timeout it clears anyway (a restart could briefly
+// overlap the in-flight poll). Noop if not running.
 func Stop() {
+	clientMux.Lock()
+	defer clientMux.Unlock()
+
 	if client == nil {
 		// In case Stop() is called before Start()
 		return
 	}
-	stopOnce.Do(func() {
-		log.Debug("remoteconfig: gracefully stopping the client")
-		client.stop <- struct{}{}
-		select {
-		case <-client.stop:
-			log.Debug("remoteconfig: client stopped successfully")
-		case <-time.After(time.Second):
-			log.Debug("remoteconfig: client stopping timeout")
-		}
-	})
+	if !started {
+		// Return early if already stopped.
+		return
+	}
+	log.Debug("remoteconfig: gracefully stopping the client")
+	client.stopOnce.Do(func() { close(client.stop) })
+	// Wait for the goroutine, up to the HTTP timeout (+1s grace so done wins) since
+	// a poll may be in flight. Floored at 1s; bounded so we don't block forever.
+	wait := time.Second
+	if client.HTTP != nil && client.HTTP.Timeout > 0 {
+		wait = client.HTTP.Timeout + time.Second
+	}
+	select {
+	case <-client.done:
+		log.Debug("remoteconfig: client stopped successfully")
+	case <-time.After(wait):
+		log.Debug("remoteconfig: client stopping timeout")
+	}
+	client = nil
+	started = false
 }
 
 // Reset destroys the client instance.
 // To be used only in tests to reset the state of the client.
 func Reset() {
+	clientMux.Lock()
+	defer clientMux.Unlock()
+
+	// Signal the goroutine to exit (safe even if never started); Reset doesn't wait.
+	if client != nil {
+		client.stopOnce.Do(func() { close(client.stop) })
+	}
 	client = nil
-	startOnce = sync.Once{}
-	stopOnce = sync.Once{}
+	started = false
+}
+
+// ClientID returns the client ID of the RC singleton, or an empty string if the
+// client has not been started yet.
+func ClientID() string {
+	clientMux.Lock()
+	defer clientMux.Unlock()
+	if client == nil {
+		return ""
+	}
+	return client.clientID
 }
 
 func (c *Client) updateState() {
 	data, err := c.newUpdateRequest()
 	if err != nil {
-		log.Error("remoteconfig: unexpected error while creating a new update request payload: %v", err)
+		log.Error("remoteconfig: unexpected error while creating a new update request payload: %s", err.Error())
 		return
 	}
 
 	req, err := http.NewRequest(http.MethodGet, c.endpoint, &data)
 	if err != nil {
-		log.Error("remoteconfig: unexpected error while creating a new http request: %v", err)
+		log.Error("remoteconfig: unexpected error while creating a new http request: %s", err.Error())
 		return
+	}
+	if internal.ContainerID() != "" {
+		req.Header.Set("Datadog-Container-ID", internal.ContainerID())
+	}
+	if internal.EntityID() != "" {
+		req.Header.Set("Datadog-Entity-ID", internal.EntityID())
 	}
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		log.Debug("remoteconfig: http request error: %v", err)
+		log.Debug("remoteconfig: http request error: %s", err.Error())
 		return
 	}
 	// Flush and close the response body when returning (cf. https://pkg.go.dev/net/http#Client.Do)
@@ -228,7 +375,7 @@ func (c *Client) updateState() {
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error("remoteconfig: http request error: could not read the response body: %v", err)
+		log.Error("remoteconfig: http request error: could not read the response body: %s", err.Error())
 		return
 	}
 
@@ -238,35 +385,97 @@ func (c *Client) updateState() {
 
 	var update clientGetConfigsResponse
 	if err := json.Unmarshal(respBody, &update); err != nil {
-		log.Error("remoteconfig: http request error: could not parse the json response body: %v", err)
+		log.Error("remoteconfig: http request error: could not parse the json response body: %s", err.Error())
+		return
+	}
+
+	// Skip update if there's no new TUF metadata to prevent targets_version from being reset to 0.
+	// When the Remote Config server sends a response with no new TUF targets, calling repository.Update() with
+	// empty targets must not cause the targets version to reset.
+	if len(update.Targets) == 0 {
+		log.Debug("remoteconfig: skipping update with no TUF metadata (empty targets)")
 		return
 	}
 
 	c.lastError = c.applyUpdate(&update)
 }
 
-// Subscribe registers a product and its callback to be invoked when the client receives configuration updates.
-// Subscribe should be preferred over RegisterProduct and RegisterCallback if your callback only handles a single product.
-func Subscribe(product string, callback ProductCallback, capabilities ...Capability) error {
+// requestPoll asks the loop to poll now. Non-blocking, no locks (safe under the client's locks).
+func (c *Client) requestPoll() {
+	select {
+	case c.pollNow <- struct{}{}:
+	default:
+	}
+}
+
+type SubscriptionToken int
+
+// Subscribe registers a product and its callback to be invoked when the client
+// receives configuration updates for the specified product. The returned token
+// can be passed to Unsubscribe to remove the subscription.
+//
+// It is legal to call Subscribe multiple times with the same product, and even
+// to call it multiple times with the same product and different capabilities.
+// Note, however, that the capabilities reported to RC are the union of all
+// capabilities passed to Subscribe and RegisterCapability (across all
+// products); in other words, the capabilities are not tied to a specific
+// product or subscription.
+//
+// Subscribe should be preferred over RegisterProduct and RegisterCallback if
+// your callback only handles a single product.
+func Subscribe(product string, callback ProductCallback, capabilities ...Capability) (SubscriptionToken, error) {
+	// Capture the singleton once so a concurrent Stop/Reset (which nils the
+	// global) can't cause a nil deref mid-function.
+	c := client
+	if c == nil {
+		return 0, ErrClientNotStarted
+	}
+	c.productsMu.RLock()
+	defer c.productsMu.RUnlock()
+	if _, found := c.products[product]; found {
+		return 0, fmt.Errorf("product %s already registered via RegisterProduct", product)
+	}
+
+	c.subscriptionsMu.Lock()
+	defer c.subscriptionsMu.Unlock()
+	c.subscriptionsMu.idAllocator++
+	id := c.subscriptionsMu.idAllocator
+	sub := subscription{
+		id:           id,
+		product:      product,
+		capabilities: capabilities,
+		callback:     callback,
+	}
+	c.subscriptionsMu.subs = append(c.subscriptionsMu.subs, sub)
+
+	c.capabilitiesMu.Lock()
+	defer c.capabilitiesMu.Unlock()
+	for _, cap := range capabilities {
+		c.capabilities[cap] = struct{}{}
+	}
+	// Poll now: Subscribe registers product+callback+capabilities atomically, so
+	// the poll can't arrive before the callback. (RegisterProduct/RegisterCapability
+	// don't — they're used before a callback exists; see those.)
+	c.requestPoll()
+	return SubscriptionToken(id), nil
+}
+
+// Unsubscribe removes a subscription previously registered via Subscribe. The
+// capabilities associated with that subscription will no longer be reported to
+// RC.
+func Unsubscribe(token SubscriptionToken) error {
 	if client == nil {
 		return ErrClientNotStarted
 	}
-	client.productsMu.RLock()
-	defer client.productsMu.RUnlock()
-	if _, found := client.products[product]; found {
-		return fmt.Errorf("product %s already registered via RegisterProduct", product)
+	client.subscriptionsMu.Lock()
+	defer client.subscriptionsMu.Unlock()
+	for i, sub := range client.subscriptionsMu.subs {
+		if sub.id == int(token) {
+			client.subscriptionsMu.subs = append(client.subscriptionsMu.subs[:i], client.subscriptionsMu.subs[i+1:]...)
+			return nil
+		}
 	}
-
-	client.productsWithCallbacksMu.Lock()
-	defer client.productsWithCallbacksMu.Unlock()
-	client.productsWithCallbacks[product] = callback
-
-	client.capabilitiesMu.Lock()
-	defer client.capabilitiesMu.Unlock()
-	for _, cap := range capabilities {
-		client.capabilities[cap] = struct{}{}
-	}
-	return nil
+	return fmt.Errorf("subscription %d not found", token)
 }
 
 // RegisterCallback allows registering a callback that will be invoked when the client
@@ -290,13 +499,11 @@ func UnregisterCallback(f Callback) error {
 	}
 	client._callbacksMu.Lock()
 	defer client._callbacksMu.Unlock()
-	fValue := reflect.ValueOf(f)
-	for i, callback := range client.callbacks {
-		if reflect.ValueOf(callback) == fValue {
-			client.callbacks = append(client.callbacks[:i], client.callbacks[i+1:]...)
-			break
-		}
-	}
+
+	toRemove := reflect.ValueOf(f).Pointer()
+	client.callbacks = slices.DeleteFunc(client.callbacks, func(cb Callback) bool {
+		return reflect.ValueOf(cb).Pointer() == toRemove
+	})
 	return nil
 }
 
@@ -307,12 +514,17 @@ func RegisterProduct(p string) error {
 	}
 	client.productsMu.Lock()
 	defer client.productsMu.Unlock()
-	client.productsWithCallbacksMu.RLock()
-	defer client.productsWithCallbacksMu.RUnlock()
-	if _, found := client.productsWithCallbacks[p]; found {
-		return fmt.Errorf("product %s already registered via Subscribe", p)
+	client.subscriptionsMu.RLock()
+	defer client.subscriptionsMu.RUnlock()
+	for _, s := range client.subscriptionsMu.subs {
+		if s.product == p {
+			return fmt.Errorf("product %s already registered via Subscribe", p)
+		}
 	}
+
 	client.products[p] = struct{}{}
+	// No eager poll: used before a callback exists (see Subscribe), so an early
+	// poll's config would be dedup'd before the callback sees it. Picked up next tick.
 	return nil
 }
 
@@ -334,46 +546,78 @@ func HasProduct(p string) (bool, error) {
 	}
 	client.productsMu.RLock()
 	defer client.productsMu.RUnlock()
-	client.productsWithCallbacksMu.RLock()
-	defer client.productsWithCallbacksMu.RUnlock()
+
 	_, found := client.products[p]
-	_, foundWithCallback := client.productsWithCallbacks[p]
-	return found || foundWithCallback, nil
+	if found {
+		return true, nil
+	}
+
+	client.subscriptionsMu.RLock()
+	defer client.subscriptionsMu.RUnlock()
+	for _, s := range client.subscriptionsMu.subs {
+		if s.product == p {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // RegisterCapability adds a capability to the list of capabilities exposed by the client when requesting
 // configuration updates
-func RegisterCapability(cap Capability) error {
+func RegisterCapability(cpb Capability) error {
 	if client == nil {
 		return ErrClientNotStarted
 	}
 	client.capabilitiesMu.Lock()
 	defer client.capabilitiesMu.Unlock()
-	client.capabilities[cap] = struct{}{}
+	client.capabilities[cpb] = struct{}{}
+	// No eager poll (see Subscribe); picked up next tick.
 	return nil
 }
 
 // UnregisterCapability removes a capability from the list of capabilities exposed by the client when requesting
 // configuration updates
-func UnregisterCapability(cap Capability) error {
+func UnregisterCapability(cpb Capability) error {
 	if client == nil {
 		return ErrClientNotStarted
 	}
 	client.capabilitiesMu.Lock()
 	defer client.capabilitiesMu.Unlock()
-	delete(client.capabilities, cap)
+	delete(client.capabilities, cpb)
 	return nil
 }
 
 // HasCapability returns whether a given capability was registered
-func HasCapability(cap Capability) (bool, error) {
+func HasCapability(cpb Capability) (bool, error) {
 	if client == nil {
 		return false, ErrClientNotStarted
 	}
 	client.capabilitiesMu.RLock()
 	defer client.capabilitiesMu.RUnlock()
-	_, found := client.capabilities[cap]
+	_, found := client.capabilities[cpb]
 	return found, nil
+}
+
+func (c *Client) allCapabilities() *big.Int {
+	capa := big.NewInt(0)
+
+	// Read registered capabilities without holding the lock while we also read subscriptions.
+	c.capabilitiesMu.RLock()
+	for i := range c.capabilities {
+		capa.SetBit(capa, int(i), 1)
+	}
+	c.capabilitiesMu.RUnlock()
+
+	c.subscriptionsMu.RLock()
+	for _, s := range c.subscriptionsMu.subs {
+		for _, cap := range s.capabilities {
+			capa.SetBit(capa, int(cap), 1)
+		}
+	}
+	c.subscriptionsMu.RUnlock()
+
+	return capa
 }
 
 func (c *Client) globalCallbacks() []Callback {
@@ -385,11 +629,11 @@ func (c *Client) globalCallbacks() []Callback {
 }
 
 func (c *Client) productCallbacks() map[string]ProductCallback {
-	c.productsWithCallbacksMu.RLock()
-	defer c.productsWithCallbacksMu.RUnlock()
-	callbacks := make(map[string]ProductCallback, len(c.productsWithCallbacks))
-	for k, v := range c.productsWithCallbacks {
-		callbacks[k] = v
+	c.subscriptionsMu.RLock()
+	defer c.subscriptionsMu.RUnlock()
+	callbacks := make(map[string]ProductCallback, len(c.subscriptionsMu.subs))
+	for _, v := range c.subscriptionsMu.subs {
+		callbacks[v.product] = v.callback
 	}
 	return callbacks
 }
@@ -397,15 +641,24 @@ func (c *Client) productCallbacks() map[string]ProductCallback {
 func (c *Client) allProducts() []string {
 	c.productsMu.RLock()
 	defer c.productsMu.RUnlock()
-	c.productsWithCallbacksMu.RLock()
-	defer c.productsWithCallbacksMu.RUnlock()
-	products := make([]string, 0, len(c.products)+len(c.productsWithCallbacks))
+	c.subscriptionsMu.RLock()
+	defer c.subscriptionsMu.RUnlock()
+
+	// Dedup products across all subscriptions and registered products.
+	ps := make(map[string]struct{}, len(c.products)+len(c.subscriptionsMu.subs))
+
 	for p := range c.products {
+		ps[p] = struct{}{}
+	}
+	for _, s := range c.subscriptionsMu.subs {
+		ps[s.product] = struct{}{}
+	}
+
+	products := make([]string, 0, len(ps))
+	for p := range ps {
 		products = append(products, p)
 	}
-	for p := range c.productsWithCallbacks {
-		products = append(products, p)
-	}
+
 	return products
 }
 
@@ -413,17 +666,21 @@ func (c *Client) applyUpdate(pbUpdate *clientGetConfigsResponse) error {
 	fileMap := make(map[string][]byte, len(pbUpdate.TargetFiles))
 	allProducts := c.allProducts()
 	productUpdates := make(map[string]ProductUpdate, len(allProducts))
-	for _, p := range allProducts {
-		productUpdates[p] = make(ProductUpdate)
-	}
 	for _, f := range pbUpdate.TargetFiles {
-		fileMap[f.Path] = f.Raw
-		for _, p := range allProducts {
-			// Check the config file path to make sure it belongs to the right product
-			if strings.Contains(f.Path, "/"+p+"/") {
-				productUpdates[p][f.Path] = f.Raw
-			}
+		path, valid := ParsePath(f.Path)
+		if !valid {
+			log.Warn("remoteconfig: ignoring invalid target file path: %s", f.Path)
+			continue
 		}
+
+		fileMap[f.Path] = f.Raw
+		if !slices.Contains(allProducts, path.Product) {
+			log.Debug("remoteconfig: received file for unknown product %s (known: %#v): %s", path.Product, allProducts, f.Path) //nolint:gocritic // Debug logging for unknown products
+		}
+		if productUpdates[path.Product] == nil {
+			productUpdates[path.Product] = make(ProductUpdate)
+		}
+		productUpdates[path.Product][f.Path] = f.Raw
 	}
 
 	mapify := func(s *rc.RepositoryState) map[string]string {
@@ -441,7 +698,7 @@ func (c *Client) applyUpdate(pbUpdate *clientGetConfigsResponse) error {
 	// are provided with this information in this case
 	stateBefore, err := c.repository.CurrentState()
 	if err != nil {
-		return fmt.Errorf("repository current state error: %v", err)
+		return fmt.Errorf("repository current state error: %s", err)
 	}
 	products, err := c.repository.Update(rc.Update{
 		TUFRoots:      pbUpdate.Roots,
@@ -450,12 +707,25 @@ func (c *Client) applyUpdate(pbUpdate *clientGetConfigsResponse) error {
 		ClientConfigs: pbUpdate.ClientConfigs,
 	})
 	if err != nil {
-		return fmt.Errorf("repository update error: %v", err)
+		return fmt.Errorf("repository update error: %s", err)
 	}
 	stateAfter, err := c.repository.CurrentState()
 	if err != nil {
-		return fmt.Errorf("repository current state error after update: %v", err)
+		return fmt.Errorf("repository current state error after update: %s", err)
 	}
+
+	// Save the config states after successful update for use in error reporting
+	configStates := make([]*configState, 0, len(stateAfter.Configs))
+	for _, f := range stateAfter.Configs {
+		configStates = append(configStates, &configState{
+			ID:         f.ID,
+			Version:    f.Version,
+			Product:    f.Product,
+			ApplyState: f.ApplyStatus.State,
+			ApplyError: f.ApplyStatus.Error,
+		})
+	}
+	c.lastConfigStates = configStates
 
 	// Create a config files diff between before/after the update to see which config files are missing
 	mBefore := mapify(&stateBefore)
@@ -488,8 +758,8 @@ func (c *Client) applyUpdate(pbUpdate *clientGetConfigsResponse) error {
 	// 3 - ApplyStateAcknowledged
 	// This makes sure that any product that would need to re-receive the config in a subsequent update will be allowed to
 	statuses := make(map[string]rc.ApplyStatus)
-	for _, fn := range c.globalCallbacks() {
-		for path, status := range fn(productUpdates) {
+	for _, cb := range c.globalCallbacks() {
+		for path, status := range cb(productUpdates) {
 			if s, ok := statuses[path]; !ok || status.State == rc.ApplyStateError ||
 				s.State == rc.ApplyStateAcknowledged && status.State == rc.ApplyStateUnacknowledged {
 				statuses[path] = status
@@ -500,9 +770,7 @@ func (c *Client) applyUpdate(pbUpdate *clientGetConfigsResponse) error {
 	productCallbacks := c.productCallbacks()
 	for product, update := range productUpdates {
 		if fn, ok := productCallbacks[product]; ok {
-			for path, status := range fn(update) {
-				statuses[path] = status
-			}
+			maps.Copy(statuses, fn(update))
 		}
 	}
 	for p, s := range statuses {
@@ -544,8 +812,14 @@ func (c *Client) newUpdateRequest() (bytes.Buffer, error) {
 		errMsg = c.lastError.Error()
 	}
 
+	// When there's an error, use the last known good config states
+	// Otherwise, use the current state and also update lastConfigStates
 	var pbConfigState []*configState
-	if !hasError {
+	if hasError && c.lastConfigStates != nil {
+		// Use the last successfully retrieved config states during error state
+		pbConfigState = c.lastConfigStates
+	} else {
+		// No error, build config states from current repository state
 		pbConfigState = make([]*configState, 0, len(state.Configs))
 		for _, f := range state.Configs {
 			pbConfigState = append(pbConfigState, &configState{
@@ -556,11 +830,14 @@ func (c *Client) newUpdateRequest() (bytes.Buffer, error) {
 				ApplyError: f.ApplyStatus.Error,
 			})
 		}
+		// Also update lastConfigStates for future use
+		c.lastConfigStates = pbConfigState
 	}
 
-	capa := big.NewInt(0)
-	for i := range c.capabilities {
-		capa.SetBit(capa, int(i), 1)
+	capa := c.allCapabilities()
+	var tags []string
+	for k, v := range internal.GetGitMetadataTags() {
+		tags = append(tags, k+":"+v)
 	}
 	req := clientGetConfigsRequest{
 		Client: &clientData{
@@ -581,6 +858,8 @@ func (c *Client) newUpdateRequest() (bytes.Buffer, error) {
 				Service:       c.ServiceName,
 				Env:           c.Env,
 				AppVersion:    c.AppVersion,
+				ProcessTags:   processtags.GlobalTags().Slice(),
+				Tags:          tags,
 			},
 			Capabilities: capa.Bytes(),
 		},
@@ -609,7 +888,7 @@ func generateID() string {
 		panic(err)
 	}
 	id := make([]rune, idSize)
-	for i := 0; i < idSize; i++ {
+	for i := range idSize {
 		id[i] = idAlphabet[bytes[i]&63]
 	}
 	return string(id[:idSize])

@@ -12,7 +12,7 @@ import (
 	"context"
 	"sync"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
 )
 
 // Fetcher supports fetching a value, such as from a cloud service API.  An
@@ -35,10 +35,10 @@ type Fetcher struct {
 	// value.  This function is not called if there is no last successful value.
 	// If left at its zero state, a default log message will be generated, using
 	// Name.
-	LogFailure func(error, interface{})
+	LogFailure func(error, any)
 
 	// previous successfully fetched value
-	lastValue interface{}
+	lastValue any
 
 	// mutex to protect access to lastValue
 	sync.Mutex

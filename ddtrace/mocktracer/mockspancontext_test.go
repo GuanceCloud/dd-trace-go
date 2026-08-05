@@ -13,7 +13,7 @@ import (
 
 func TestMockIDs(t *testing.T) {
 	last := nextID()
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		// ensure incremental (unique) IDs
 		next := nextID()
 		if next <= last {
@@ -46,7 +46,7 @@ func TestSpanContextIterator(t *testing.T) {
 
 	t.Run("some", func(t *testing.T) {
 		var seen int
-		sc.ForeachBaggageItem(func(k, v string) bool {
+		sc.ForeachBaggageItem(func(_, _ string) bool {
 			seen++
 			return false
 		})
@@ -54,7 +54,7 @@ func TestSpanContextIterator(t *testing.T) {
 	})
 
 	t.Run("all", func(t *testing.T) {
-		seen := make(map[string]interface{}, 2)
+		seen := make(map[string]any, 2)
 		sc.ForeachBaggageItem(func(k, v string) bool {
 			seen[k] = v
 			return true

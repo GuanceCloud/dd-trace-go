@@ -9,7 +9,7 @@ import (
 	"net/textproto"
 	"testing"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,7 +37,7 @@ func TestHeaderTagSlice(t *testing.T) {
 	t.Run("datadog headers", func(t *testing.T) {
 		hSlice := []string{"x-datadog-id:tag"}
 		hMap := HeaderTagSlice(hSlice)
-		assert.Len(t, hMap, 0)
+		assert.Len(t, hMap, 1)
 	})
 	t.Run("leading colon", func(t *testing.T) {
 		hSlice := []string{":header"}

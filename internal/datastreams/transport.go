@@ -10,45 +10,16 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
-	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
+	"github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
 
 	"github.com/tinylib/msgp/msgp"
 )
-
-const (
-	defaultHostname    = "localhost"
-	defaultPort        = "8126"
-	defaultAddress     = defaultHostname + ":" + defaultPort
-	defaultHTTPTimeout = 2 * time.Second // defines the current timeout before giving up with the send process
-)
-
-var defaultDialer = &net.Dialer{
-	Timeout:   30 * time.Second,
-	KeepAlive: 30 * time.Second,
-	DualStack: true,
-}
-
-var defaultClient = &http.Client{
-	// We copy the transport to avoid using the default one, as it might be
-	// augmented with tracing and we don't want these calls to be recorded.
-	// See https://golang.org/pkg/net/http/#DefaultTransport .
-	Transport: &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           defaultDialer.DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	},
-	Timeout: defaultHTTPTimeout,
-}
 
 type httpTransport struct {
 	url     string            // the delivery URL for stats
@@ -71,7 +42,7 @@ func newHTTPTransport(agentURL *url.URL, client *http.Client) *httpTransport {
 	if entityID := internal.ContainerID(); entityID != "" {
 		defaultHeaders["Datadog-Entity-ID"] = entityID
 	}
-	url := fmt.Sprintf("%s/v0.1/pipeline_stats", agentURL.String())
+	url := agentURL.String() + "/v0.1/pipeline_stats"
 	return &httpTransport{
 		url:     url,
 		client:  client,
@@ -80,6 +51,7 @@ func newHTTPTransport(agentURL *url.URL, client *http.Client) *httpTransport {
 }
 
 func (t *httpTransport) sendPipelineStats(p *StatsPayload) error {
+	log.Debug("datastreams: sending pipeline_stats payload buckets=%d", len(p.Stats))
 	var buf bytes.Buffer
 	gzipWriter, err := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
 	if err != nil {
@@ -105,6 +77,7 @@ func (t *httpTransport) sendPipelineStats(p *StatsPayload) error {
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, req.Body)
+	log.Debug("datastreams: pipeline_stats POST status=%d", resp.StatusCode)
 	if code := resp.StatusCode; code >= 400 {
 		// error, check the body for context information and
 		// return a nice error.

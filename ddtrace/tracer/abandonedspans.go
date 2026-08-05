@@ -8,13 +8,14 @@ package tracer
 import (
 	"container/list"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
 )
 
 var (
@@ -46,16 +47,17 @@ func (b *bucket[K, T]) add(k K, v T) {
 	b.index[k] = e
 }
 
-func (b *bucket[K, T]) get(k K) (T, bool) {
-	e, ok := b.index[k]
-	if !ok {
-		// Compiler trick to return any zero value in generic code.
-		// https://stackoverflow.com/a/70589302
-		var zero T
-		return zero, ok
-	}
-	return e.Value.(T), ok
-}
+// This function is currently not used. We can add it back if it is needed
+// func (b *bucket[K, T]) get(k K) (T, bool) {
+// 	e, ok := b.index[k]
+// 	if !ok {
+// 		// Compiler trick to return any zero value in generic code.
+// 		// https://stackoverflow.com/a/70589302
+// 		var zero T
+// 		return zero, ok
+// 	}
+// 	return e.Value.(T), ok
+// }
 
 func (b *bucket[K, T]) remove(k K) {
 	e, ok := b.index[k]
@@ -77,27 +79,37 @@ type abandonedSpanCandidate struct {
 	TraceID, SpanID uint64
 	Start           int64
 	Finished        bool
+	Integration     string
 }
 
-func newAbandonedSpanCandidate(s *span, finished bool) *abandonedSpanCandidate {
+// +checklocksignore — Called while span is locked or during initialization.
+func newAbandonedSpanCandidate(s *Span, finished bool) *abandonedSpanCandidate {
+	var component string
+	if v, ok := s.meta.Get(ext.Component); ok {
+		component = v
+	} else {
+		component = "manual"
+	}
 	// finished is explicit instead of implicit as s.finished may be not set
 	// at the moment of calling this method.
 	// Also, locking is not required as it's called while the span is already locked or it's
 	// being initialized.
-	return &abandonedSpanCandidate{
-		Name:     s.Name,
-		TraceID:  s.TraceID,
-		SpanID:   s.SpanID,
-		Start:    s.Start,
-		Finished: finished,
+	c := &abandonedSpanCandidate{
+		Name:        s.name,
+		TraceID:     s.traceID,
+		SpanID:      s.spanID,
+		Start:       s.start,
+		Finished:    finished,
+		Integration: component,
 	}
+	return c
 }
 
 // String takes a span and returns a human-readable string representing that span.
 func (s *abandonedSpanCandidate) String() string {
 	age := now() - s.Start
 	a := fmt.Sprintf("%d sec", age/1e9)
-	return fmt.Sprintf("[name: %s, span_id: %d, trace_id: %d, age: %s],", s.Name, s.SpanID, s.TraceID, a)
+	return fmt.Sprintf("[name: %s, integration: %s, span_id: %d, trace_id: %d, age: %s],", s.Name, s.Integration, s.SpanID, s.TraceID, a)
 }
 
 type abandonedSpansDebugger struct {
@@ -114,11 +126,12 @@ type abandonedSpansDebugger struct {
 	stop chan struct{}
 
 	// stopped reports whether the debugger is stopped (when non-zero).
-	stopped uint32
+	stopped uint32 // +checkatomic
 
 	// addedSpans and removedSpans are internal counters, mainly for testing
 	// purposes
-	addedSpans, removedSpans uint32
+	addedSpans   uint32 // +checkatomic
+	removedSpans uint32 // +checkatomic
 }
 
 // newAbandonedSpansDebugger creates a new abandonedSpansDebugger debugger
@@ -142,13 +155,11 @@ func (d *abandonedSpansDebugger) Start(interval time.Duration) {
 		return
 	}
 	d.stop = make(chan struct{})
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
+	d.wg.Go(func() {
 		tick := time.NewTicker(tickerInterval)
 		defer tick.Stop()
 		d.runConsumer(tick, &interval)
-	}()
+	})
 }
 
 func (d *abandonedSpansDebugger) runConsumer(tick *time.Ticker, interval *time.Duration) {
@@ -237,9 +248,7 @@ func (d *abandonedSpansDebugger) log(interval *time.Duration) {
 	for k := range d.buckets {
 		keys = append(keys, k)
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] < keys[j]
-	})
+	slices.Sort(keys)
 	for _, k := range keys {
 		if truncated {
 			break
@@ -273,7 +282,7 @@ func (d *abandonedSpansDebugger) log(interval *time.Duration) {
 		log.Warn("Too many abandoned spans. Truncating message.")
 		sb.WriteString("...")
 	}
-	log.Warn(sb.String())
+	log.Warn("%s", sb.String())
 }
 
 // formatAbandonedSpans takes a bucket and returns a human-readable string representing
@@ -291,6 +300,9 @@ func formatAbandonedSpans(b *bucket[uint64, *abandonedSpanCandidate], interval *
 		// user configured timeout, and discard it if it is not.
 		if interval != nil && curTime-s.Start < interval.Nanoseconds() {
 			continue
+		}
+		if t, ok := getGlobalTracer().(*tracer); ok {
+			t.statsd.Incr("datadog.tracer.abandoned_spans", []string{"name:" + s.Name, "integration:" + s.Integration}, 1)
 		}
 		spanCount++
 		msg := s.String()

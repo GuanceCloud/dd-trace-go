@@ -9,6 +9,7 @@ package cachedfetch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -19,7 +20,7 @@ import (
 // If Attempt never succeeds, f.Fetch returns an error
 func TestFetcherNeverSucceeds(t *testing.T) {
 	f := Fetcher{
-		Attempt: func(ctx context.Context) (string, error) { return "", fmt.Errorf("uhoh") },
+		Attempt: func(_ context.Context) (string, error) { return "", errors.New("uhoh") },
 	}
 
 	v, err := f.Fetch(context.TODO())
@@ -35,7 +36,7 @@ func TestFetcherNeverSucceeds(t *testing.T) {
 func TestFetcherCalledEachFetch(t *testing.T) {
 	count := 0
 	f := Fetcher{
-		Attempt: func(ctx context.Context) (string, error) {
+		Attempt: func(_ context.Context) (string, error) {
 			count++
 			return strconv.Itoa(count), nil
 		},
@@ -55,10 +56,10 @@ func TestFetcherUsesCachedValue(t *testing.T) {
 	count := 0
 	f := Fetcher{
 		Name: "test",
-		Attempt: func(ctx context.Context) (string, error) {
+		Attempt: func(_ context.Context) (string, error) {
 			count++
 			if count%2 == 0 {
-				return "", fmt.Errorf("uhoh")
+				return "", errors.New("uhoh")
 			}
 			return strconv.Itoa(count), nil
 		},
@@ -76,14 +77,14 @@ func TestFetcherLogsWhenUsingCached(t *testing.T) {
 	count := 0
 	errs := []string{}
 	f := Fetcher{
-		Attempt: func(ctx context.Context) (string, error) {
+		Attempt: func(_ context.Context) (string, error) {
 			count++
 			if count%2 == 0 {
-				return "", fmt.Errorf("uhoh")
+				return "", errors.New("uhoh")
 			}
 			return strconv.Itoa(count), nil
 		},
-		LogFailure: func(err error, v interface{}) {
+		LogFailure: func(err error, v any) {
 			errs = append(errs, fmt.Sprintf("%v, %v", err, v))
 		},
 	}
@@ -98,8 +99,8 @@ func TestFetcherLogsWhenUsingCached(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	succeed := func(ctx context.Context) (string, error) { return "yay", nil }
-	fail := func(ctx context.Context) (string, error) { return "", fmt.Errorf("uhoh") }
+	succeed := func(_ context.Context) (string, error) { return "yay", nil }
+	fail := func(_ context.Context) (string, error) { return "", errors.New("uhoh") }
 	f := Fetcher{}
 
 	f.Attempt = succeed

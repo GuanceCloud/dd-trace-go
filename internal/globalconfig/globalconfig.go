@@ -9,17 +9,36 @@ package globalconfig
 
 import (
 	"math"
+	"os"
 	"sync"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
+	"github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/DataDog/dd-trace-go/v2/internal/env"
 
 	"github.com/google/uuid"
 )
 
-var cfg = &config{
-	analyticsRate: math.NaN(),
-	runtimeID:     uuid.New().String(),
-	headersAsTags: internal.NewLockMap(map[string]string{}),
+const rootSessionIDEnvVar = "_DD_ROOT_GO_SESSION_ID"
+
+var cfg = newConfig()
+
+func newConfig() *config {
+	runtimeID := uuid.New().String()
+	return &config{
+		analyticsRate: math.NaN(),
+		runtimeID:     runtimeID,
+		rootSessionID: getRootSessionID(runtimeID),
+		headersAsTags: internal.NewLockMap(map[string]string{}),
+	}
+}
+
+func getRootSessionID(runtimeID string) string {
+	id := env.Get(rootSessionIDEnvVar)
+	if id == "" {
+		id = runtimeID
+	}
+	os.Setenv(rootSessionIDEnvVar, id) // propagate to child processes
+	return id
 }
 
 type config struct {
@@ -27,7 +46,10 @@ type config struct {
 	analyticsRate float64
 	serviceName   string
 	runtimeID     string
+	rootSessionID string
 	headersAsTags *internal.LockMap
+	dogstatsdAddr string
+	statsTags     []string
 }
 
 // AnalyticsRate returns the sampling rate at which events should be marked. It uses
@@ -60,11 +82,53 @@ func SetServiceName(name string) {
 	cfg.serviceName = name
 }
 
+// DogstatsdAddr returns the destination for tracer and contrib statsd clients
+func DogstatsdAddr() string {
+	cfg.mu.RLock()
+	defer cfg.mu.RUnlock()
+	return cfg.dogstatsdAddr
+}
+
+// SetDogstatsdAddr sets the destination for statsd clients to be used by tracer and contrib packages
+func SetDogstatsdAddr(addr string) {
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
+	cfg.dogstatsdAddr = addr
+}
+
+// StatsTags returns a list of tags that apply to statsd payloads for both tracer and contribs
+func StatsTags() []string {
+	cfg.mu.RLock()
+	defer cfg.mu.RUnlock()
+	// Copy the slice before returning it, so that callers cannot pollute the underlying array
+	tags := make([]string, len(cfg.statsTags))
+	copy(tags, cfg.statsTags)
+	return tags
+}
+
+// SetStatsTags configures the list of tags that should be applied to contribs' statsd.Client as global tags
+// It should only be called by the tracer package
+func SetStatsTags(tags []string) {
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
+	// Copy the slice before setting it, so that any changes to the slice provided to SetStatsTags does not pollute the underlying array of statsTags
+	statsTags := make([]string, len(tags))
+	copy(statsTags, tags)
+	cfg.statsTags = statsTags
+}
+
 // RuntimeID returns this process's unique runtime id.
 func RuntimeID() string {
 	cfg.mu.RLock()
 	defer cfg.mu.RUnlock()
 	return cfg.runtimeID
+}
+
+// RootSessionID returns the root session ID for this process tree.
+func RootSessionID() string {
+	cfg.mu.RLock()
+	defer cfg.mu.RUnlock()
+	return cfg.rootSessionID
 }
 
 // HeaderTagMap returns the mappings of headers to their tag values
@@ -92,4 +156,19 @@ func HeaderTagsLen() int {
 // It is invoked when WithHeaderTags is called, in order to overwrite the config
 func ClearHeaderTags() {
 	cfg.headersAsTags.Clear()
+}
+
+// InstrumentationInstallID returns the install ID as described in DD_INSTRUMENTATION_INSTALL_ID
+func InstrumentationInstallID() string {
+	return env.Get("DD_INSTRUMENTATION_INSTALL_ID")
+}
+
+// InstrumentationInstallType returns the install type as described in DD_INSTRUMENTATION_INSTALL_TYPE
+func InstrumentationInstallType() string {
+	return env.Get("DD_INSTRUMENTATION_INSTALL_TYPE")
+}
+
+// InstrumentationInstallTime returns the install time as described in DD_INSTRUMENTATION_INSTALL_TIME
+func InstrumentationInstallTime() string {
+	return env.Get("DD_INSTRUMENTATION_INSTALL_TIME")
 }

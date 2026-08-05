@@ -33,9 +33,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/internal"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
 
 	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -62,8 +63,9 @@ func NewTracerProvider(opts ...tracer.StartOption) *TracerProvider {
 	tracer.Start(opts...)
 	p := &TracerProvider{}
 	t := &oteltracer{
-		DD:       internal.GetGlobalTracer(),
-		provider: p,
+		DD:                   internal.GetGlobalTracer[tracer.Tracer](),
+		provider:             p,
+		otelSemanticsEnabled: internalconfig.Get().OTelSemanticsEnabled(),
 	}
 	p.tracer = t
 	return p

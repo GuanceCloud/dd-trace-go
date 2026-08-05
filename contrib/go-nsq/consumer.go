@@ -12,11 +12,19 @@ import (
 	"math"
 	"time"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 	"github.com/nsqio/go-nsq"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
+
+const component = instrumentation.PackageNSQIOGoNSQ
+
+var instr *instrumentation.Instrumentation
+
+func init() {
+	instr = instrumentation.Load(component)
+}
 
 type spanContextKey struct{}
 
@@ -116,13 +124,15 @@ func (consu *Consumer) AddConcurrentHandlers(handler HandlerWithSpanContext, con
 	}), concurrency)
 }
 
-func (consu *Consumer) startSpan(ctx context.Context, operation string) (tracer.Span, context.Context) {
-	opts := []ddtrace.StartSpanOption{
-		tracer.ServiceName(consu.cfg.service),
+func (consu *Consumer) startSpan(ctx context.Context, operation string) (*tracer.Span, context.Context) {
+	opts := []tracer.StartSpanOption{
+		instrumentation.ServiceNameWithSource(consu.cfg.service, consu.cfg.serviceSource),
 		tracer.ResourceName(consu.resource),
 		tracer.SpanType(ext.SpanTypeMessageConsumer),
+		tracer.Tag(ext.Component, component),
+		tracer.Tag(ext.SpanKind, ext.SpanKindConsumer),
 	}
-	if spnctx, ok := ctx.Value(activeSpnCtxKey).(ddtrace.SpanContext); ok {
+	if spnctx, ok := ctx.Value(activeSpnCtxKey).(*tracer.SpanContext); ok {
 		opts = append(opts, tracer.ChildOf(spnctx))
 	}
 	if !math.IsNaN(consu.cfg.analyticsRate) {

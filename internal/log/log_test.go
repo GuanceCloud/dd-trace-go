@@ -6,10 +6,13 @@
 package log
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -20,6 +23,8 @@ type testLogger struct {
 	mu    sync.RWMutex
 	lines []string
 }
+
+var _ Logger = &testLogger{}
 
 // Print implements Logger.
 func (tp *testLogger) Log(msg string) {
@@ -42,6 +47,77 @@ func (tp *testLogger) Reset() {
 	tp.mu.Unlock()
 }
 
+func TestLogDirectory(t *testing.T) {
+	t.Run("invalid", func(t *testing.T) {
+		f, err := OpenFileAtPath("/some/nonexistent/path")
+		assert.Nil(t, f)
+		assert.Error(t, err)
+	})
+	t.Run("valid", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			// ensure File is created successfully
+			dir, err := os.MkdirTemp("", "example")
+			if err != nil {
+				t.Fatalf("Failure creating directory %v", err)
+			}
+			f, err := OpenFileAtPath(dir)
+			assert.Nil(t, err)
+			fp := dir + "/" + LoggerFile
+			assert.NotNil(t, f.file)
+			assert.Equal(t, fp, f.file.Name())
+			assert.False(t, f.closed)
+
+			// ensure this setting plays nicely with other log features
+			oldLvl := Level(levelThreshold.Load())
+			SetLevel(LevelDebug)
+			defer func() {
+				SetLevel(oldLvl)
+			}()
+			Info("info!")
+			Warn("warn!")
+			Debug("debug!")
+			// shorten errrate to test Error() behavior in a reasonable amount of time
+			oldRate := errrate
+			errrate = time.Microsecond
+			defer func() {
+				errrate = oldRate
+			}()
+			Error("error!")
+			time.Sleep(1 * time.Second) // instant: fake clock advances 1s past the errrate timer
+			synctest.Wait()             // wait for time.AfterFunc(errrate, Flush) to fire
+
+			b, err := os.ReadFile(fp)
+			if err != nil {
+				t.Fatalf("Failure reading file: %v", err)
+			}
+			// convert file content to []string{}, split by \n, to easily check its contents
+			lines := bytes.Split(b, []byte{'\n'})
+			logs := make([]string, 0, len(lines))
+			for _, line := range lines {
+				logs = append(logs, string(line))
+			}
+
+			assert.True(t, containsMessage("INFO", "info!", logs))
+			assert.True(t, containsMessage("WARN", "warn!", logs))
+			assert.True(t, containsMessage("DEBUG", "debug!", logs))
+			assert.True(t, containsMessage("ERROR", "error!", logs))
+
+			f.Close()
+			assert.True(t, f.closed)
+
+			//ensure f.Close() is concurrent-safe and free of deadlocks
+			var wg sync.WaitGroup
+			for range 100 {
+				wg.Go(func() {
+					f.Close()
+				})
+			}
+			wg.Wait()
+			assert.True(t, f.closed)
+		})
+	})
+}
+
 func TestLog(t *testing.T) {
 	defer func(old Logger) { UseLogger(old) }(logger)
 	tp := &testLogger{}
@@ -56,7 +132,7 @@ func TestLog(t *testing.T) {
 	t.Run("Debug", func(t *testing.T) {
 		t.Run("on", func(t *testing.T) {
 			tp.Reset()
-			defer func(old Level) { level = old }(level)
+			defer func(old Level) { levelThreshold.Store(int32(old)) }(Level(levelThreshold.Load()))
 			SetLevel(LevelDebug)
 			assert.True(t, DebugEnabled())
 
@@ -106,7 +182,7 @@ func TestLog(t *testing.T) {
 
 		t.Run("limit", func(t *testing.T) {
 			tp.Reset()
-			for i := 0; i < defaultErrorLimit+1; i++ {
+			for i := range defaultErrorLimit + 1 {
 				Error("fifth message %d", i)
 			}
 
@@ -167,7 +243,6 @@ func TestSetLoggingRate(t *testing.T) {
 		},
 	}
 	for _, tC := range testCases {
-		tC := tC
 		errrate = time.Minute // reset global variable
 		t.Run(tC.input, func(t *testing.T) {
 			setLoggingRate(tC.input)
@@ -178,7 +253,7 @@ func TestSetLoggingRate(t *testing.T) {
 
 func BenchmarkError(b *testing.B) {
 	Error("k %s", "a") // warm up cache
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		Error("k %s", "a")
 	}
 }
@@ -194,4 +269,21 @@ func hasMsg(lvl, m string, lines []string) bool {
 
 func msg(lvl, msg string) string {
 	return fmt.Sprintf("%s %s: %s", prefixMsg, lvl, msg)
+}
+
+func containsMessage(lvl, m string, lines []string) bool {
+	for _, line := range lines {
+		if strings.Contains(line, msg(lvl, m)) {
+			return true
+		}
+	}
+	return false
+}
+
+func BenchmarkLog(b *testing.B) {
+	UseLogger(DiscardLogger{})
+	b.ReportAllocs()
+	for b.Loop() {
+		Warn("test")
+	}
 }

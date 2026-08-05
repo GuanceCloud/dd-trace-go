@@ -3,23 +3,33 @@ name: APM Parametric Tests
 on:
   workflow_call: # allows to reuse this workflow
     inputs:
-      ref:
+      branch_ref:
         description: 'The branch to run the workflow on'
         required: true
         type: string
   push:
     branches:
-      - main
       - release-v*
-    tags:
-      - "**"
+      - mq-working-branch-**
+    tags-ignore:
+      - 'contrib/**'
+      - 'instrumentation/**'
+      - 'internal/**'
+      - 'orchestrion/**'
+      - 'scripts/**'
   pull_request:
-    branches:
-      - "**"
-  merge_group:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'System Tests ref/tag/branch'
+        required: true
+        default: main
+        type: string
   schedule:
     - cron:  '00 04 * * 2-6'
+
+permissions:
+  contents: read
 
 jobs:
   parametric-tests:
@@ -30,20 +40,22 @@ jobs:
       TEST_LIBRARY: golang
     steps:
       - name: Checkout system tests
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: 'DataDog/system-tests'
           ref: ${{ inputs.ref }}
 
       - name: Checkout dd-trace-go
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.branch_ref || github.ref }}
           path: 'binaries/dd-trace-go'
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.19"
+          go-version: "oldstable"
 
       - name: Build runner
         uses: ./.github/actions/install_runner

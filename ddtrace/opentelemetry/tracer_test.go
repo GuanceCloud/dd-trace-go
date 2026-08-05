@@ -7,21 +7,23 @@ package opentelemetry
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/telemetry"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/telemetry/telemetrytest"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/baggage"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
 
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	otelbaggage "go.opentelemetry.io/otel/baggage"
 	oteltrace "go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 )
@@ -30,10 +32,9 @@ func TestGetTracer(t *testing.T) {
 	assert := assert.New(t)
 	tp := NewTracerProvider()
 	tr := tp.Tracer("ot")
-	dd := internal.GetGlobalTracer()
 	ott, ok := tr.(*oteltracer)
 	assert.True(ok)
-	assert.Equal(ott.DD, dd)
+	assert.NotNil(ott.DD)
 }
 
 func TestGetTracerMultiple(t *testing.T) {
@@ -69,8 +70,10 @@ func TestSpanWithNewRoot(t *testing.T) {
 	assert.True(ok)
 	assert.Equal(got, child.(*span).DD)
 
-	var parentBytes oteltrace.TraceID
-	uint64ToByte(noopParent.Context().TraceID(), parentBytes[:])
+	// Convert string TraceID to bytes for comparison
+	parentTraceID := noopParent.Context().TraceID()
+	parentBytes := make([]byte, 16)
+	hex.Decode(parentBytes, []byte(parentTraceID))
 	assert.NotEqual(parentBytes, child.SpanContext().TraceID())
 }
 
@@ -81,8 +84,7 @@ func TestSpanWithoutNewRoot(t *testing.T) {
 
 	parent, ddCtx := tracer.StartSpanFromContext(context.Background(), "otel.child")
 	_, child := tr.Start(ddCtx, "otel.child")
-	parentCtxW3C := parent.Context().(ddtrace.SpanContextW3C)
-	assert.Equal(parentCtxW3C.TraceID128Bytes(), [16]byte(child.SpanContext().TraceID()))
+	assert.Equal(parent.Context().TraceID(), child.SpanContext().TraceID().String())
 }
 
 func TestTracerOptions(t *testing.T) {
@@ -116,12 +118,11 @@ func TestSpanContext(t *testing.T) {
 	assert.Equal(oteltrace.FlagsSampled, sctx.TraceFlags())
 	assert.Equal("000000000000000000000000075bcd15", sctx.TraceID().String())
 	assert.Equal("0000000000000010", sctx.SpanID().String())
-	assert.Equal("dd=s:2;o:rum;t.usr.id:baz64~~", sctx.TraceState().String())
+	assert.Equal("dd=s:2;o:rum;p:0000000000000010;t.usr.id:baz64~~", sctx.TraceState().String())
 	assert.Equal(true, sctx.IsRemote())
 }
 
 func TestForceFlush(t *testing.T) {
-	assert := assert.New(t)
 	const (
 		UNSET = iota
 		ERROR
@@ -139,6 +140,7 @@ func TestForceFlush(t *testing.T) {
 	}
 	for _, tc := range testData {
 		t.Run(fmt.Sprintf("Flush success: %t", tc.flushed), func(t *testing.T) {
+			assert := assert.New(t)
 			tp, payloads, cleanup := mockTracerProvider(t)
 			defer cleanup()
 
@@ -166,13 +168,14 @@ func TestForceFlush(t *testing.T) {
 	}
 
 	t.Run("Flush after shutdown", func(t *testing.T) {
+		assert := assert.New(t)
 		tp := NewTracerProvider()
 		otel.SetTracerProvider(tp)
 		testLog := new(log.RecordLogger)
 		defer log.UseLogger(testLog)()
 
 		tp.stopped = 1
-		tp.ForceFlush(time.Second, func(ok bool) {})
+		tp.ForceFlush(time.Second, func(_ bool) {})
 
 		logs := testLog.Logs()
 		assert.Contains(logs[len(logs)-1], "Cannot perform (*TracerProvider).Flush since the tracer is already stopped")
@@ -195,14 +198,13 @@ func TestShutdownOnce(t *testing.T) {
 }
 
 func TestSpanTelemetry(t *testing.T) {
-	telemetryClient := new(telemetrytest.MockClient)
-	defer telemetry.MockGlobalClient(telemetryClient)()
+	telemetryClient := new(telemetrytest.RecordClient)
+	defer telemetry.MockClient(telemetryClient)()
 	tp := NewTracerProvider()
 	otel.SetTracerProvider(tp)
 	tr := otel.Tracer("")
 	_, _ = tr.Start(context.Background(), "otel.span")
-	telemetryClient.AssertCalled(t, "Count", telemetry.NamespaceTracers, "spans_created", 1.0, telemetryTags, true)
-	telemetryClient.AssertNumberOfCalls(t, "Count", 1)
+	assert.NotZero(t, telemetryClient.Count(telemetry.NamespaceTracers, "spans_created", telemetryTags).Get())
 }
 
 func TestConcurrentSetAttributes(_ *testing.T) {
@@ -214,10 +216,10 @@ func TestConcurrentSetAttributes(_ *testing.T) {
 	defer span.End()
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		i := i
-		go func(val int) {
+		go func(_ int) {
 			defer wg.Done()
 			span.SetAttributes(attribute.Float64("workerID", float64(i)))
 		}(i)
@@ -236,7 +238,7 @@ func BenchmarkOTelApiWithNoTags(b *testing.B) {
 
 	b.ResetTimer()
 	b.Run("otel_api", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, sp := tr.Start(context.Background(), testData.op)
 			sp.End()
 		}
@@ -246,7 +248,7 @@ func BenchmarkOTelApiWithNoTags(b *testing.B) {
 	defer tracer.Stop()
 	b.ResetTimer()
 	b.Run("datadog_otel_api", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			sp, _ := tracer.StartSpanFromContext(context.Background(), testData.op)
 			sp.Finish()
 		}
@@ -265,7 +267,7 @@ func BenchmarkOTelApiWithCustomTags(b *testing.B) {
 
 	b.ResetTimer()
 	b.Run("otel_api", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, sp := tr.Start(context.Background(), testData.oldOp)
 			sp.SetAttributes(attribute.String(testData.tagKey, testData.tagValue))
 			sp.SetName(testData.newOp)
@@ -277,7 +279,40 @@ func BenchmarkOTelApiWithCustomTags(b *testing.B) {
 	defer tracer.Stop()
 	b.ResetTimer()
 	b.Run("datadog_otel_api", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
+			sp, _ := tracer.StartSpanFromContext(context.Background(), testData.oldOp)
+			sp.SetTag(testData.tagKey, testData.tagValue)
+			sp.SetOperationName(testData.newOp)
+			sp.Finish()
+		}
+	})
+}
+
+func BenchmarkOTelApiWithCustomTagsSpanPool(b *testing.B) {
+	testData := struct {
+		env, srv, oldOp, newOp, tagKey, tagValue string
+	}{"test_env", "test_srv", "old_op", "new_op", "tag_1", "tag_1_val"}
+
+	tp := NewTracerProvider(tracer.WithEnv(testData.env), tracer.WithService(testData.srv), tracer.WithSpanPool(true))
+	defer tp.Shutdown()
+	otel.SetTracerProvider(tp)
+	tr := otel.Tracer("")
+
+	b.ResetTimer()
+	b.Run("otel_api", func(b *testing.B) {
+		for b.Loop() {
+			_, sp := tr.Start(context.Background(), testData.oldOp)
+			sp.SetAttributes(attribute.String(testData.tagKey, testData.tagValue))
+			sp.SetName(testData.newOp)
+			sp.End()
+		}
+	})
+
+	tracer.Start(tracer.WithEnv(testData.env), tracer.WithService(testData.srv), tracer.WithSpanPool(true))
+	defer tracer.Stop()
+	b.ResetTimer()
+	b.Run("datadog_otel_api", func(b *testing.B) {
+		for b.Loop() {
 			sp, _ := tracer.StartSpanFromContext(context.Background(), testData.oldOp)
 			sp.SetTag(testData.tagKey, testData.tagValue)
 			sp.SetOperationName(testData.newOp)
@@ -293,23 +328,191 @@ func BenchmarkOTelConcurrentTracing(b *testing.B) {
 	tr := otel.Tracer("")
 
 	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		wg := sync.WaitGroup{}
-		for i := 0; i < 100; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 100 {
+			wg.Go(func() {
 				ctx := context.Background()
 				newCtx, parent := tr.Start(ctx, "parent")
 				parent.SetAttributes(attribute.String("ServiceName", "pylons"),
 					attribute.String("ResourceName", "/"))
 				defer parent.End()
 
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					_, child := tr.Start(newCtx, "child")
 					child.End()
 				}
-			}()
+			})
 		}
 	}
+}
+
+func TestMergeOtelDDBaggage(t *testing.T) {
+	t.Run("otelBag and ddBag contain members", func(t *testing.T) {
+		assert := assert.New(t)
+
+		// Set up Datadog baggage first
+		ctx := context.Background()
+		ctx = baggage.Set(ctx, "testKey1", "ddValue1")
+		ctx = baggage.Set(ctx, "testKey2", "ddValue2")
+
+		// Set up OpenTelemetry baggage with one key that duplicated dd baggage, and one unique key
+		m1, err := otelbaggage.NewMember("testKey1", "otelValue1")
+		assert.NoError(err)
+		m2, err := otelbaggage.NewMember("testKey3", "otelValue3")
+		assert.NoError(err)
+		bag, err := otelbaggage.New(m1, m2)
+		assert.NoError(err)
+		ctx = otelbaggage.ContextWithBaggage(ctx, bag)
+
+		// Create tracer and start span
+		tp := NewTracerProvider()
+		otel.SetTracerProvider(tp)
+		tr := otel.Tracer("baggage.test")
+		ctx, span := tr.Start(ctx, "baggage.span")
+		defer span.End()
+
+		// Check DD Baggage API
+		value, ok := baggage.Get(ctx, "testKey1")
+		assert.True(ok)
+		assert.Equal("otelValue1", value) // Otel takes precedence on key conflict
+		value, ok = baggage.Get(ctx, "testKey2")
+		assert.True(ok)
+		assert.Equal("ddValue2", value)
+		value, ok = baggage.Get(ctx, "testKey3")
+		assert.True(ok)
+		assert.Equal("otelValue3", value)
+
+		otelBag := otelbaggage.FromContext(ctx)
+		assert.Equal("otelValue1", otelBag.Member("testKey1").Value())
+		assert.Equal("ddValue2", otelBag.Member("testKey2").Value())
+		assert.Equal("otelValue3", otelBag.Member("testKey3").Value())
+	})
+	t.Run("otelBag empty", func(t *testing.T) {
+		assert := assert.New(t)
+
+		// Set up Datadog baggage
+		ctx := context.Background()
+		ctx = baggage.Set(ctx, "testKey", "ddValue")
+
+		// Create tracer and start span
+		tp := NewTracerProvider()
+		otel.SetTracerProvider(tp)
+		tr := otel.Tracer("baggage.test")
+		ctx, span := tr.Start(ctx, "baggage.span")
+		defer span.End()
+
+		// Assert dd key is retrievable via otel baggage API
+		otelBag := otelbaggage.FromContext(ctx)
+		assert.Equal("ddValue", otelBag.Member("testKey").Value())
+	})
+	t.Run("ddBag empty", func(t *testing.T) {
+		assert := assert.New(t)
+
+		// Set up OpenTelemetry baggage
+		ctx := context.Background()
+		m, err := otelbaggage.NewMember("testKey", "otelValue")
+		assert.NoError(err)
+		bag, err := otelbaggage.New(m)
+		assert.NoError(err)
+		ctx = otelbaggage.ContextWithBaggage(ctx, bag)
+
+		// Create tracer and start span
+		tp := NewTracerProvider()
+		otel.SetTracerProvider(tp)
+		tr := otel.Tracer("baggage.test")
+		ctx, span := tr.Start(ctx, "baggage.span")
+		defer span.End()
+
+		// Assert otel key is retrievable via dd baggage API
+		value, ok := baggage.Get(ctx, "testKey")
+		assert.True(ok)
+		assert.Equal("otelValue", value)
+	})
+}
+
+func Test_DDOpenTelemetryTracer(t *testing.T) {
+	traceID, err := oteltrace.TraceIDFromHex("5b8aa5a2d2c872e8321cf37308d69df1")
+	assert.NoError(t, err)
+	spanID, err := oteltrace.SpanIDFromHex("051581bf3cb55c11")
+	assert.NoError(t, err)
+	parentSpanCtx := oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+		TraceID: traceID,
+		SpanID:  spanID,
+	})
+
+	testCases := []struct {
+		isSampled      bool
+		ddRate         float64
+		expectedResult bool
+	}{
+		{
+			isSampled:      true,
+			ddRate:         1.0,
+			expectedResult: true,
+		},
+		{
+			isSampled:      false,
+			ddRate:         1.0,
+			expectedResult: false,
+		},
+		{
+			isSampled:      true,
+			ddRate:         0,
+			expectedResult: true,
+		},
+		{
+			isSampled:      false,
+			ddRate:         0,
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("OTel %t DD rate %f", tc.isSampled, tc.ddRate), func(t *testing.T) {
+			ddOTelTracer := NewTracerProvider(
+				tracer.WithLogStartup(false),
+				tracer.WithSamplingRules([]tracer.SamplingRule{
+					{Rate: tc.ddRate}, // This should be applied only when a brand new root span is started and should be ignored for a non-root span
+				}),
+			).Tracer("")
+
+			parentSpanCtx = parentSpanCtx.WithTraceFlags(parentSpanCtx.TraceFlags().WithSampled(tc.isSampled))
+
+			ctx := oteltrace.ContextWithSpanContext(context.Background(), parentSpanCtx)
+			_, span := ddOTelTracer.Start(ctx, "test")
+			span.End()
+
+			childSpanContext := span.SpanContext()
+			assert.Equal(t, parentSpanCtx.TraceID(), childSpanContext.TraceID())
+			assert.Equal(t, tc.expectedResult, childSpanContext.IsSampled(),
+				"inconsistent sampling decision between OTel and DD")
+		})
+	}
+}
+
+func Test_otelCtxToDDCtx_SamplingDecision_Priority(t *testing.T) {
+	parentSpanCtx := oteltrace.NewSpanContext(oteltrace.SpanContextConfig{
+		TraceID: oteltrace.TraceID{0xAA},
+		SpanID:  oteltrace.SpanID{0x01},
+	})
+
+	// Zero value TraceFlags sampling decision - In an OTel Span the sampling decision is taken at start, this
+	// means that the sampling decision we will receive will always be filled.
+	// Zero value means that the trace should be dropped
+	ctx := &otelCtxToDDCtx{parentSpanCtx}
+	assert.Equal(t, uint32(1), ctx.SamplingDecision())
+	assert.EqualValues(t, ext.PriorityAutoReject, *ctx.Priority())
+
+	// Set sampling decision to true
+	parentSpanCtx = parentSpanCtx.WithTraceFlags(parentSpanCtx.TraceFlags().WithSampled(true))
+	ctx = &otelCtxToDDCtx{parentSpanCtx}
+	assert.Equal(t, uint32(2), ctx.SamplingDecision())
+	assert.EqualValues(t, ext.PriorityAutoKeep, *ctx.Priority())
+
+	// Set sampling decision to false
+	parentSpanCtx = parentSpanCtx.WithTraceFlags(parentSpanCtx.TraceFlags().WithSampled(false))
+	ctx = &otelCtxToDDCtx{parentSpanCtx}
+	assert.Equal(t, uint32(1), ctx.SamplingDecision())
+	assert.EqualValues(t, ext.PriorityAutoReject, *ctx.Priority())
 }

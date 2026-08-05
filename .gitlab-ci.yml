@@ -1,17 +1,59 @@
 stages:
-  - benchmarks
+  - ci-image
+  - docker-images-reliability-env
+  - config-validation
+  - generate
+  - microbenchmarks
   - macrobenchmarks
+  # These benchmarks are planned to replace the legacy macrobenchmarks long term
+  - go-go-prof-app-parallel
+  - go-go-prof-app-parallel-slo
+  - gates
   - test-apps
 
 variables:
-  # This base image is created here: https://gitlab.ddbuild.io/DataDog/apm-reliability/benchmarking-platform/-/pipelines/18455613
-  BASE_CI_IMAGE: 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/benchmarking-platform:dd-trace-go-18455613
   INDEX_FILE: index.txt
-  KUBERNETES_SERVICE_ACCOUNT_OVERWRITE: dd-trace-go
-  FF_USE_LEGACY_KUBERNETES_EXECUTION_STRATEGY: "true"
-  BENCHMARK_TARGETS: "BenchmarkStartRequestSpan|BenchmarkHttpServeTrace|BenchmarkTracerAddSpans|BenchmarkStartSpan|BenchmarkSingleSpanRetention|BenchmarkOTelApiWithCustomTags|BenchmarkInjectW3C|BenchmarkExtractW3C|BenchmarkPartialFlushing|BenchmarkGraphQL"
+
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
+# Config Registry CI Jobs
+validate_supported_configurations_v2_local_file:
+  stage: config-validation
+  image: registry.ddbuild.io/ci/libdatadog-build/packaging:100425777
+  tags: ["runner:apm-k8s-tweaked-metal"]
+  rules:
+    - when: on_success
+  extends: .validate_supported_configurations_v2_local_file
+  variables:
+    LOCAL_JSON_PATH: internal/env/supported_configurations.json
+    BACKFILLED: true
+
+update_central_configurations_version_range_v2:
+  stage: config-validation
+  image: registry.ddbuild.io/ci/libdatadog-build/packaging:100425777
+  tags: ["runner:apm-k8s-tweaked-metal"]
+  extends: .update_central_configurations_version_range_v2
+  variables:
+    LOCAL_REPO_NAME: "dd-trace-go"
+    LOCAL_JSON_PATH: "internal/env/supported_configurations.json"
+    LANGUAGE_NAME: "golang"
 
 include:
-  - ".gitlab/benchmarks.yml"
-  - ".gitlab/macrobenchmarks.yml"
-  - ".gitlab/test-apps.yml"
+  - local: ".gitlab/benchmarks/macro/gitlab-ci.yml"
+  - local: ".gitlab/benchmarks/micro/gitlab-ci.yml"
+  - local: ".gitlab/benchmarks/test-apps/test-apps.yml"
+  - local: ".gitlab/docker-images-reliability-env.yml"
+  - local: ".gitlab/configuration-central-validation.yml"
+  - project: 'DataDog/apm-reliability/apm-sdks-benchmarks'
+    file: '.gitlab/ci-go-go-prof-app-parallel.yml'
+    ref: 'main'
+
+# Pin the benchmarking-platform image for the go-go-prof-app-parallel jobs
+# included from DataDog/apm-reliability/apm-sdks-benchmarks above.
+linux-go-go-prof-app-parallel:
+  image: registry.ddbuild.io/images/benchmarking-platform-tools-ubuntu:6845f3c7
+
+go-go-prof-app-parallel-check-slo-breaches:
+  image: registry.ddbuild.io/images/benchmarking-platform-tools-ubuntu:6845f3c7

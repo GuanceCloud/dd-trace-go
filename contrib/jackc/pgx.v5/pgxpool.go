@@ -20,6 +20,17 @@ func NewPool(ctx context.Context, connString string, opts ...Option) (*pgxpool.P
 }
 
 func NewPoolWithConfig(ctx context.Context, config *pgxpool.Config, opts ...Option) (*pgxpool.Pool, error) {
-	config.ConnConfig.Tracer = newPgxTracer(opts...)
-	return pgxpool.NewWithConfig(ctx, config)
+	// pgxpool.NewWithConfig panics if the config was not created using pgxpool.ParseConfig, which should ensure everything
+	// is properly initialized, so it doesn't make sense to check for a nil config here.
+
+	tracer := wrapPgxTracer(config.ConnConfig.Tracer, config.ConnConfig, opts...)
+	config.ConnConfig.Tracer = tracer
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	if tracer.cfg.poolStats && tracer.cfg.statsdClient != nil {
+		go pollPoolStats(tracer.cfg.statsdClient, pool, statsTags(tracer.cfg))
+	}
+	return pool, nil
 }

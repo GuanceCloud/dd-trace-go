@@ -9,15 +9,22 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	rc "github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
+
+	"github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
 )
 
 // The RC client relies on Repository (in the datadog-agent) which performs config signature validation
@@ -36,7 +43,7 @@ func TestRCClient(t *testing.T) {
 
 	t.Run("registerCallback", func(t *testing.T) {
 		client.callbacks = []Callback{}
-		nilCallback := func(map[string]ProductUpdate) map[string]rc.ApplyStatus { return nil }
+		nilCallback := func(map[string]ProductUpdate) map[string]state.ApplyStatus { return nil }
 		defer func() { client.callbacks = []Callback{} }()
 		require.Equal(t, 0, len(client.callbacks))
 		err = RegisterCallback(nilCallback)
@@ -51,16 +58,16 @@ func TestRCClient(t *testing.T) {
 	t.Run("apply-update", func(t *testing.T) {
 		client.callbacks = []Callback{}
 		cfgPath := "datadog/2/ASM_FEATURES/asm_features_activation/config"
-		err = RegisterProduct(rc.ProductASMFeatures)
+		err = RegisterProduct(state.ProductASMFeatures)
 		require.NoError(t, err)
-		err = RegisterCallback(func(updates map[string]ProductUpdate) map[string]rc.ApplyStatus {
-			statuses := map[string]rc.ApplyStatus{}
+		err = RegisterCallback(func(updates map[string]ProductUpdate) map[string]state.ApplyStatus {
+			statuses := map[string]state.ApplyStatus{}
 			for p, u := range updates {
-				if p == rc.ProductASMFeatures {
+				if p == state.ProductASMFeatures {
 					require.NotNil(t, u)
 					require.NotNil(t, u[cfgPath])
 					require.Equal(t, string(u[cfgPath]), "test")
-					statuses[cfgPath] = rc.ApplyStatus{State: rc.ApplyStateAcknowledged}
+					statuses[cfgPath] = state.ApplyStatus{State: state.ApplyStateAcknowledged}
 				}
 			}
 			return statuses
@@ -77,20 +84,32 @@ func TestRCClient(t *testing.T) {
 		require.NoError(t, err)
 
 		cfgPath := "datadog/2/APM_TRACING/foo/bar"
-		err = Subscribe(rc.ProductAPMTracing, func(u ProductUpdate) map[string]rc.ApplyStatus {
-			statuses := map[string]rc.ApplyStatus{}
+		updates := new(int)
+		tok, err := Subscribe(state.ProductAPMTracing, func(u ProductUpdate) map[string]state.ApplyStatus {
+			*updates++
+			statuses := map[string]state.ApplyStatus{}
 			require.NotNil(t, u)
 			require.Len(t, u, 1)
 			require.NotNil(t, u[cfgPath])
 			require.Equal(t, string(u[cfgPath]), "test")
-			statuses[cfgPath] = rc.ApplyStatus{State: rc.ApplyStateAcknowledged}
+			statuses[cfgPath] = state.ApplyStatus{State: state.ApplyStateAcknowledged}
 			return statuses
 		})
 		require.NoError(t, err)
 
 		resp := genUpdateResponse([]byte("test"), cfgPath)
-		err := client.applyUpdate(resp)
+		err = client.applyUpdate(resp)
 		require.NoError(t, err)
+		require.Equal(t, 1, *updates)
+		*updates = 0
+
+		// Check that the callback is not called again after Unsubscribe.
+		err = Unsubscribe(tok)
+		cfgPath2 := "datadog/2/APM_TRACING/foo/baz"
+		resp = genUpdateResponse([]byte("test"), cfgPath2)
+		err = client.applyUpdate(resp)
+		require.NoError(t, err)
+		require.Equal(t, 0, *updates)
 	})
 }
 
@@ -259,19 +278,19 @@ func TestConfig(t *testing.T) {
 	})
 }
 
-func dummyCallback1(map[string]ProductUpdate) map[string]rc.ApplyStatus {
+func dummyCallback1(map[string]ProductUpdate) map[string]state.ApplyStatus {
 	return nil
 }
-func dummyCallback2(map[string]ProductUpdate) map[string]rc.ApplyStatus {
-	return map[string]rc.ApplyStatus{}
+func dummyCallback2(map[string]ProductUpdate) map[string]state.ApplyStatus {
+	return map[string]state.ApplyStatus{}
 }
 
-func dummyCallback3(map[string]ProductUpdate) map[string]rc.ApplyStatus {
-	return map[string]rc.ApplyStatus{}
+func dummyCallback3(map[string]ProductUpdate) map[string]state.ApplyStatus {
+	return map[string]state.ApplyStatus{}
 }
 
-func dummyCallback4(map[string]ProductUpdate) map[string]rc.ApplyStatus {
-	return map[string]rc.ApplyStatus{}
+func dummyCallback4(map[string]ProductUpdate) map[string]state.ApplyStatus {
+	return map[string]state.ApplyStatus{}
 }
 
 func TestRegistration(t *testing.T) {
@@ -318,32 +337,37 @@ func TestSubscribe(t *testing.T) {
 	client, err = newClient(DefaultClientConfig())
 	require.NoError(t, err)
 
-	var callback Callback = func(updates map[string]ProductUpdate) map[string]rc.ApplyStatus { return nil }
-	var pCallback ProductCallback = func(u ProductUpdate) map[string]rc.ApplyStatus { return nil }
+	var callback Callback = func(_ map[string]ProductUpdate) map[string]state.ApplyStatus { return nil }
+	var pCallback ProductCallback = func(_ ProductUpdate) map[string]state.ApplyStatus { return nil }
 
-	err = Subscribe("my-product", pCallback)
+	tok1, err := Subscribe("my-product", pCallback)
 	require.NoError(t, err)
 	require.Len(t, client.callbacks, 0)
-	require.Len(t, client.productsWithCallbacks, 1)
-	require.Equal(t, reflect.ValueOf(pCallback), reflect.ValueOf(client.productsWithCallbacks["my-product"]))
+	require.Len(t, client.subscriptionsMu.subs, 1)
+	require.Equal(t, reflect.ValueOf(pCallback), reflect.ValueOf(client.subscriptionsMu.subs[0].callback))
 
 	err = RegisterProduct("my-product")
 	require.Error(t, err)
-	require.Len(t, client.productsWithCallbacks, 1)
+	require.Len(t, client.subscriptionsMu.subs, 1)
 
 	err = RegisterProduct("my-second-product")
 	require.NoError(t, err)
-	require.Len(t, client.productsWithCallbacks, 1)
+	require.Len(t, client.subscriptionsMu.subs, 1)
 
-	err = Subscribe("my-second-product", pCallback)
+	_, err = Subscribe("my-second-product", pCallback)
 	require.Error(t, err)
-	require.Len(t, client.productsWithCallbacks, 1)
+	require.Len(t, client.subscriptionsMu.subs, 1)
 
 	err = RegisterCallback(callback)
 	require.NoError(t, err)
 	require.Len(t, client.callbacks, 1)
-	require.Len(t, client.productsWithCallbacks, 1)
+	require.Len(t, client.subscriptionsMu.subs, 1)
 	require.Equal(t, reflect.ValueOf(callback), reflect.ValueOf(client.callbacks[0]))
+
+	err = Unsubscribe(tok1)
+	require.NoError(t, err)
+	require.Len(t, client.subscriptionsMu.subs, 0)
+	require.Len(t, client.callbacks, 1)
 }
 
 func TestNewUpdateRequest(t *testing.T) {
@@ -360,7 +384,7 @@ func TestNewUpdateRequest(t *testing.T) {
 	require.NoError(t, err)
 	err = RegisterCapability(ASMActivation)
 	require.NoError(t, err)
-	err = Subscribe("my-second-product", func(u ProductUpdate) map[string]rc.ApplyStatus { return nil }, APMTracingSampleRate)
+	_, err = Subscribe("my-second-product", func(_ ProductUpdate) map[string]state.ApplyStatus { return nil }, APMTracingSampleRate)
 	require.NoError(t, err)
 
 	b, err := client.newUpdateRequest()
@@ -370,7 +394,7 @@ func TestNewUpdateRequest(t *testing.T) {
 	err = json.Unmarshal(b.Bytes(), &req)
 	require.NoError(t, err)
 
-	require.Equal(t, []string{"my-product", "my-second-product"}, req.Client.Products)
+	require.ElementsMatch(t, []string{"my-product", "my-second-product"}, req.Client.Products)
 	require.Equal(t, []uint8([]byte{0x10, 0x2}), req.Client.Capabilities)
 	require.Equal(t, "go", req.Client.ClientTracer.Language)
 	require.Equal(t, "test-svc", req.Client.ClientTracer.Service)
@@ -380,72 +404,336 @@ func TestNewUpdateRequest(t *testing.T) {
 	require.True(t, req.Client.IsTracer)
 }
 
+func TestProcessTags(t *testing.T) {
+	cfg := DefaultClientConfig()
+	cfg.ServiceName = "test-svc"
+	cfg.Env = "test-env"
+	cfg.TracerVersion = "tracer-version"
+	cfg.AppVersion = "app-version"
+	var err error
+	client, err = newClient(cfg)
+	require.NoError(t, err)
+
+	err = RegisterProduct("my-product")
+	require.NoError(t, err)
+	err = RegisterCapability(ASMActivation)
+	require.NoError(t, err)
+	_, err = Subscribe("my-second-product", func(_ ProductUpdate) map[string]state.ApplyStatus { return nil }, APMTracingSampleRate)
+	require.NoError(t, err)
+
+	t.Run("enabled", func(t *testing.T) {
+		t.Setenv("DD_EXPERIMENTAL_PROPAGATE_PROCESS_TAGS_ENABLED", "true")
+		processtags.Reload()
+
+		b, err := client.newUpdateRequest()
+		require.NoError(t, err)
+		var req clientGetConfigsRequest
+		err = json.Unmarshal(b.Bytes(), &req)
+		require.NoError(t, err)
+
+		assert.NotEmpty(t, req.Client.ClientTracer.ProcessTags)
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		// Run a cleanup after the env var is restored to re-enable process tags for later tests.
+		t.Cleanup(processtags.Reload)
+		t.Setenv("DD_EXPERIMENTAL_PROPAGATE_PROCESS_TAGS_ENABLED", "false")
+		processtags.Reload()
+
+		b, err := client.newUpdateRequest()
+		require.NoError(t, err)
+		var req clientGetConfigsRequest
+		err = json.Unmarshal(b.Bytes(), &req)
+		require.NoError(t, err)
+
+		assert.Empty(t, req.Client.ClientTracer.ProcessTags)
+	})
+}
+
 // TestAsync starts many goroutines that use the exported client API to make sure no deadlocks occur
 func TestAsync(t *testing.T) {
 	require.NoError(t, Start(DefaultClientConfig()))
 	defer Stop()
 	const iterations = 10000
-	var wg sync.WaitGroup
+	var (
+		startSync   sync.WaitGroup // Guarantees all goroutines are created before any can actually start
+		cleanupSync sync.WaitGroup // Used to wait for business to be done before cleaning back up to a blank slate
+		wg          sync.WaitGroup // Used to wait for all goroutines to have finished
+	)
+	startSync.Add(1)
 
-	// Subscriptions
-	for i := 0; i < iterations; i++ {
-		product := fmt.Sprintf("%d", rand.Int()%10)
+	for range iterations {
+		// Subscriptions
+		product := strconv.Itoa(rand.Int() % 10)
 		capability := Capability(rand.Uint32() % 10)
-		wg.Add(1)
-		go func() {
-			callback := func(update ProductUpdate) map[string]rc.ApplyStatus { return nil }
+		startSync.Add(1)
+		wg.Go(func() {
+			startSync.Done()
+			startSync.Wait()
+			callback := func(_ ProductUpdate) map[string]state.ApplyStatus { return nil }
 			Subscribe(product, callback, capability)
-			wg.Done()
-		}()
-	}
+		})
 
-	// Products
-	for i := 0; i < iterations; i++ {
+		// Products
+		startSync.Add(1)
 		wg.Add(1)
 		go func() {
+			startSync.Done()
+			startSync.Wait()
 			defer wg.Done()
-			RegisterProduct(fmt.Sprintf("%d", rand.Int()%10))
+			RegisterProduct(strconv.Itoa(rand.Int() % 10))
 		}()
-	}
-	for i := 0; i < iterations; i++ {
+		startSync.Add(1)
 		wg.Add(1)
 		go func() {
+			startSync.Done()
+			startSync.Wait()
 			defer wg.Done()
-			UnregisterProduct(fmt.Sprintf("%d", rand.Int()%10))
+			UnregisterProduct(strconv.Itoa(rand.Int() % 10))
 		}()
-	}
 
-	// Capabilities
-	for i := 0; i < iterations; i++ {
+		// Capabilities
+		startSync.Add(1)
 		wg.Add(1)
 		go func() {
+			startSync.Done()
+			startSync.Wait()
 			defer wg.Done()
 			RegisterCapability(Capability(rand.Uint32() % 10))
 		}()
-	}
-	for i := 0; i < iterations; i++ {
+		startSync.Add(1)
 		wg.Add(1)
 		go func() {
+			startSync.Done()
+			startSync.Wait()
 			defer wg.Done()
 			UnregisterCapability(Capability(rand.Uint32() % 10))
 		}()
-	}
 
-	// Callbacks
-	callback := func(updates map[string]ProductUpdate) map[string]rc.ApplyStatus { return nil }
-	for i := 0; i < iterations; i++ {
+		// Callbacks
+		callback := func(_ map[string]ProductUpdate) map[string]state.ApplyStatus { return nil }
+		startSync.Add(1)
 		wg.Add(1)
+		cleanupSync.Add(1)
 		go func() {
 			defer wg.Done()
+			defer cleanupSync.Done()
+			startSync.Done()
+			startSync.Wait()
 			RegisterCallback(callback)
 		}()
-	}
-	for i := 0; i < iterations; i++ {
+		startSync.Add(1)
 		wg.Add(1)
+		cleanupSync.Add(1)
 		go func() {
 			defer wg.Done()
+			defer cleanupSync.Done()
+			startSync.Done()
+			startSync.Wait()
 			UnregisterCallback(callback)
 		}()
+		wg.Go(func() {
+			// Make sure the callback is removed before we exit the test...
+			cleanupSync.Wait()
+			UnregisterCallback(callback)
+		})
 	}
+
+	// Unblock the goroutines start
+	startSync.Done()
+	// Wait for all those goroutines to have finished...
 	wg.Wait()
+
+	// Verify we have 0 callbacks left after we're done.
+	client._callbacksMu.RLock()
+	defer client._callbacksMu.RUnlock()
+	require.Empty(t, client.callbacks)
+}
+
+// Ensure the lock ordering between capabilities and subscriptions does not deadlock.
+func TestAllCapabilitiesNoDeadlockWithSubscribe(t *testing.T) {
+	Reset()
+	cfg := DefaultClientConfig()
+	c, err := newClient(cfg)
+	require.NoError(t, err)
+
+	client = c
+	started = true
+	defer Reset()
+
+	const iterations = 200
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Churn subscriptions and their capabilities.
+	go func() {
+		defer wg.Done()
+		var cb ProductCallback
+		for i := range iterations {
+			token, err := Subscribe(fmt.Sprintf("product-%d", i), cb, APMTracingMulticonfig)
+			if err != nil {
+				t.Errorf("subscribe failed: %v", err)
+				return
+			}
+			if err := Unsubscribe(token); err != nil {
+				t.Errorf("unsubscribe failed: %v", err)
+				return
+			}
+		}
+	}()
+
+	// Read allCapabilities concurrently.
+	go func() {
+		defer wg.Done()
+		for range iterations {
+			c.allCapabilities()
+		}
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("allCapabilities deadlocked with concurrent subscribe")
+	}
+}
+
+// roundTripFunc adapts a function to an http.RoundTripper.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// recordingClientConfig returns an RC client config whose HTTP client records
+// each request (non-blocking) and returns an empty body. PollInterval is 1h, so
+// a request seen within the test window can only be a Subscribe-driven poll.
+// AgentURL is set so updateState builds an absolute request URL (as in prod),
+// which the RoundTripper asserts.
+func recordingClientConfig(t *testing.T, requests chan<- struct{}) ClientConfig {
+	cfg := DefaultClientConfig()
+	cfg.ServiceName = "test"
+	cfg.AgentURL = "http://agent.test" // non-routable; the transport is faked anyway
+	cfg.PollInterval = time.Hour
+	cfg.HTTP = &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			if !r.URL.IsAbs() {
+				t.Errorf("RC request URL is not absolute: %q", r.URL)
+			}
+			// http.RoundTripper is responsible for closing the request body.
+			if r.Body != nil {
+				r.Body.Close()
+			}
+			select {
+			case requests <- struct{}{}:
+			default:
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("{}")),
+			}, nil
+		}),
+	}
+	return cfg
+}
+
+// TestPollOnSubscribe verifies Subscribe triggers an out-of-cycle poll instead
+// of waiting a full PollInterval.
+func TestPollOnSubscribe(t *testing.T) {
+	t.Setenv("DD_REMOTE_CONFIGURATION_ENABLED", "true")
+	Reset()
+	defer Stop()
+
+	requests := make(chan struct{}, 1)
+	require.NoError(t, Start(recordingClientConfig(t, requests)))
+	_, err := Subscribe("TEST_PRODUCT", func(ProductUpdate) map[string]state.ApplyStatus { return nil }, FFEFlagEvaluation)
+	require.NoError(t, err)
+
+	select {
+	case <-requests:
+		// Out-of-cycle poll fired right after Subscribe.
+	case <-time.After(2 * time.Second):
+		t.Fatal("Subscribe did not trigger a poll within 2s (PollInterval is 1h, so the ticker can't be the cause)")
+	}
+}
+
+// TestNoImmediatePollOnRegisterProductOrCapability verifies RegisterProduct and
+// RegisterCapability do NOT poll immediately — they're used before a callback
+// exists (e.g. AppSec), so they wait for the next tick.
+func TestNoImmediatePollOnRegisterProductOrCapability(t *testing.T) {
+	t.Setenv("DD_REMOTE_CONFIGURATION_ENABLED", "true")
+
+	register := map[string]func() error{
+		"RegisterProduct":    func() error { return RegisterProduct("TEST_PRODUCT") },
+		"RegisterCapability": func() error { return RegisterCapability(FFEFlagEvaluation) },
+	}
+	for name, reg := range register {
+		t.Run(name, func(t *testing.T) {
+			Reset()
+			defer Stop()
+
+			requests := make(chan struct{}, 1)
+			require.NoError(t, Start(recordingClientConfig(t, requests)))
+			require.NoError(t, reg())
+
+			select {
+			case <-requests:
+				t.Fatalf("%s should not trigger an immediate poll", name)
+			case <-time.After(200 * time.Millisecond):
+				// Expected: picked up on the next tick, not eagerly.
+			}
+		})
+	}
+}
+
+// TestNoPollWithoutRegistration verifies that Start alone does not fire a poll;
+// out-of-cycle polling only happens after a Subscribe.
+func TestNoPollWithoutRegistration(t *testing.T) {
+	t.Setenv("DD_REMOTE_CONFIGURATION_ENABLED", "true")
+	Reset()
+	defer Stop()
+
+	requests := make(chan struct{}, 1)
+	require.NoError(t, Start(recordingClientConfig(t, requests)))
+
+	select {
+	case <-requests:
+		t.Fatal("unexpected poll: Start fired a request with nothing registered")
+	case <-time.After(200 * time.Millisecond):
+		// No poll without a registration.
+	}
+}
+
+// TestPollOnEachSubscribe verifies a second Subscribe polls again after the
+// first drains (pollNow coalesces while queued, then fires for later Subscribes).
+func TestPollOnEachSubscribe(t *testing.T) {
+	t.Setenv("DD_REMOTE_CONFIGURATION_ENABLED", "true")
+	Reset()
+	defer Stop()
+
+	requests := make(chan struct{}, 1)
+	require.NoError(t, Start(recordingClientConfig(t, requests)))
+	cb := func(ProductUpdate) map[string]state.ApplyStatus { return nil }
+
+	_, err := Subscribe("product-a", cb, FFEFlagEvaluation)
+	require.NoError(t, err)
+	select {
+	case <-requests:
+	case <-time.After(2 * time.Second):
+		t.Fatal("no poll within 2s after the first Subscribe")
+	}
+
+	// The channel is drained; a later Subscribe must trigger its own poll.
+	_, err = Subscribe("product-b", cb)
+	require.NoError(t, err)
+	select {
+	case <-requests:
+		// Second Subscribe triggered another poll.
+	case <-time.After(2 * time.Second):
+		t.Fatal("no poll within 2s after the second Subscribe")
+	}
 }

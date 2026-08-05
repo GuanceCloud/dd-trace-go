@@ -17,16 +17,17 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/internal/namingschematest"
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/internal/sqltest"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-
 	mssql "github.com/denisenkom/go-mssqldb"
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
+	sqltest "github.com/DataDog/dd-trace-go/v2/instrumentation/testutils/sql"
 )
 
 // tableName holds the SQL table that these tests will be run against. It must be unique cross-repo.
@@ -100,7 +101,7 @@ func TestMySQL(t *testing.T) {
 
 func TestPostgres(t *testing.T) {
 	driverName := "postgres"
-	Register(driverName, &pq.Driver{}, WithServiceName("postgres-test"), WithAnalyticsRate(0.2))
+	Register(driverName, &pq.Driver{}, WithService("postgres-test"), WithAnalyticsRate(0.2))
 	defer unregister(driverName)
 	db, err := Open(driverName, "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable")
 	require.NoError(t, err)
@@ -128,11 +129,17 @@ func TestPostgres(t *testing.T) {
 func TestOpenOptions(t *testing.T) {
 	driverName := "postgres"
 	dsn := "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
+	// shorten `interval` for the `WithDBStats` test
+	// interval must get reassigned outside of a subtest to avoid a data race
+	interval = 500 * time.Millisecond
+	t.Cleanup(func() {
+		interval = 10 * time.Second // resetting back to original value
+	})
 
 	t.Run("Open", func(t *testing.T) {
-		Register(driverName, &pq.Driver{}, WithServiceName("postgres-test"), WithAnalyticsRate(0.2))
+		Register(driverName, &pq.Driver{}, WithService("postgres-test"), WithAnalyticsRate(0.2))
 		defer unregister(driverName)
-		db, err := Open(driverName, dsn, WithServiceName("override-test"), WithAnalytics(true))
+		db, err := Open(driverName, dsn, WithService("override-test"), WithAnalytics(true))
 		require.NoError(t, err)
 		defer db.Close()
 
@@ -156,7 +163,7 @@ func TestOpenOptions(t *testing.T) {
 	})
 
 	t.Run("OpenDB", func(t *testing.T) {
-		Register(driverName, &pq.Driver{}, WithServiceName("postgres-test"), WithAnalyticsRate(0.2))
+		Register(driverName, &pq.Driver{}, WithService("postgres-test"), WithAnalyticsRate(0.2))
 		defer unregister(driverName)
 		c, err := pq.NewConnector(dsn)
 		require.NoError(t, err)
@@ -183,7 +190,7 @@ func TestOpenOptions(t *testing.T) {
 	})
 
 	t.Run("WithDSN", func(t *testing.T) {
-		Register(driverName, &pq.Driver{}, WithServiceName("postgres-test"), WithAnalyticsRate(0.2))
+		Register(driverName, &pq.Driver{}, WithService("postgres-test"), WithAnalyticsRate(0.2))
 		defer unregister(driverName)
 		c, err := pq.NewConnector(dsn)
 		require.NoError(t, err)
@@ -227,7 +234,7 @@ func TestOpenOptions(t *testing.T) {
 	})
 
 	t.Run("WithIgnoreQueryTypes", func(t *testing.T) {
-		registerOpts := []RegisterOption{WithIgnoreQueryTypes(QueryTypeConnect)}
+		registerOpts := []Option{WithIgnoreQueryTypes(QueryTypeConnect)}
 		openDBOpts := []Option{WithIgnoreQueryTypes(QueryTypeConnect, QueryTypePing)}
 		Register(driverName, &pq.Driver{}, registerOpts...)
 		defer unregister(driverName)
@@ -246,8 +253,8 @@ func TestOpenOptions(t *testing.T) {
 	})
 
 	t.Run("RegisterOptionsAsDefault", func(t *testing.T) {
-		registerOpts := []RegisterOption{
-			WithServiceName("register-override"),
+		registerOpts := []Option{
+			WithService("register-override"),
 			WithIgnoreQueryTypes(QueryTypeConnect),
 		}
 		Register(driverName, &pq.Driver{}, registerOpts...)
@@ -268,6 +275,48 @@ func TestOpenOptions(t *testing.T) {
 		s0 := spans[0]
 		assert.Equal(t, "register-override", s0.Tag(ext.ServiceName))
 	})
+
+	t.Run("WithDBStats", func(t *testing.T) {
+		m := testutils.NewMockStatsdClient()
+		Register(driverName, &pq.Driver{})
+		defer unregister(driverName)
+		db, err := Open(driverName, dsn, withStatsdClient(m), WithDBStats())
+		require.NoError(t, err)
+
+		// The polling interval has been reduced to 500ms for the sake of this test, so at least one round of `pollDBStats` should be complete in 1s
+		deadline := time.Now().Add(1 * time.Second)
+		wantStats := []string{MaxOpenConnections, OpenConnections, InUse, Idle, WaitCount, WaitDuration, MaxIdleClosed, MaxIdleTimeClosed, MaxLifetimeClosed}
+		var calls1 []string
+		for {
+			if time.Now().After(deadline) {
+				t.Fatalf("Stats not collected in expected interval of %v", interval)
+			}
+			calls := m.CallNames()
+			// if the expected volume of stats has been collected, ensure 9/9 of the DB Stats are included
+			if len(calls) >= len(wantStats) {
+				for _, s := range wantStats {
+					if !assert.Contains(t, calls, s) {
+						t.Fatalf("Missing stat %s", s)
+					}
+				}
+				// all expected stats have been collected; exit out of loop, test should pass
+				calls1 = calls
+				break
+			}
+			// not all stats have been collected yet, try again in 50ms
+			time.Sleep(50 * time.Millisecond)
+		}
+		// Close DB and assert the no further stats have been collected; db.Close should stop the pollDBStats goroutine.
+		db.Close()
+		time.Sleep(50 * time.Millisecond)
+		assert.Equal(t, calls1, m.CallNames())
+	})
+}
+
+func withStatsdClient(s instrumentation.StatsdClient) OptionFn {
+	return func(c *config) {
+		c.statsdClient = s
+	}
 }
 
 func TestMySQLUint64(t *testing.T) {
@@ -352,136 +401,4 @@ func TestRegister(_ *testing.T) {
 	for i := 1; i < 10; i++ {
 		unregister("test" + strconv.FormatInt(int64(i), 10))
 	}
-}
-
-func TestNamingSchema(t *testing.T) {
-	newGenSpansFunc := func(t *testing.T, driverName string, registerOverride bool) namingschematest.GenSpansFn {
-		return func(t *testing.T, serviceOverride string) []mocktracer.Span {
-			var registerOpts []RegisterOption
-			// serviceOverride has higher priority than the registerOverride parameter.
-			if serviceOverride != "" {
-				registerOpts = append(registerOpts, WithServiceName(serviceOverride))
-			} else if registerOverride {
-				registerOpts = append(registerOpts, WithServiceName("register-override"))
-			}
-			var openOpts []Option
-			if serviceOverride != "" {
-				openOpts = append(openOpts, WithServiceName(serviceOverride))
-			}
-			mt := mocktracer.Start()
-			defer mt.Stop()
-
-			var (
-				dv  driver.Driver
-				dsn string
-			)
-			switch driverName {
-			case "sqlserver":
-				dv = &mssql.Driver{}
-				dsn = "sqlserver://sa:myPassw0rd@127.0.0.1:1433?database=master"
-			case "postgres":
-				dv = &pq.Driver{}
-				dsn = "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
-			case "mysql":
-				dv = &mysql.MySQLDriver{}
-				dsn = "test:test@tcp(127.0.0.1:3306)/test"
-			default:
-				t.Fatal("unknown driver: ", driverName)
-			}
-			Register(driverName, dv, registerOpts...)
-			defer unregister(driverName)
-			db, err := Open(driverName, dsn, openOpts...)
-			require.NoError(t, err)
-
-			err = db.Ping()
-			require.NoError(t, err)
-
-			spans := mt.FinishedSpans()
-			require.Len(t, spans, 2)
-			return spans
-		}
-	}
-	t.Run("SQLServer", func(t *testing.T) {
-		genSpans := newGenSpansFunc(t, "sqlserver", false)
-		assertOpV0 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "sqlserver.query", spans[0].OperationName())
-			assert.Equal(t, "sqlserver.query", spans[1].OperationName())
-		}
-		assertOpV1 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "mssql.query", spans[0].OperationName())
-			assert.Equal(t, "mssql.query", spans[1].OperationName())
-		}
-		wantServiceNameV0 := namingschematest.ServiceNameAssertions{
-			WithDefaults:             []string{"sqlserver.db", "sqlserver.db"},
-			WithDDService:            []string{"sqlserver.db", "sqlserver.db"},
-			WithDDServiceAndOverride: []string{namingschematest.TestServiceOverride, namingschematest.TestServiceOverride},
-		}
-		t.Run("ServiceName", namingschematest.NewServiceNameTest(genSpans, wantServiceNameV0))
-		t.Run("SpanName", namingschematest.NewSpanNameTest(genSpans, assertOpV0, assertOpV1))
-	})
-	t.Run("Postgres", func(t *testing.T) {
-		genSpans := newGenSpansFunc(t, "postgres", false)
-		assertOpV0 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "postgres.query", spans[0].OperationName())
-			assert.Equal(t, "postgres.query", spans[1].OperationName())
-		}
-		assertOpV1 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "postgresql.query", spans[0].OperationName())
-			assert.Equal(t, "postgresql.query", spans[1].OperationName())
-		}
-		wantServiceNameV0 := namingschematest.ServiceNameAssertions{
-			WithDefaults:             []string{"postgres.db", "postgres.db"},
-			WithDDService:            []string{"postgres.db", "postgres.db"},
-			WithDDServiceAndOverride: []string{namingschematest.TestServiceOverride, namingschematest.TestServiceOverride},
-		}
-		t.Run("ServiceName", namingschematest.NewServiceNameTest(genSpans, wantServiceNameV0))
-		t.Run("SpanName", namingschematest.NewSpanNameTest(genSpans, assertOpV0, assertOpV1))
-	})
-	t.Run("PostgresWithRegisterOverride", func(t *testing.T) {
-		genSpans := newGenSpansFunc(t, "postgres", true)
-		assertOpV0 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "postgres.query", spans[0].OperationName())
-			assert.Equal(t, "postgres.query", spans[1].OperationName())
-		}
-		assertOpV1 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "postgresql.query", spans[0].OperationName())
-			assert.Equal(t, "postgresql.query", spans[1].OperationName())
-		}
-		wantServiceNameV0 := namingschematest.ServiceNameAssertions{
-			// when the WithServiceName option is set during Register and not providing a service name when opening
-			// the DB connection, that value is used as default instead of postgres.db.
-			WithDefaults: []string{"register-override", "register-override"},
-			// in v0, DD_SERVICE is ignored for this integration.
-			WithDDService:            []string{"register-override", "register-override"},
-			WithDDServiceAndOverride: []string{namingschematest.TestServiceOverride, namingschematest.TestServiceOverride},
-		}
-		t.Run("ServiceName", namingschematest.NewServiceNameTest(genSpans, wantServiceNameV0))
-		t.Run("SpanName", namingschematest.NewSpanNameTest(genSpans, assertOpV0, assertOpV1))
-	})
-	t.Run("MySQL", func(t *testing.T) {
-		genSpans := newGenSpansFunc(t, "mysql", false)
-		assertOpV0 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "mysql.query", spans[0].OperationName())
-			assert.Equal(t, "mysql.query", spans[1].OperationName())
-		}
-		assertOpV1 := func(t *testing.T, spans []mocktracer.Span) {
-			require.Len(t, spans, 2)
-			assert.Equal(t, "mysql.query", spans[0].OperationName())
-			assert.Equal(t, "mysql.query", spans[1].OperationName())
-		}
-		wantServiceNameV0 := namingschematest.ServiceNameAssertions{
-			WithDefaults:             []string{"mysql.db", "mysql.db"},
-			WithDDService:            []string{"mysql.db", "mysql.db"},
-			WithDDServiceAndOverride: []string{namingschematest.TestServiceOverride, namingschematest.TestServiceOverride},
-		}
-		t.Run("ServiceName", namingschematest.NewServiceNameTest(genSpans, wantServiceNameV0))
-		t.Run("SpanName", namingschematest.NewSpanNameTest(genSpans, assertOpV0, assertOpV1))
-	})
 }

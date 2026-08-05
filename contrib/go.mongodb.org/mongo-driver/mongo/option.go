@@ -8,43 +8,47 @@ package mongo
 import (
 	"math"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/namingschema"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 )
-
-const defaultServiceName = "mongo"
 
 type config struct {
 	serviceName   string
+	serviceSource string
 	spanName      string
 	analyticsRate float64
+	maxQuerySize  int
 }
 
-// Option represents an option that can be passed to Dial.
-type Option func(*config)
+// Option describes options for the Mongo integration.
+type Option interface {
+	apply(*config)
+}
+
+// OptionFn represents options applicable to NewMonitor.
+type OptionFn func(*config)
+
+func (fn OptionFn) apply(cfg *config) {
+	fn(cfg)
+}
 
 func defaults(cfg *config) {
-	cfg.serviceName = namingschema.ServiceNameOverrideV0(defaultServiceName, defaultServiceName)
-	cfg.spanName = namingschema.OpName(namingschema.MongoDBOutbound)
-	// cfg.analyticsRate = globalconfig.AnalyticsRate()
-	if internal.BoolEnv("DD_TRACE_MONGO_ANALYTICS_ENABLED", false) {
-		cfg.analyticsRate = 1.0
-	} else {
-		cfg.analyticsRate = math.NaN()
-	}
+	cfg.serviceName = instr.ServiceName(instrumentation.ComponentDefault, nil)
+	cfg.serviceSource = string(instrumentation.PackageMongoDriver)
+	cfg.spanName = instr.OperationName(instrumentation.ComponentDefault, nil)
+	cfg.analyticsRate = instr.AnalyticsRate(false)
+	cfg.maxQuerySize = -1
 }
 
-// WithServiceName sets the given service name for the dialled connection.
-// When the service name is not explicitly set it will be inferred based on the
-// request to AWS.
-func WithServiceName(name string) Option {
+// WithService sets the given service name for this integration spans.
+func WithService(name string) OptionFn {
 	return func(cfg *config) {
 		cfg.serviceName = name
+		cfg.serviceSource = instrumentation.ServiceSourceWithServiceOption
 	}
 }
 
 // WithAnalytics enables Trace Analytics for all started spans.
-func WithAnalytics(on bool) Option {
+func WithAnalytics(on bool) OptionFn {
 	return func(cfg *config) {
 		if on {
 			cfg.analyticsRate = 1.0
@@ -56,12 +60,27 @@ func WithAnalytics(on bool) Option {
 
 // WithAnalyticsRate sets the sampling rate for Trace Analytics events
 // correlated to started spans.
-func WithAnalyticsRate(rate float64) Option {
+func WithAnalyticsRate(rate float64) OptionFn {
 	return func(cfg *config) {
 		if rate >= 0.0 && rate <= 1.0 {
 			cfg.analyticsRate = rate
 		} else {
 			cfg.analyticsRate = math.NaN()
 		}
+	}
+}
+
+// WithMaxQuerySize sets the maximum query size (in bytes) before queries
+// are truncated when attached as a span tag.
+//
+// If negative (the default), query truncation is disabled and the query
+// will always be attached in full.
+//
+// If zero, traces will not include a query tag.
+//
+// Defaults to -1.
+func WithMaxQuerySize(max int) OptionFn {
+	return func(cfg *config) {
+		cfg.maxQuerySize = max
 	}
 }

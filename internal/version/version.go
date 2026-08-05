@@ -6,14 +6,23 @@
 package version
 
 import (
-	"regexp"
 	"strconv"
+	"strings"
+
+	"golang.org/x/mod/semver"
 )
 
 // Tag specifies the current release tag. It needs to be manually
 // updated. A test checks that the value of Tag never points to a
 // git tag that is older than HEAD.
-const Tag = "v1.62.0-dev"
+var Tag = "v2.11.0-dev.1"
+
+type v1version struct {
+	Transitional bool
+	Version      string
+}
+
+var v1Tag *v1version
 
 // Dissected version number. Filled during init()
 var (
@@ -27,17 +36,50 @@ var (
 	RC int
 )
 
-func init() {
-	// This regexp matches the version format we use and captures major/minor/patch/rc in different groups
-	r := regexp.MustCompile(`v(?P<ma>\d+)\.(?P<mi>\d+)\.(?P<pa>\d+)(-rc\.(?P<rc>\d+))?`)
-	names := r.SubexpNames()
-	captures := map[string]string{}
-	// Associate each capture group match with the capture group's name to easily retrieve major/minor/patch/rc
-	for k, v := range r.FindAllStringSubmatch(Tag, -1)[0] {
-		captures[names[k]] = v
+type version struct {
+	Major int
+	Minor int
+	Patch int
+	RC    int
+}
+
+func parseVersion(value string) version {
+	var v version
+
+	if !semver.IsValid(value) {
+		// This shouldn't happen, but it must be handled.
+		// `golang.org/x/mod/semver` doesn't expose the parsed parts of the version.
+		return v
 	}
-	Major, _ = strconv.Atoi(captures["ma"])
-	Minor, _ = strconv.Atoi(captures["mi"])
-	Patch, _ = strconv.Atoi(captures["pa"])
-	RC, _ = strconv.Atoi(captures["rc"])
+
+	i := strings.Index(value, ".")
+	v.Major, _ = strconv.Atoi(value[1:i])
+
+	value = value[i+1:]
+	i = strings.Index(value, ".")
+	v.Minor, _ = strconv.Atoi(value[:i])
+
+	value = value[i+1:]
+	i = strings.Index(value, "-")
+	if i == -1 {
+		v.Patch, _ = strconv.Atoi(value)
+		return v
+	}
+
+	v.Patch, _ = strconv.Atoi(value[:i])
+
+	value = value[i+1:]
+	i = strings.Index(value, ".")
+	if i == -1 {
+		// Prerelease doesn't have a specific number.
+		return v
+	}
+
+	value = value[i+1:]
+	if len(value) == 0 {
+		return v
+	}
+	v.RC, _ = strconv.Atoi(value)
+
+	return v
 }

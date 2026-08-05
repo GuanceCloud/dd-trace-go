@@ -1,0 +1,214 @@
+// Unless explicitly stated otherwise all files in this repository are licensed
+// under the Apache License Version 2.0.
+// This product includes software developed at Datadog (https://www.datadoghq.com/).
+// Copyright 2025 Datadog, Inc.
+
+package llmobs
+
+import (
+	"errors"
+	"maps"
+	"time"
+
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/errortrace"
+	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
+)
+
+const (
+	// MetricKeyInputTokens is the standard key for input token count metrics.
+	MetricKeyInputTokens = "input_tokens"
+
+	// MetricKeyOutputTokens is the standard key for output token count metrics.
+	MetricKeyOutputTokens = "output_tokens"
+
+	// MetricKeyTotalTokens is the standard key for total token count metrics.
+	MetricKeyTotalTokens = "total_tokens"
+
+	// MetricKeyCacheReadInputTokens is the standard key for cache read input token count metrics.
+	MetricKeyCacheReadInputTokens = "cache_read_input_tokens"
+
+	// MetricKeyCacheWriteInputTokens is the standard key for cache write input token count metrics.
+	MetricKeyCacheWriteInputTokens = "cache_write_input_tokens"
+
+	// MetricKeyEphemeral1HInputTokens is the standard key for ephemeral 1-hour cache write input token count metrics.
+	MetricKeyEphemeral1HInputTokens = "ephemeral_1h_input_tokens"
+
+	// MetricKeyEphemeral5MInputTokens is the standard key for ephemeral 5-minute cache write input token count metrics.
+	MetricKeyEphemeral5MInputTokens = "ephemeral_5m_input_tokens"
+
+	// MetricKeyReasoningOutputTokens is the standard key for reasoning output token count metrics.
+	MetricKeyReasoningOutputTokens = "reasoning_output_tokens"
+
+	// MetricKeyBillableCharacterCount is the standard key for billable character count metrics.
+	MetricKeyBillableCharacterCount = "billable_character_count"
+
+	// MetricKeyTimeToFirstToken is the standard key for time-to-first-token metrics.
+	MetricKeyTimeToFirstToken = "time_to_first_token"
+)
+
+// ------------- Start options -------------
+
+// StartSpanOption configures span creation. Use with Start*Span functions.
+type StartSpanOption func(cfg *illmobs.StartSpanConfig)
+
+// WithSessionID sets the session identifier for the span.
+func WithSessionID(sessionID string) StartSpanOption {
+	return func(c *illmobs.StartSpanConfig) {
+		c.SessionID = sessionID
+	}
+}
+
+// WithMLApp sets the ML application name for the span.
+// This overrides the global ML app configuration for this specific span.
+func WithMLApp(mlApp string) StartSpanOption {
+	return func(c *illmobs.StartSpanConfig) {
+		c.MLApp = mlApp
+	}
+}
+
+// WithStartTime sets a custom start time for the span.
+// If not provided, the current time is used.
+func WithStartTime(t time.Time) StartSpanOption {
+	return func(c *illmobs.StartSpanConfig) {
+		c.StartTime = t
+	}
+}
+
+// WithModelProvider sets the model provider for the span (e.g., "openai", "anthropic").
+// Used primarily with LLM spans to track which provider is being used.
+func WithModelProvider(modelProvider string) StartSpanOption {
+	return func(c *illmobs.StartSpanConfig) {
+		c.ModelProvider = modelProvider
+	}
+}
+
+// WithModelName sets the specific model name for the span (e.g., "gpt-4", "claude-3").
+// Used primarily with LLM spans to track which model is being used.
+func WithModelName(modelName string) StartSpanOption {
+	return func(c *illmobs.StartSpanConfig) {
+		c.ModelName = modelName
+	}
+}
+
+func WithIntegration(integration string) StartSpanOption {
+	return func(c *illmobs.StartSpanConfig) {
+		c.Integration = integration
+	}
+}
+
+// ------------- Finish options -------------
+
+// FinishSpanOption configures span finishing. Use with span.Finish().
+type FinishSpanOption func(cfg *illmobs.FinishSpanConfig)
+
+// WithError marks the finished span with the given error.
+// The error will be captured with stack trace information and marked as a span error.
+func WithError(err error) FinishSpanOption {
+	return func(cfg *illmobs.FinishSpanConfig) {
+		var tErr *errortrace.TracerError
+		if !errors.As(err, &tErr) {
+			tErr = errortrace.WrapN(err, 2)
+		}
+		cfg.Error = tErr
+	}
+}
+
+// WithFinishTime sets a custom finish time for the span.
+// If not provided, the current time is used when Finish() is called.
+func WithFinishTime(t time.Time) FinishSpanOption {
+	return func(cfg *illmobs.FinishSpanConfig) {
+		cfg.FinishTime = t
+	}
+}
+
+// ------------- Annotate options -------------
+
+// AnnotateOption configures span annotations. Use with span annotation methods.
+type AnnotateOption func(a *illmobs.SpanAnnotations)
+
+// WithAnnotatedTags adds tags to the span annotation.
+func WithAnnotatedTags(tags map[string]string) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		if a.Tags == nil {
+			a.Tags = make(map[string]string)
+		}
+		maps.Copy(a.Tags, tags)
+	}
+}
+
+// WithAnnotatedCostTagKeys marks existing span tag keys for propagation to LLMObs cost and token metrics.
+// Each key must already be present in tags from this annotation or a previous annotation on the same span.
+func WithAnnotatedCostTagKeys(costTagKeys []string) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		if a.CostTags == nil {
+			a.CostTags = make([]string, 0, len(costTagKeys))
+		}
+		a.CostTags = append(a.CostTags, costTagKeys...)
+	}
+}
+
+// WithAnnotatedSessionID sets the session ID tag for the span annotation.
+// This is a convenience function for setting the session ID tag specifically.
+func WithAnnotatedSessionID(sessionID string) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		if a.Tags == nil {
+			a.Tags = make(map[string]string)
+		}
+		a.Tags[illmobs.TagKeySessionID] = sessionID
+	}
+}
+
+// WithAnnotatedMetadata adds metadata to the span annotation.
+// Metadata can contain arbitrary structured data related to the operation.
+func WithAnnotatedMetadata(meta map[string]any) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		if a.Metadata == nil {
+			a.Metadata = make(map[string]any)
+		}
+		maps.Copy(a.Metadata, meta)
+	}
+}
+
+// WithAnnotatedMetrics adds metrics to the span annotation.
+// Metrics are numeric values that can be aggregated and analyzed.
+// Common metrics include token counts, latency, costs, etc.
+// Multiple calls to this function will merge the metrics.
+func WithAnnotatedMetrics(metrics map[string]float64) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		if a.Metrics == nil {
+			a.Metrics = make(map[string]float64)
+		}
+		maps.Copy(a.Metrics, metrics)
+	}
+}
+
+// WithIntent sets the intent for the span.
+// Intent is a description of a reason for calling an MCP tool.
+// Deprecated: Use WithAnnotatedIntent instead.
+func WithIntent(intent string) AnnotateOption {
+	return WithAnnotatedIntent(intent)
+}
+
+// WithAnnotatedIntent sets the intent for the span.
+// Intent is a description of a reason for calling an MCP tool.
+func WithAnnotatedIntent(intent string) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		a.Intent = intent
+	}
+}
+
+// WithAnnotatedPrompt sets the prompt for the span annotation.
+// Only applicable to LLM spans.
+func WithAnnotatedPrompt(prompt Prompt) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		a.Prompt = &prompt
+	}
+}
+
+// WithAnnotatedToolDefinitions sets the tool definitions for the span annotation.
+// Only applicable to LLM spans.
+func WithAnnotatedToolDefinitions(toolDefinitions []ToolDefinition) AnnotateOption {
+	return func(a *illmobs.SpanAnnotations) {
+		a.ToolDefinitions = toolDefinitions
+	}
+}

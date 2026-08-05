@@ -8,37 +8,44 @@ package aws
 import (
 	"math"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 )
 
 type config struct {
 	serviceName   string
+	serviceSource string
 	analyticsRate float64
 	errCheck      func(err error) bool
 }
 
-// Option represents an option that can be passed to Dial.
-type Option func(*config)
-
-func defaults(cfg *config) {
-	if internal.BoolEnv("DD_TRACE_AWS_ANALYTICS_ENABLED", false) {
-		cfg.analyticsRate = 1.0
-	} else {
-		cfg.analyticsRate = math.NaN()
-	}
+// Option describes options for the AWS integration.
+type Option interface {
+	apply(*config)
 }
 
-// WithServiceName sets the given service name for the dialled connection.
+// OptionFn represents options applicable to AppendMiddleware.
+type OptionFn func(*config)
+
+func (fn OptionFn) apply(cfg *config) {
+	fn(cfg)
+}
+
+func defaults(cfg *config) {
+	cfg.analyticsRate = instr.AnalyticsRate(false)
+}
+
+// WithService sets the given service name for the dialled connection.
 // When the service name is not explicitly set it will be inferred based on the
 // request to AWS.
-func WithServiceName(name string) Option {
+func WithService(name string) OptionFn {
 	return func(cfg *config) {
 		cfg.serviceName = name
+		cfg.serviceSource = instrumentation.ServiceSourceWithServiceOption
 	}
 }
 
 // WithAnalytics enables Trace Analytics for all started spans.
-func WithAnalytics(on bool) Option {
+func WithAnalytics(on bool) OptionFn {
 	return func(cfg *config) {
 		if on {
 			cfg.analyticsRate = 1.0
@@ -50,7 +57,7 @@ func WithAnalytics(on bool) Option {
 
 // WithAnalyticsRate sets the sampling rate for Trace Analytics events
 // correlated to started spans.
-func WithAnalyticsRate(rate float64) Option {
+func WithAnalyticsRate(rate float64) OptionFn {
 	return func(cfg *config) {
 		if rate >= 0.0 && rate <= 1.0 {
 			cfg.analyticsRate = rate
@@ -63,7 +70,7 @@ func WithAnalyticsRate(rate float64) Option {
 // WithErrorCheck specifies a function fn which determines whether the passed
 // error should be marked as an error. The fn is called whenever an aws operation
 // finishes with an error.
-func WithErrorCheck(fn func(err error) bool) Option {
+func WithErrorCheck(fn func(err error) bool) OptionFn {
 	return func(cfg *config) {
 		cfg.errCheck = fn
 	}

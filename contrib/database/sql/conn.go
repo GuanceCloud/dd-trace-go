@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-package sql // import "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
+package sql // import "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
 
 import (
 	"context"
@@ -11,11 +11,12 @@ import (
 	"math"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/internal/options"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/appsec/events"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/sqlsec"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/options"
 )
 
 var _ driver.Conn = (*TracedConn)(nil)
@@ -45,13 +46,23 @@ const (
 )
 
 const (
-	keyDBMTraceInjected = "_dd.dbm_trace_injected"
+	keyDBMTraceInjected  = "_dd.dbm_trace_injected"
+	keyDBMPropagatedHash = "_dd.propagated_hash"
 )
 
 // TracedConn holds a traced connection with tracing parameters.
 type TracedConn struct {
 	driver.Conn
 	*traceParams
+}
+
+// checkQuerySafety runs ASM RASP SQLi checks on the query to verify if it can safely be run.
+// If it's unsafe to run, an *events.BlockingSecurityEvent is returned
+func checkQuerySecurity(ctx context.Context, query, driver string) error {
+	if !instr.AppSecEnabled() {
+		return nil
+	}
+	return sqlsec.ProtectSQLOperation(ctx, query, driver)
 }
 
 // WrappedConn returns the wrapped connection object.
@@ -103,28 +114,27 @@ func (tc *TracedConn) PrepareContext(ctx context.Context, query string) (stmt dr
 	start := time.Now()
 	mode := tc.cfg.dbmPropagationMode
 	if mode == tracer.DBMPropagationModeFull {
-		// no context other than service in prepared statements
 		mode = tracer.DBMPropagationModeService
 	}
-	cquery, spanID := tc.injectComments(ctx, query, mode)
+	cquery, spanID, baseHash := tc.injectComments(ctx, query, mode)
 	if connPrepareCtx, ok := tc.Conn.(driver.ConnPrepareContext); ok {
 		ctx, end := startTraceTask(ctx, QueryTypePrepare)
 		defer end()
 		stmt, err := connPrepareCtx.PrepareContext(ctx, cquery)
-		tc.tryTrace(ctx, QueryTypePrepare, query, start, err, append(withDBMTraceInjectedTag(mode), tracer.WithSpanID(spanID))...)
+		tc.tryTrace(ctx, QueryTypePrepare, query, start, err, append(withDBMTraceInjectedTag(mode, baseHash), tracer.WithSpanID(spanID))...)
 		if err != nil {
 			return nil, err
 		}
-		return &tracedStmt{Stmt: stmt, traceParams: tc.traceParams, ctx: ctx, query: query}, nil
+		return &tracedStmt{Stmt: stmt, traceParams: tc.traceParams, ctx: ctx, query: query, baseHash: baseHash}, nil
 	}
 	ctx, end := startTraceTask(ctx, QueryTypePrepare)
 	defer end()
 	stmt, err = tc.Prepare(cquery)
-	tc.tryTrace(ctx, QueryTypePrepare, query, start, err, append(withDBMTraceInjectedTag(mode), tracer.WithSpanID(spanID))...)
+	tc.tryTrace(ctx, QueryTypePrepare, query, start, err, append(withDBMTraceInjectedTag(mode, baseHash), tracer.WithSpanID(spanID))...)
 	if err != nil {
 		return nil, err
 	}
-	return &tracedStmt{Stmt: stmt, traceParams: tc.traceParams, ctx: ctx, query: query}, nil
+	return &tracedStmt{Stmt: stmt, traceParams: tc.traceParams, ctx: ctx, query: query, baseHash: baseHash}, nil
 }
 
 // ExecContext executes a query without returning any rows.
@@ -132,11 +142,13 @@ func (tc *TracedConn) PrepareContext(ctx context.Context, query string) (stmt dr
 func (tc *TracedConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Result, err error) {
 	start := time.Now()
 	if execContext, ok := tc.Conn.(driver.ExecerContext); ok {
-		cquery, spanID := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
+		cquery, spanID, baseHash := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
 		ctx, end := startTraceTask(ctx, QueryTypeExec)
 		defer end()
-		r, err := execContext.ExecContext(ctx, cquery, args)
-		tc.tryTrace(ctx, QueryTypeExec, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode), tracer.WithSpanID(spanID))...)
+		if err = checkQuerySecurity(ctx, query, tc.driverName); !events.IsSecurityError(err) {
+			r, err = execContext.ExecContext(ctx, cquery, args)
+		}
+		tc.tryTrace(ctx, QueryTypeExec, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode, baseHash), tracer.WithSpanID(spanID))...)
 		return r, err
 	}
 	if execer, ok := tc.Conn.(driver.Execer); ok {
@@ -149,11 +161,13 @@ func (tc *TracedConn) ExecContext(ctx context.Context, query string, args []driv
 			return nil, ctx.Err()
 		default:
 		}
-		cquery, spanID := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
+		cquery, spanID, baseHash := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
 		ctx, end := startTraceTask(ctx, QueryTypeExec)
 		defer end()
-		r, err = execer.Exec(cquery, dargs)
-		tc.tryTrace(ctx, QueryTypeExec, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode), tracer.WithSpanID(spanID))...)
+		if err = checkQuerySecurity(ctx, query, tc.driverName); !events.IsSecurityError(err) {
+			r, err = execer.Exec(cquery, dargs)
+		}
+		tc.tryTrace(ctx, QueryTypeExec, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode, baseHash), tracer.WithSpanID(spanID))...)
 		return r, err
 	}
 	return nil, driver.ErrSkip
@@ -176,11 +190,13 @@ func (tc *TracedConn) Ping(ctx context.Context) (err error) {
 func (tc *TracedConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
 	start := time.Now()
 	if queryerContext, ok := tc.Conn.(driver.QueryerContext); ok {
-		cquery, spanID := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
+		cquery, spanID, baseHash := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
 		ctx, end := startTraceTask(ctx, QueryTypeQuery)
 		defer end()
-		rows, err := queryerContext.QueryContext(ctx, cquery, args)
-		tc.tryTrace(ctx, QueryTypeQuery, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode), tracer.WithSpanID(spanID))...)
+		if err = checkQuerySecurity(ctx, query, tc.driverName); !events.IsSecurityError(err) {
+			rows, err = queryerContext.QueryContext(ctx, cquery, args)
+		}
+		tc.tryTrace(ctx, QueryTypeQuery, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode, baseHash), tracer.WithSpanID(spanID))...)
 		return rows, err
 	}
 	if queryer, ok := tc.Conn.(driver.Queryer); ok {
@@ -193,11 +209,13 @@ func (tc *TracedConn) QueryContext(ctx context.Context, query string, args []dri
 			return nil, ctx.Err()
 		default:
 		}
-		cquery, spanID := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
+		cquery, spanID, baseHash := tc.injectComments(ctx, query, tc.cfg.dbmPropagationMode)
 		ctx, end := startTraceTask(ctx, QueryTypeQuery)
 		defer end()
-		rows, err = queryer.Query(cquery, dargs)
-		tc.tryTrace(ctx, QueryTypeQuery, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode), tracer.WithSpanID(spanID))...)
+		if err = checkQuerySecurity(ctx, query, tc.driverName); !events.IsSecurityError(err) {
+			rows, err = queryer.Query(cquery, dargs)
+		}
+		tc.tryTrace(ctx, QueryTypeQuery, query, start, err, append(withDBMTraceInjectedTag(tc.cfg.dbmPropagationMode, baseHash), tracer.WithSpanID(spanID))...)
 		return rows, err
 	}
 	return nil, driver.ErrSkip
@@ -241,35 +259,67 @@ func WithSpanTags(ctx context.Context, tags map[string]string) context.Context {
 	return context.WithValue(ctx, spanTagsKey, tags)
 }
 
+// providedPeerService returns the peer service tag if provided manually by the user,
+// derived from a possible sources (span tags, context, ...)
+func (tc *TracedConn) providedPeerService(ctx context.Context) string {
+	// This occurs if the user sets peer.service explicitly while creating the connection
+	// through the use of sqltrace.WithSpanTags
+	if meta, ok := ctx.Value(spanTagsKey).(map[string]string); ok {
+		if peerServiceTag, ok := meta[ext.PeerService]; ok {
+			return peerServiceTag
+		}
+	}
+
+	// This occurs if the SQL Connection is opened or registered using
+	// WithCustomTags.  This is lower precedence than above since it is
+	// less specific
+	if len(tc.cfg.tags) > 0 {
+		if v, ok := tc.cfg.tags[ext.PeerService].(string); ok {
+			return v
+		}
+	}
+
+	return ""
+}
+
 // injectComments returns the query with SQL comments injected according to the comment injection mode along
 // with a span ID injected into SQL comments. The returned span ID should be used when the SQL span is created
 // following the traced database call.
-func (tc *TracedConn) injectComments(ctx context.Context, query string, mode tracer.DBMPropagationMode) (cquery string, spanID uint64) {
+func (tc *TracedConn) injectComments(ctx context.Context, query string, mode tracer.DBMPropagationMode) (cquery string, spanID uint64, baseHash string) {
 	// The sql span only gets created after the call to the database because we need to be able to skip spans
 	// when a driver returns driver.ErrSkip. In order to work with those constraints, a new span id is generated and
 	// used during SQL comment injection and returned for the sql span to be used later when/if the span
 	// gets created.
-	var spanCtx ddtrace.SpanContext
+	var spanCtx *tracer.SpanContext
 	if span, ok := tracer.SpanFromContext(ctx); ok {
 		spanCtx = span.Context()
 	}
-	carrier := tracer.SQLCommentCarrier{Query: query, Mode: mode, DBServiceName: tc.cfg.serviceName}
+
+	carrier := tracer.SQLCommentCarrier{Query: query, Mode: mode, DBServiceName: tc.cfg.serviceName, PeerDBHostname: tc.meta[ext.TargetHost], PeerDBName: tc.meta[ext.DBName], PeerService: tc.providedPeerService(ctx)}
 	if err := carrier.Inject(spanCtx); err != nil {
 		// this should never happen
-		log.Warn("contrib/database/sql: failed to inject query comments: %v", err)
+		instr.Logger().Warn("contrib/database/sql: failed to inject query comments: %s", err.Error())
 	}
-	return carrier.Query, carrier.SpanID
+	return carrier.Query, carrier.SpanID, carrier.BaseHash
 }
 
-func withDBMTraceInjectedTag(mode tracer.DBMPropagationMode) []tracer.StartSpanOption {
+func withDBMTraceInjectedTag(mode tracer.DBMPropagationMode, baseHash string) []tracer.StartSpanOption {
+	var opts []tracer.StartSpanOption
 	if mode == tracer.DBMPropagationModeFull {
-		return []tracer.StartSpanOption{tracer.Tag(keyDBMTraceInjected, true)}
+		opts = append(opts, tracer.Tag(keyDBMTraceInjected, true))
 	}
-	return nil
+	return append(opts, withDBMPropagatedHashTag(baseHash)...)
+}
+
+func withDBMPropagatedHashTag(baseHash string) []tracer.StartSpanOption {
+	if baseHash == "" {
+		return nil
+	}
+	return []tracer.StartSpanOption{tracer.Tag(keyDBMPropagatedHash, baseHash)}
 }
 
 // tryTrace will create a span using the given arguments, but will act as a no-op when err is driver.ErrSkip.
-func (tp *traceParams) tryTrace(ctx context.Context, qtype QueryType, query string, startTime time.Time, err error, spanOpts ...ddtrace.StartSpanOption) {
+func (tp *traceParams) tryTrace(ctx context.Context, qtype QueryType, query string, startTime time.Time, err error, spanOpts ...tracer.StartSpanOption) {
 	if err == driver.ErrSkip {
 		// Not a user error: driver is telling sql package that an
 		// optional interface method is not implemented. There is
@@ -286,9 +336,9 @@ func (tp *traceParams) tryTrace(ctx context.Context, qtype QueryType, query stri
 		return
 	}
 	dbSystem, _ := normalizeDBSystem(tp.driverName)
-	opts := options.Copy(spanOpts...)
+	opts := options.Expand(spanOpts, 0, 6+len(tp.cfg.tags)+1)
 	opts = append(opts,
-		tracer.ServiceName(tp.cfg.serviceName),
+		instrumentation.ServiceNameWithSource(tp.cfg.serviceName, tp.cfg.serviceSource),
 		tracer.SpanType(ext.SpanTypeSQL),
 		tracer.StartTime(startTime),
 		tracer.Tag(ext.Component, componentName),
@@ -308,6 +358,7 @@ func (tp *traceParams) tryTrace(ctx context.Context, qtype QueryType, query stri
 	if query != "" {
 		resource = query
 	}
+
 	span.SetTag("sql.query_type", string(qtype))
 	span.SetTag(ext.ResourceName, resource)
 	for k, v := range tp.meta {
@@ -318,7 +369,7 @@ func (tp *traceParams) tryTrace(ctx context.Context, qtype QueryType, query stri
 			span.SetTag(k, v)
 		}
 	}
-	if err != nil && (tp.cfg.errCheck == nil || tp.cfg.errCheck(err)) {
+	if err != nil && !events.IsSecurityError(err) && (tp.cfg.errCheck == nil || tp.cfg.errCheck(err)) {
 		span.SetTag(ext.Error, err)
 	}
 	span.Finish()

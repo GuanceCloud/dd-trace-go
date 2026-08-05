@@ -1,0 +1,245 @@
+name: Static Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - release-*
+      - mq-working-branch-**
+    tags-ignore:
+      - "contrib/**"
+      - "instrumentation/**"
+      - "internal/**"
+      - "orchestrion/**"
+      - "scripts/**"
+  workflow_call:
+    inputs:
+      go-version:
+        required: true
+        type: string
+      ref:
+        description: "The branch to run the workflow on"
+        required: true
+        type: string
+
+env:
+  # Users may build our library with GOTOOLCHAIN=local. If they do, and our
+  # go.mod file specifies a newer Go version than their local toolchain, their
+  # build will break. Run our tests with GOTOOLCHAIN=local to ensure that
+  # our library builds with all of the Go versions we claim to support,
+  # without having to download a newer one.
+  GOTOOLCHAIN: local
+  GODEBUG: "x509negativeserial=1"
+  GOLANGCI_LINT_VERSION: v2.12.2 # NOTICE: Make sure this is synced with the version in the _tools/go.mod file.
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  copyright:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Go and development tools
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ inputs.go-version || 'stable' }}
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
+      - name: Copyright
+        run: |
+          go run ./scripts/check_copyright.go
+      - name: Run miscellaneous linters (copyright, Makefiles)
+        run: |
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          make lint/misc
+
+  check-github-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Go and development tools
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ inputs.go-version || 'stable' }}
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
+      - name: Lint GitHub Actions workflows
+        run: |
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          make lint/action
+
+  check-modules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Go and development tools
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ inputs.go-version || 'stable' }}
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
+      - name: Run fixmodules
+        run: |-
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          ./scripts/fix_modules.sh
+      - name: Check for changes
+        run: git diff --exit-code
+
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Go and development tools
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ inputs.go-version || 'stable' }}
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
+      - name: Update documentation
+        run: |-
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          make docs
+      - name: Check for changes
+        run: git diff --exit-code
+
+  check-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Go and development tools
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ inputs.go-version || 'stable' }}
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
+      - name: Format
+        run: |-
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          make format
+      - name: Check for changes
+        run: git diff --exit-code
+
+  lint:
+    runs-on:
+      group: "APM Larger Runners"
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      checks: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@c76cceaaab89abe74e649d2e34c6c9adc26662d2 # v2.10.0
+        with:
+          golangci_lint_flags: "--timeout 10m" # We are hitting timeout when there is no cache
+          go_version: ${{ inputs.go-version }}
+          golangci_lint_version: ${{ env.GOLANGCI_LINT_VERSION }}
+          fail_level: error
+          reporter: github-pr-review
+          filter_mode: nofilter
+
+      - name: golangci-lint (internal/orchestrion/_integration)
+        uses: reviewdog/action-golangci-lint@c76cceaaab89abe74e649d2e34c6c9adc26662d2 # v2.10.0
+        with:
+          golangci_lint_flags: "--timeout 10m --disable=gocritic" # We are hitting timeout when there is no cache
+          go_version: ${{ inputs.go-version }}
+          golangci_lint_version: ${{ env.GOLANGCI_LINT_VERSION }}
+          fail_level: error
+          reporter: github-pr-review
+          workdir: internal/orchestrion/_integration
+          filter_mode: nofilter
+
+      - name: Get GitHub Token via dd-octo-sts
+        id: generate-token
+        uses: DataDog/dd-octo-sts-action@96a25462dbcb10ebf0bfd6e2ccc917d2ab235b9a # v1.0.4
+        with:
+          scope: DataDog/dd-trace-go
+          policy: self.static-checks-shellcheck
+
+      - name: shellcheck
+        uses: reviewdog/action-shellcheck@4c07458293ac342d477251099501a718ae5ef86e # v1.32.0
+        with:
+          github_token: ${{ steps.generate-token.outputs.token }}
+          reporter: github-pr-review
+          fail_level: warning
+          path: ./scripts
+          pattern: "**/*.sh"
+          filter_mode: nofilter
+
+  check-supported-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ inputs.go-version || 'stable' }}
+          cache: false
+      - name: Verify supported_configurations.json and generated code are in sync
+        run: go run ./scripts/configinverter/main.go check
+
+  checklocks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Setup Go and development tools
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: stable
+          tools-dir: ${{ github.workspace }}/_tools
+          tools-bin: ${{ github.workspace }}/bin
+      - name: Run checklocks
+        run: |-
+          export PATH="${{ github.workspace }}/bin:${PATH}"
+          ./scripts/checklocks.sh
+
+  cross-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ inputs.go-version || 'stable' }}
+          cache: false
+      - name: Cross-compile all first-class Go ports
+        run: ./scripts/cross_build.sh

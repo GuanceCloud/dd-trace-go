@@ -22,7 +22,7 @@ const (
 	// RemoteRate specifies that the span was sampled
 	// with a dynamically calculated remote rate.
 	RemoteRate SamplerName = 2
-	// RuleRate specifies that the span was sampled by the RuleSampler.
+	// RuleRate specifies that the span was sampled by the local RuleSampler.
 	RuleRate SamplerName = 3
 	// Manual specifies that the span was sampled manually by user.
 	Manual SamplerName = 4
@@ -34,4 +34,38 @@ const (
 	// SingleSpan specifies that the span was sampled by single
 	// span sampling rules.
 	SingleSpan SamplerName = 8
+	// Sampler name 9 is reserved/used by OTel ingestion.
+	// Sampler name 10 is reserved for Data jobs (spark, databricks etc)
+	// RemoteUserRule specifies that the span was sampled by a rule the user configured remotely
+	// through Datadog UI.
+	RemoteUserRule SamplerName = 11
+	// RemoteDynamicRule specifies that the span was sampled by a rule configured by Datadog
+	// Dynamic Sampling.
+	RemoteDynamicRule SamplerName = 12
 )
+
+// Precomputed decision maker strings for each sampler name
+var samplerStrings = map[SamplerName]string{
+	Unknown:           "--1",
+	Default:           "-0",
+	AgentRate:         "-1",
+	RemoteRate:        "-2",
+	RuleRate:          "-3",
+	Manual:            "-4",
+	AppSec:            "-5",
+	RemoteUserRate:    "-6",
+	SingleSpan:        "-8",
+	RemoteUserRule:    "-11",
+	RemoteDynamicRule: "-12",
+}
+
+// DecisionMaker returns the decision maker representation of the sampler name.
+// It returns the numeric value prefixed with "-" (e.g., "-1", "-2").
+func (s SamplerName) DecisionMaker() string {
+	if str, ok := samplerStrings[s]; ok {
+		return str
+	}
+	// Fallback for unknown values (shouldn't happen in normal usage)
+	// Return Unknown
+	return samplerStrings[Unknown]
+}

@@ -8,22 +8,23 @@ package pubsub
 
 import (
 	"context"
-	"sync"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/telemetry"
+	"github.com/DataDog/dd-trace-go/v2/contrib/cloud.google.com/go/pubsubtrace"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 
 	"cloud.google.com/go/pubsub"
 )
 
-const componentName = "cloud.google.com/go/pubsub.v1"
+const componentName = instrumentation.PackageGCPPubsub
+
+var (
+	instr   *instrumentation.Instrumentation
+	pstrace *pubsubtrace.Tracer
+)
 
 func init() {
-	telemetry.LoadIntegration(componentName)
-	tracer.MarkIntegrationImported(componentName)
+	instr = instrumentation.Load(componentName)
+	pstrace = pubsubtrace.NewTracer(instr, componentName)
 }
 
 // Publish publishes a message on the specified topic and returns a PublishResult.
@@ -33,58 +34,27 @@ func init() {
 // It is required to call (*PublishResult).Get(ctx) on the value returned by Publish to complete
 // the span.
 func Publish(ctx context.Context, t *pubsub.Topic, msg *pubsub.Message, opts ...Option) *PublishResult {
-	cfg := defaultConfig()
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	spanOpts := []ddtrace.StartSpanOption{
-		tracer.ResourceName(t.String()),
-		tracer.SpanType(ext.SpanTypeMessageProducer),
-		tracer.Tag("message_size", len(msg.Data)),
-		tracer.Tag("ordering_key", msg.OrderingKey),
-		tracer.Tag(ext.Component, componentName),
-		tracer.Tag(ext.SpanKind, ext.SpanKindProducer),
-		tracer.Tag(ext.MessagingSystem, ext.MessagingSystemGCPPubsub),
-	}
-	if cfg.serviceName != "" {
-		spanOpts = append(spanOpts, tracer.ServiceName(cfg.serviceName))
-	}
-	if cfg.measured {
-		spanOpts = append(spanOpts, tracer.Measured())
-	}
-	span, ctx := tracer.StartSpanFromContext(
-		ctx,
-		cfg.publishSpanName,
-		spanOpts...,
-	)
-	if msg.Attributes == nil {
-		msg.Attributes = make(map[string]string)
-	}
-	if err := tracer.Inject(span.Context(), tracer.TextMapCarrier(msg.Attributes)); err != nil {
-		log.Debug("contrib/cloud.google.com/go/pubsub.v1/: failed injecting tracing attributes: %v", err)
-	}
-	span.SetTag("num_attributes", len(msg.Attributes))
+	traceMsg := newTraceMessage(msg)
+	ctx, closeSpan := pstrace.TracePublish(ctx, t, traceMsg, opts...)
+	msg.Attributes = traceMsg.Attributes
+
 	return &PublishResult{
 		PublishResult: t.Publish(ctx, msg),
-		span:          span,
+		closeSpan:     closeSpan,
 	}
 }
 
 // PublishResult wraps *pubsub.PublishResult
 type PublishResult struct {
 	*pubsub.PublishResult
-	once sync.Once
-	span tracer.Span
+	closeSpan func(serverID string, err error)
 }
 
 // Get wraps (pubsub.PublishResult).Get(ctx). When this function returns the publish
 // span created in Publish is completed.
 func (r *PublishResult) Get(ctx context.Context) (string, error) {
 	serverID, err := r.PublishResult.Get(ctx)
-	r.once.Do(func() {
-		r.span.SetTag("server_id", serverID)
-		r.span.Finish(tracer.WithError(err))
-	})
+	r.closeSpan(serverID, err)
 	return serverID, err
 }
 
@@ -92,37 +62,24 @@ func (r *PublishResult) Get(ctx context.Context) (string, error) {
 // extracts any tracing metadata attached to the received message, and starts a
 // receive span.
 func WrapReceiveHandler(s *pubsub.Subscription, f func(context.Context, *pubsub.Message), opts ...Option) func(context.Context, *pubsub.Message) {
-	cfg := defaultConfig()
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	log.Debug("contrib/cloud.google.com/go/pubsub.v1: Wrapping Receive Handler: %#v", cfg)
+	traceFn := pstrace.TraceReceiveFunc(s, opts...)
 	return func(ctx context.Context, msg *pubsub.Message) {
-		parentSpanCtx, _ := tracer.Extract(tracer.TextMapCarrier(msg.Attributes))
-		opts := []ddtrace.StartSpanOption{
-			tracer.ResourceName(s.String()),
-			tracer.SpanType(ext.SpanTypeMessageConsumer),
-			tracer.Tag("message_size", len(msg.Data)),
-			tracer.Tag("num_attributes", len(msg.Attributes)),
-			tracer.Tag("ordering_key", msg.OrderingKey),
-			tracer.Tag("message_id", msg.ID),
-			tracer.Tag("publish_time", msg.PublishTime.String()),
-			tracer.Tag(ext.Component, componentName),
-			tracer.Tag(ext.SpanKind, ext.SpanKindConsumer),
-			tracer.Tag(ext.MessagingSystem, ext.MessagingSystemGCPPubsub),
-			tracer.ChildOf(parentSpanCtx),
-		}
-		if cfg.serviceName != "" {
-			opts = append(opts, tracer.ServiceName(cfg.serviceName))
-		}
-		if cfg.measured {
-			opts = append(opts, tracer.Measured())
-		}
-		span, ctx := tracer.StartSpanFromContext(ctx, cfg.receiveSpanName, opts...)
-		if msg.DeliveryAttempt != nil {
-			span.SetTag("delivery_attempt", *msg.DeliveryAttempt)
-		}
-		defer span.Finish()
+		ctx, closeSpan := traceFn(ctx, newTraceMessage(msg))
+		defer closeSpan()
 		f(ctx, msg)
+	}
+}
+
+func newTraceMessage(msg *pubsub.Message) *pubsubtrace.Message {
+	if msg == nil {
+		return nil
+	}
+	return &pubsubtrace.Message{
+		ID:              msg.ID,
+		Data:            msg.Data,
+		OrderingKey:     msg.OrderingKey,
+		Attributes:      msg.Attributes,
+		DeliveryAttempt: msg.DeliveryAttempt,
+		PublishTime:     msg.PublishTime,
 	}
 }

@@ -7,18 +7,19 @@ package pproflite_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
+	"os"
 	"path/filepath"
 	"testing"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/profiler/internal/pproflite"
+	"github.com/DataDog/dd-trace-go/v2/profiler/internal/pproflite"
 
 	"github.com/google/pprof/profile"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDecoderEncoder(t *testing.T) {
-	data, err := ioutil.ReadFile(filepath.Join("testdata", "heap.pprof"))
+	data, err := os.ReadFile(filepath.Join("testdata", "heap.pprof"))
 	require.NoError(t, err)
 
 	inProf, err := profile.ParseData(data)
@@ -61,15 +62,15 @@ func TestDecoderEncoder(t *testing.T) {
 }
 
 func BenchmarkEncodeDecode(b *testing.B) {
-	data, err := ioutil.ReadFile(filepath.Join("testdata", "heap.pprof"))
+	data, err := os.ReadFile(filepath.Join("testdata", "heap.pprof"))
 	require.NoError(b, err)
 
 	d := pproflite.NewDecoder(data)
-	e := pproflite.NewEncoder(ioutil.Discard)
+	e := pproflite.NewEncoder(io.Discard)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := d.FieldEach(e.Encode); err != nil {
 			require.NoError(b, err)
 		}

@@ -3,43 +3,56 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-//go:generate msgp -unexported -marshal=false -o=span_msgp.go -tests=false
+//msgp:ignore spanSnapshot
+//go:generate go run github.com/tinylib/msgp -unexported -marshal=false -o=span_msgp.go -tests=false
+//go:generate go run ../../scripts/msgp_span_meta_omitempty.go -file span_msgp.go
+//go:generate go run ../../scripts/msgp_checklocks_ignore.go -type Span -file span_msgp.go
 
 package tracer
 
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"maps"
 	"math"
-	"os"
 	"reflect"
-	"runtime"
 	"runtime/pprof"
 	rt "runtime/trace"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/internal"
-	sharedinternal "gopkg.in/DataDog/dd-trace-go.v1/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/samplernames"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/traceprof"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	traceinternal "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer/internal"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/errortrace"
+	sharedinternal "github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
+	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
+	"github.com/DataDog/dd-trace-go/v2/internal/locking"
+	"github.com/DataDog/dd-trace-go/v2/internal/locking/assert"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	iof "github.com/DataDog/dd-trace-go/v2/internal/openfeature"
+	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
+	"github.com/DataDog/dd-trace-go/v2/internal/samplingrules"
+	"github.com/DataDog/dd-trace-go/v2/internal/stacktrace"
+	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	telemetrylog "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/traceprof"
+
+	"github.com/tinylib/msgp/msgp"
+
+	"golang.org/x/xerrors"
 
 	"github.com/DataDog/datadog-agent/pkg/obfuscate"
-	"github.com/tinylib/msgp/msgp"
-	"golang.org/x/xerrors"
 )
 
 type (
 	// spanList implements msgp.Encodable on top of a slice of spans.
-	spanList []*span
+	spanList []*Span
 
 	// spanLists implements msgp.Decodable on top of a slice of spanList.
 	// This type is only used in tests.
@@ -47,7 +60,6 @@ type (
 )
 
 var (
-	_ ddtrace.Span   = (*span)(nil)
 	_ msgp.Encodable = (*spanList)(nil)
 	_ msgp.Decodable = (*spanLists)(nil)
 )
@@ -59,73 +71,445 @@ type errorConfig struct {
 	stackSkip    uint
 }
 
-// span represents a computation. Callers must call Finish when a span is
-// complete to ensure it's submitted.
-type span struct {
-	sync.RWMutex `msg:"-"` // all fields are protected by this RWMutex
+// AsMap places tags and span properties into a map and returns it.
+//
+// Note that this is not performant, nor are spans guaranteed to have all of their
+// properties set at any time during normal operation! This is used for testing only,
+// and should not be used in non-test code, or you may run into performance or other
+// issues.
+// +checklocksignore — Test-only, not safe for concurrent use.
+func (s *Span) AsMap() map[string]any {
+	m := make(map[string]any)
+	if s == nil {
+		return m
+	}
+	m[ext.SpanName] = s.name
+	m[ext.ServiceName] = s.service
+	m[ext.ResourceName] = s.resource
+	m[ext.SpanType] = s.spanType
+	m[ext.MapSpanStart] = s.start
+	m[ext.MapSpanDuration] = s.duration
+	for k, v := range s.meta.All() {
+		m[k] = v
+	}
+	for k, v := range s.metrics {
+		m[k] = v
+	}
+	maps.Copy(m, s.metaStruct)
+	m[ext.MapSpanID] = s.spanID
+	m[ext.MapSpanTraceID] = s.traceID
+	m[ext.MapSpanParentID] = s.parentID
+	m[ext.MapSpanError] = s.error
+	if events := s.spanEventsAsJSONString(); events != "" {
+		m[ext.MapSpanEvents] = events
+	}
+	return m
+}
 
-	Name      string             `msg:"name"`              // operation name
-	Service   string             `msg:"service"`           // service name (i.e. "grpc.server", "http.request")
-	Resource  string             `msg:"resource"`          // resource name (i.e. "/user?id=123", "SELECT * FROM users")
-	Type      string             `msg:"type"`              // protocol associated with the span (i.e. "web", "db", "cache")
-	Start     int64              `msg:"start"`             // span start time expressed in nanoseconds since epoch
-	Duration  int64              `msg:"duration"`          // duration of the span expressed in nanoseconds
-	Meta      map[string]string  `msg:"meta,omitempty"`    // arbitrary map of metadata
-	Metrics   map[string]float64 `msg:"metrics,omitempty"` // arbitrary map of numeric metrics
-	SpanID    uint64             `msg:"span_id"`           // identifier of this span
-	TraceID   uint64             `msg:"trace_id"`          // lower 64-bits of the root span identifier
-	ParentID  uint64             `msg:"parent_id"`         // identifier of the span's direct parent
-	Error     int32              `msg:"error"`             // error status of the span; 0 means no errors
-	SpanLinks []ddtrace.SpanLink `msg:"span_links"`        // links to other spans
+// +checklocksignore — Called from AsMap (test-only, not concurrent).
+func (s *Span) spanEventsAsJSONString() string {
+	if !s.supportsEvents {
+		v, _ := s.meta.Get("events")
+		return v
+	}
+	if s.spanEvents == nil {
+		return ""
+	}
+	events, err := json.Marshal(s.spanEvents)
+	if err != nil {
+		log.Error("failed to marshal span events: %s", err.Error())
+		return ""
+	}
+	return string(events)
+}
+
+// Span represents a computation. Callers must call Finish when a Span is
+// complete to ensure it's submitted.
+type Span struct {
+	// guards below fields
+	mu locking.RWMutex `msg:"-"`
+
+	// +checklocks:mu
+	name string `msg:"name"` // operation name
+	// +checklocks:mu
+	service string `msg:"service"` // service name (i.e. "grpc.server", "http.request")
+	// +checklocks:mu
+	resource string `msg:"resource"` // resource name (i.e. "/user?id=123", "SELECT * FROM users")
+	// +checklocks:mu
+	spanType string `msg:"type"` // protocol associated with the span (i.e. "web", "db", "cache")
+	// +checklocks:mu
+	start int64 `msg:"start"` // span start time expressed in nanoseconds since epoch
+	// +checklocks:mu
+	duration int64 `msg:"duration"` // duration of the span expressed in nanoseconds
+	// +checklocks:mu
+	// meta holds string metadata. Promoted attributes (env, version, component,
+	// span.kind) live in meta.attrs and are excluded from meta.m; the custom
+	// msgp codec merges both for wire encoding.
+	meta traceinternal.SpanMeta `msg:"meta,omitempty"` // arbitrary map of metadata + promoted attrs
+	// +checklocks:mu
+	metaStruct metaStructMap `msg:"meta_struct,omitempty"` // arbitrary map of metadata with structured values
+	// +checklocks:mu
+	metrics map[string]float64 `msg:"metrics,omitempty"` // arbitrary map of numeric metrics
+	// +checklocks:mu
+	spanID uint64 `msg:"span_id"` // identifier of this span
+	// +checklocks:mu
+	traceID uint64 `msg:"trace_id"` // lower 64-bits of the root span identifier
+	// +checklocks:mu
+	parentID uint64 `msg:"parent_id"` // identifier of the span's direct parent
+	// +checklocks:mu
+	error int32 `msg:"error"` // error status of the span; 0 means no errors
+	// +checklocks:mu
+	spanLinks []SpanLink `msg:"span_links,omitempty"` // links to other spans
+	// +checklocks:mu
+	spanEvents []spanEvent `msg:"span_events,omitempty"` // events produced related to this span
+	// +checklocks:mu
+	statSpan *tracerStatSpan `msg:"-"`
 
 	goExecTraced bool         `msg:"-"`
 	noDebugStack bool         `msg:"-"` // disables debug stack traces
-	finished     bool         `msg:"-"` // true if the span has been submitted to a tracer. Can only be read/modified if the trace is locked.
-	context      *spanContext `msg:"-"` // span propagation context
+	context      *SpanContext `msg:"-"` // span propagation context
+	// +checklocks:mu
+	supportsEvents bool `msg:"-"` // whether the span supports native span events or not
 
-	pprofCtxActive  context.Context `msg:"-"` // contains pprof.WithLabel labels to tell the profiler more about this span
+	// +checklocks:mu
+	finished bool `msg:"-"` // true if the span has been submitted to a tracer. Can only be read/modified if the trace is locked.
+	// +checklocks:mu
+	integration string `msg:"-"` // where the span was started from, such as a specific contrib or "manual"
+	// +checklocks:mu
+	serviceSource string `msg:"-"` // tracks the source of service name override; set to serviceSourceManual when SetTag overrides it
+	// +checklocks:mu
+	pprofCtxActive context.Context `msg:"-"` // contains pprof.WithLabel labels to tell the profiler more about this span
+
+	// +checklocks:mu
 	pprofCtxRestore context.Context `msg:"-"` // contains pprof.WithLabel labels of the parent span (if any) that need to be restored when this span finishes
 
+	// +checklocks:mu
 	taskEnd func() // ends execution tracer (runtime/trace) task, if started
+}
+
+func (s *Span) clear() {
+	// Serialize after finish()'s deferred s.mu.Unlock(). The span may still
+	// be inside finish() when the worker receives the chunk, because the
+	// channel send happens before the deferred unlock. Acquiring the lock
+	// here guarantees finish() has fully completed before we zero the struct.
+	s.mu.Lock()
+	// s.context is intentionally not nilled: Context() may still be called
+	// after Finish(), and spanStart will reassign it on reuse.
+	// clear() is called after traceWriter.add() encodes the span, so in-place
+	// map clearing is safe — no concurrent encoder holds a reference.
+	// TODO: we should cap large maps here.
+	s.meta.Reset()
+	clear(s.metrics)
+	clear(s.metaStruct)
+	s.name = ""
+	s.service = ""
+	s.resource = ""
+	s.spanType = ""
+	s.start = 0
+	s.duration = 0
+	s.spanID = 0
+	s.traceID = 0
+	s.parentID = 0
+	s.error = 0
+	s.spanLinks = nil
+	s.spanEvents = nil
+	s.statSpan = nil
+	s.goExecTraced = false
+	s.noDebugStack = false
+	s.finished = false
+	s.integration = ""
+	s.supportsEvents = false
+	s.pprofCtxActive = nil
+	s.pprofCtxRestore = nil
+	s.taskEnd = nil
+	// Always keep this unlock as the last line. If we ever introduce
+	// code above that could panic, we should move it as deferred call
+	// under s.mu.Lock().
+	s.mu.Unlock()
 }
 
 // Context yields the SpanContext for this Span. Note that the return
 // value of Context() is still valid after a call to Finish(). This is
 // called the span context and it is different from Go's context.
-func (s *span) Context() ddtrace.SpanContext { return s.context }
+func (s *Span) Context() *SpanContext {
+	if s == nil {
+		return nil
+	}
+	// Lock-free read: s.context is a single pointer word, only reassigned
+	// during construction in spanStart. Taking s.mu.RLock() here would
+	// self-deadlock when called transitively from Span.finish() via
+	// mocktracer.FinishSpan inside s.context.finish().
+	return s.context
+}
+
+type spanSnapshot struct {
+	env           string
+	version       string
+	service       string
+	serviceSource string
+	peerService   string
+	pprofCtx      context.Context
+}
+
+// +checklocksignore — Initialization time.
+func (s *Span) spanSnapshot() spanSnapshot {
+	var (
+		env, _         = s.meta.Env()
+		version, _     = s.meta.Version()
+		peerService, _ = s.meta.Get(ext.PeerService)
+	)
+	return spanSnapshot{
+		env:           env,
+		version:       version,
+		service:       s.service,
+		serviceSource: s.serviceSource,
+		peerService:   peerService,
+		pprofCtx:      s.pprofCtxActive,
+	}
+}
+
+// getSpanID concurrency safe reads the spanID field.
+func (s *Span) getSpanID() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.spanID
+}
+
+// getResource concurrency safe reads the resource field.
+func (s *Span) getResource() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.resource
+}
+
+// getAndRemoveMeta retrieves and removes metadata by key.
+// Used by civisibility_tslv.go for test span level tag processing.
+func (s *Span) getAndRemoveMeta(key string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if v, ok := s.meta.Get(key); ok {
+		s.meta.Delete(key)
+		delete(s.metrics, key)
+		return v
+	}
+	return ""
+}
+
+// applyTraceRuleSampling applies trace rule sampling to the span.
+// It sets the applied rate metric, evaluates Knuth rate-based sampling,
+// applies rate limiting, and sets the appropriate sampling priority.
+// Returns false if span is already finished, true otherwise.
+func (s *Span) applyTraceRuleSampling(rate float64, sampler samplernames.SamplerName, limiter *samplingrules.RateLimiter, now time.Time) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.finished {
+		return false
+	}
+
+	s.setMetricLocked(keyRulesSamplerAppliedRate, rate)
+	delete(s.metrics, keySamplingPriorityRate)
+	s.setMetaLocked(keyKnuthSamplingRate, formatKnuthSamplingRate(rate))
+	if !sampledByRate(s.traceID, rate) {
+		s.setSamplingPriorityLocked(ext.PriorityUserReject, sampler)
+		return true
+	}
+	if limiter == nil {
+		s.setSamplingPriorityLocked(ext.PriorityUserKeep, sampler)
+		return true
+	}
+	sampled, limiterRate := limiter.AllowOne(now)
+	if sampled {
+		s.setSamplingPriorityLocked(ext.PriorityUserKeep, sampler)
+	} else {
+		s.setSamplingPriorityLocked(ext.PriorityUserReject, sampler)
+	}
+	s.setMetricLocked(keyRulesSamplerLimiterRate, limiterRate)
+	return true
+}
+
+// applySingleSpanSamplingWithLock applies single-span sampling rule to the span with the lock held.
+// Used by rules_sampler.go when applying single span sampling rules.
+// The maxPerSecond parameter should be 0 if there's no rate limit for the rule.
+// Note: This is called on finished spans during trace flushing, so we don't check s.finished.
+func (s *Span) applySingleSpanSamplingWithLock(rate, maxPerSecond float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.metrics, keySamplingPriorityRate)
+	s.setMetricLocked(keySpanSamplingMechanism, float64(samplernames.SingleSpan))
+	s.setMetricLocked(keySingleSpanSamplingRuleRate, rate)
+	if maxPerSecond != 0 {
+		s.setMetricLocked(keySingleSpanSamplingMPS, maxPerSecond)
+	}
+}
+
+// debugInfo returns span information for debugging and logging.
+// Used by test code for formatting span information.
+func (s *Span) debugInfo() (name string, spanID, traceID uint64, integration string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	name = s.name
+	spanID = s.spanID
+	traceID = s.traceID
+	if v, ok := s.meta.Get(ext.Component); ok {
+		integration = v
+	} else {
+		integration = "manual"
+	}
+	return
+}
+
+// matchTagsForSampling checks if span tags match the sampling rule tag patterns.
+// Used by rules_sampler.go for tag-based sampling rule matching.
+// Returns true if all tag patterns match, false otherwise.
+func (s *Span) matchTagsForSampling(tagPatterns map[string]func(string) bool) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for k, matchFunc := range tagPatterns {
+		if v, ok := s.meta.Get(k); ok && matchFunc(v) {
+			continue
+		}
+		if s.metrics != nil {
+			if v, ok := s.metrics[k]; ok {
+				// sampling on numbers with floating point is not supported,
+				// thus 'math.Floor(v) != v'
+				if math.Floor(v) == v {
+					strVal := strconv.FormatFloat(v, 'g', -1, 64)
+					if matchFunc(strVal) {
+						continue
+					}
+				}
+			}
+		}
+		// Tag pattern didn't match in either meta or metrics
+		return false
+	}
+	return true
+}
 
 // SetBaggageItem sets a key/value pair as baggage on the span. Baggage items
 // are propagated down to descendant spans and injected cross-process. Use with
 // care as it adds extra load onto your tracing layer.
-func (s *span) SetBaggageItem(key, val string) {
+func (s *Span) SetBaggageItem(key, val string) {
+	if s == nil {
+		return
+	}
 	s.context.setBaggageItem(key, val)
 }
 
 // BaggageItem gets the value for a baggage item given its key. Returns the
 // empty string if the value isn't found in this Span.
-func (s *span) BaggageItem(key string) string {
+func (s *Span) BaggageItem(key string) string {
+	if s == nil {
+		return ""
+	}
 	return s.context.baggageItem(key)
 }
 
+// safeStringerValue safely calls v.String(), returning "<nil>" if it panics
+// due to a nil pointer receiver. All other panics are re-raised.
+func safeStringerValue(v fmt.Stringer, original any) (result string) {
+	defer func() {
+		if e := recover(); e != nil {
+			if rv := reflect.ValueOf(original); rv.Kind() == reflect.Pointer && rv.IsNil() {
+				result = "<nil>"
+				return
+			}
+			panic(e)
+		}
+	}()
+	return v.String()
+}
+
 // SetTag adds a set of key/value metadata to the span.
-func (s *span) SetTag(key string, value interface{}) {
-	s.Lock()
-	defer s.Unlock()
+func (s *Span) SetTag(key string, value any) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.setTagLocked(key, value)
+}
+
+// SetMetaStruct adds a tag with the given key and value to the `meta_struct`
+// field of the span if the agent supports it and returns true. If the
+// `meta_struct` feature is not supported by the agent or the receiver is nil,
+// nothing is stored in the span and false is returned.
+func (s *Span) SetMetaStruct(key string, value msgp.Marshaler) bool {
+	if s == nil {
+		return false
+	}
+
+	tracer, hasTracer := getGlobalTracer().(*tracer)
+	if !hasTracer || !tracer.config.agent.load().metaStructAvailable {
+		return false
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.setMetaStructLocked(key, value)
+	return true
+}
+
+// setTags sets multiple tags on the span during initialization. It acquires
+// the span lock internally and returns early without locking if tags is empty.
+func (s *Span) setTags(tags map[string]any) {
+	if len(tags) == 0 {
+		return
+	}
+	s.mu.Lock()
+	for k, v := range tags {
+		s.setTagLocked(k, v)
+	}
+	s.mu.Unlock()
+}
+
+// setTagLocked sets a tag on the span. This method assumes the span lock is already held.
+// +checklocks:s.mu
+func (s *Span) setTagLocked(key string, value any) {
+	assert.RWMutexLocked(&s.mu)
+
 	// We don't lock spans when flushing, so we could have a data race when
 	// modifying a span as it's being flushed. This protects us against that
 	// race, since spans are marked `finished` before we flush them.
 	if s.finished {
 		return
 	}
+	// To avoid dumping the memory address in case value is a pointer, we dereference it.
+	// Any pointer value that is a pointer to a pointer will be dumped as a string.
+	value = dereference(value)
 	switch key {
 	case ext.Error:
-		s.setTagError(value, errorConfig{
+		s.setTagErrorLocked(value, errorConfig{
 			noDebugStack: s.noDebugStack,
 		})
 		return
+	case ext.ErrorNoStackTrace:
+		s.setTagErrorLocked(value, errorConfig{
+			noDebugStack: true,
+		})
+		return
+	case ext.Component:
+		integration, ok := value.(string)
+		if ok {
+			s.integration = integration
+		}
+	case ext.KeyServiceSource:
+		if so, ok := value.(sharedinternal.ServiceOverride); ok {
+			s.service = so.Name
+			s.serviceSource = so.Source
+			if s.context != nil {
+				s.context.setSpanSnapshotService(so.Name, so.Source)
+			}
+			return
+		}
 	}
 	if v, ok := value.(bool); ok {
-		s.setTagBool(key, v)
+		s.setTagBoolLocked(key, v)
 		return
 	}
 	if v, ok := value.(string); ok {
@@ -138,30 +522,27 @@ func (s *span) SetTag(key string, value interface{}) {
 			// of what we change at a lower level.
 			s.pprofCtxActive = pprof.WithLabels(s.pprofCtxActive, pprof.Labels(traceprof.TraceEndpoint, v))
 			pprof.SetGoroutineLabels(s.pprofCtxActive)
+			if s.context != nil {
+				s.context.setSpanSnapshotPPROFCtx(s.pprofCtxActive)
+			}
 		}
-		s.setMeta(key, v)
+		s.setMetaLocked(key, v)
 		return
 	}
-	if v, ok := toFloat64(value); ok {
-		s.setMetric(key, v)
+	if v, ok := sharedinternal.ToFloat64(value); ok {
+		s.setMetricLocked(key, v)
 		return
 	}
 	if v, ok := value.(fmt.Stringer); ok {
-		defer func() {
-			if e := recover(); e != nil {
-				if v := reflect.ValueOf(value); v.Kind() == reflect.Ptr && v.IsNil() {
-					// If .String() panics due to a nil receiver, we want to catch this
-					// and replace the string value with "<nil>", just as Sprintf does.
-					// Other panics should not be handled.
-					s.setMeta(key, "<nil>")
-					return
-				}
-				panic(e)
-			}
-		}()
-		s.setMeta(key, v.String())
+		s.setMetaLocked(key, safeStringerValue(v, value))
 		return
 	}
+
+	if v, ok := value.([]byte); ok {
+		s.setMetaLocked(key, string(v))
+		return
+	}
+
 	if value != nil {
 		// Arrays will be translated to dot notation. e.g.
 		// {"myarr.0": "foo", "myarr.1": "bar"}
@@ -172,46 +553,66 @@ func (s *span) SetTag(key string, value interface{}) {
 			for i := 0; i < slice.Len(); i++ {
 				key := fmt.Sprintf("%s.%d", key, i)
 				v := slice.Index(i)
-				if num, ok := toFloat64(v.Interface()); ok {
-					s.setMetric(key, num)
+				if num, ok := sharedinternal.ToFloat64(v.Interface()); ok {
+					s.setMetricLocked(key, num)
 				} else {
-					s.setMeta(key, fmt.Sprintf("%v", v))
+					s.setMetaLocked(key, fmt.Sprintf("%v", v))
 				}
 			}
 			return
 		}
+
+		// Can be sent as messagepack in `meta_struct` instead of `meta`
+		// reserved for internal use only
+		if v, ok := value.(sharedinternal.MetaStructValue); ok {
+			s.setMetaStructLocked(key, v.Value)
+			return
+		}
+
+		// Support for v1 shim meta struct values (only _dd.stack uses this)
+		if key == "_dd.stack" {
+			s.setMetaStructLocked(key, value)
+			return
+		}
+
+		// Add this trace source tag to propagating tags and to span tags
+		// reserved for internal use only
+		if v, ok := value.(sharedinternal.TraceSourceTagValue); ok {
+			s.context.trace.setTraceSourcePropagatingTag(key, v.Value)
+		}
 	}
+
 	// not numeric, not a string, not a fmt.Stringer, not a bool, and not an error
-	s.setMeta(key, fmt.Sprint(value))
+	s.setMetaLocked(key, fmt.Sprint(value))
 }
 
-// setSamplingPriority locks then span, then updates the sampling priority.
+// setSamplingPriority locks the span, then updates the sampling priority.
 // It also updates the trace's sampling priority.
-func (s *span) setSamplingPriority(priority int, sampler samplernames.SamplerName) {
-	s.Lock()
-	defer s.Unlock()
+func (s *Span) setSamplingPriority(priority int, sampler samplernames.SamplerName) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.setSamplingPriorityLocked(priority, sampler)
-}
-
-// Root returns the root span of the span's trace. The return value shouldn't be
-// nil as long as the root span is valid and not finished.
-func (s *span) Root() Span {
-	return s.root()
 }
 
 // root returns the root span of the span's trace. The return value shouldn't be
 // nil as long as the root span is valid and not finished.
-// As opposed to the public Root method, this one returns the actual span type
-// when internal usage requires it (to avoid type assertions from Root's return
-// value).
-func (s *span) root() *span {
-	if s == nil || s.context == nil {
+func (s *Span) Root() *Span {
+	if s == nil {
 		return nil
 	}
-	if s.context.trace == nil {
+	// Lock-free read for the same reason as Context(): avoids self-deadlock
+	// when called transitively from Span.finish() via mocktracer.FinishSpan.
+	ctx := s.context
+	if ctx == nil {
 		return nil
 	}
-	return s.context.trace.root
+	if ctx.trace == nil {
+		return nil
+	}
+	return ctx.trace.root
 }
 
 // SetUser associates user information to the current trace which the
@@ -219,17 +620,21 @@ func (s *span) root() *span {
 // bit of information gets monitored. In case of distributed traces,
 // the user id can be propagated across traces using the WithPropagation() option.
 // See https://docs.datadoghq.com/security_platform/application_security/setup_and_configure/?tab=set_user#add-user-information-to-traces
-func (s *span) SetUser(id string, opts ...UserMonitoringOption) {
+func (s *Span) SetUser(id string, opts ...UserMonitoringOption) {
+	if s == nil {
+		return
+	}
 	cfg := UserMonitoringConfig{
 		Metadata: make(map[string]string),
 	}
 	for _, fn := range opts {
 		fn(&cfg)
 	}
-	root := s.root()
+	root := s.Root()
 	trace := root.context.trace
-	root.Lock()
-	defer root.Unlock()
+	root.mu.Lock()
+	defer root.mu.Unlock()
+
 	// We don't lock spans when flushing, so we could have a data race when
 	// modifying a span as it's being flushed. This protects us against that
 	// race, since spans are marked `finished` before we flush them.
@@ -238,7 +643,7 @@ func (s *span) SetUser(id string, opts ...UserMonitoringOption) {
 	}
 	if cfg.PropagateID {
 		// Delete usr.id from the tags since _dd.p.usr.id takes precedence
-		delete(root.Meta, keyUserID)
+		root.meta.Delete(keyUserID)
 		idenc := base64.StdEncoding.EncodeToString([]byte(id))
 		trace.setPropagatingTag(keyPropagatedUserID, idenc)
 		s.context.updated = true
@@ -248,11 +653,12 @@ func (s *span) SetUser(id string, opts ...UserMonitoringOption) {
 			trace.unsetPropagatingTag(keyPropagatedUserID)
 			s.context.updated = true
 		}
-		delete(root.Meta, keyPropagatedUserID)
+		root.meta.Delete(keyPropagatedUserID)
 	}
 
 	usrData := map[string]string{
 		keyUserID:        id,
+		keyUserLogin:     cfg.Login,
 		keyUserEmail:     cfg.Email,
 		keyUserName:      cfg.Name,
 		keyUserScope:     cfg.Scope,
@@ -260,210 +666,403 @@ func (s *span) SetUser(id string, opts ...UserMonitoringOption) {
 		keyUserSessionID: cfg.SessionID,
 	}
 	for k, v := range cfg.Metadata {
-		usrData[fmt.Sprintf("usr.%s", k)] = v
+		usrData["usr."+k] = v
 	}
 	for k, v := range usrData {
 		if v != "" {
 			// setMeta is used since the span is already locked
-			root.setMeta(k, v)
+			root.setMetaLocked(k, v)
 		}
 	}
 }
 
+// StartChild starts a new child span with the given operation name and options.
+func (s *Span) StartChild(operationName string, opts ...StartSpanOption) *Span {
+	if s == nil {
+		return nil
+	}
+	opts = append(opts, ChildOf(s.Context()))
+	return getGlobalTracer().StartSpan(operationName, opts...)
+}
+
 // setSamplingPriorityLocked updates the sampling priority.
 // It also updates the trace's sampling priority.
-func (s *span) setSamplingPriorityLocked(priority int, sampler samplernames.SamplerName) {
+// s.mu must be held for writing.
+// +checklocks:s.mu
+func (s *Span) setSamplingPriorityLocked(priority int, sampler samplernames.SamplerName) {
+	assert.RWMutexLocked(&s.mu)
 	// We don't lock spans when flushing, so we could have a data race when
 	// modifying a span as it's being flushed. This protects us against that
 	// race, since spans are marked `finished` before we flush them.
 	if s.finished {
 		return
 	}
-	s.setMetric(keySamplingPriority, float64(priority))
+	s.setMetricLocked(keySamplingPriority, float64(priority))
 	s.context.setSamplingPriority(priority, sampler)
 }
 
-// setTagError sets the error tag. It accounts for various valid scenarios.
-// This method is not safe for concurrent use.
-func (s *span) setTagError(value interface{}, cfg errorConfig) {
-	setError := func(yes bool) {
-		if yes {
-			if s.Error == 0 {
-				// new error
-				atomic.AddInt32(&s.context.errors, 1)
-			}
-			s.Error = 1
-		} else {
-			if s.Error > 0 {
-				// flip from active to inactive
-				atomic.AddInt32(&s.context.errors, -1)
-			}
-			s.Error = 0
-		}
+// forceSetSamplingPriorityLocked updates the sampling priority.
+// If the trace is locked, the sampling priority is forced to the given value.
+//
+// This function is should only be used when applying a manual keep or drop decision.
+// s.mu must be held for writing.
+// +checklocks:s.mu
+func (s *Span) forceSetSamplingPriorityLocked(priority int, sampler samplernames.SamplerName) {
+	assert.RWMutexLocked(&s.mu)
+	// We don't lock spans when flushing, so we could have a data race when
+	// modifying a span as it's being flushed. This protects us against that
+	// race, since spans are marked `finished` before we flush them.
+	if s.finished {
+		return
 	}
+	s.setMetricLocked(keySamplingPriority, float64(priority))
+	s.context.forceSetSamplingPriority(priority, sampler)
+}
+
+// setErrorFlagLocked sets the error flag on the span and adjusts the trace error count.
+// s.mu must be held for writing.
+// +checklocks:s.mu
+func (s *Span) setErrorFlagLocked(yes bool) {
+	assert.RWMutexLocked(&s.mu)
+	if yes {
+		if s.error == 0 {
+			// new error
+			s.context.errors.Add(1)
+		}
+		s.error = 1
+	} else {
+		if s.error > 0 {
+			// flip from active to inactive
+			s.context.errors.Add(-1)
+		}
+		s.error = 0
+	}
+}
+
+// setTagErrorLocked sets the error tag. It accounts for various valid scenarios.
+// This method assumes the span lock is already held.
+// +checklocks:s.mu
+func (s *Span) setTagErrorLocked(value any, cfg errorConfig) {
+	assert.RWMutexLocked(&s.mu)
+	// We don't lock spans when flushing, so we could have a data race when
+	// modifying a span as it's being flushed. This protects us against that
+	// race, since spans are marked `finished` before we flush them.
 	if s.finished {
 		return
 	}
 	switch v := value.(type) {
 	case bool:
 		// bool value as per Opentracing spec.
-		setError(v)
+		s.setErrorFlagLocked(v)
 	case error:
 		// if anyone sets an error value as the tag, be nice here
 		// and provide all the benefits.
-		setError(true)
-		s.setMeta(ext.ErrorMsg, v.Error())
-		s.setMeta(ext.ErrorType, reflect.TypeOf(v).String())
-		if !cfg.noDebugStack {
-			s.setMeta(ext.ErrorStack, takeStacktrace(cfg.stackFrames, cfg.stackSkip))
+		s.setErrorFlagLocked(true)
+		s.setMetaLocked(ext.ErrorMsg, v.Error())
+		s.setMetaLocked(ext.ErrorType, reflect.TypeOf(v).String())
+		if cfg.noDebugStack {
+			return
 		}
 		switch v.(type) {
-		case xerrors.Formatter:
-			s.setMeta(ext.ErrorDetails, fmt.Sprintf("%+v", v))
-		case fmt.Formatter:
-			// pkg/errors approach
-			s.setMeta(ext.ErrorDetails, fmt.Sprintf("%+v", v))
+		case xerrors.Formatter, fmt.Formatter, *errortrace.TracerError:
+			s.setMetaLocked(ext.ErrorStack, fmt.Sprintf("%+v", v))
 		}
+		handlingStack := takeStacktrace(cfg.stackFrames, cfg.stackSkip)
+		s.setMetaLocked(ext.ErrorHandlingStack, handlingStack)
 	case nil:
 		// no error
-		setError(false)
+		s.setErrorFlagLocked(false)
 	default:
 		// in all other cases, let's assume that setting this tag
 		// is the result of an error.
-		setError(true)
+		s.setErrorFlagLocked(true)
 	}
 }
-
-// defaultStackLength specifies the default maximum size of a stack trace.
-const defaultStackLength = 32
 
 // takeStacktrace takes a stack trace of maximum n entries, skipping the first skip entries.
-// If n is 0, up to 20 entries are retrieved.
-func takeStacktrace(n, skip uint) string {
-	if n == 0 {
-		n = defaultStackLength
-	}
-	var builder strings.Builder
-	pcs := make([]uintptr, n)
+// If n is 0, the default depth from internal/stacktrace is used.
+// Uses the centralized internal/stacktrace implementation while preserving telemetry tracking.
+func takeStacktrace(depth uint, skip uint) string {
+	telemetry.Count(telemetry.NamespaceTracers, "errorstack.source", []string{"source:takeStacktrace"}).Submit(1)
+	now := time.Now()
+	defer func() {
+		dur := float64(time.Since(now))
+		telemetry.Distribution(telemetry.NamespaceTracers, "errorstack.duration", []string{"source:takeStacktrace"}).Submit(dur)
+	}()
 
-	// +2 to exclude runtime.Callers and takeStacktrace
-	numFrames := runtime.Callers(2+int(skip), pcs)
-	if numFrames == 0 {
-		return ""
-	}
-	frames := runtime.CallersFrames(pcs[:numFrames])
-	for i := 0; ; i++ {
-		frame, more := frames.Next()
-		if i != 0 {
-			builder.WriteByte('\n')
-		}
-		builder.WriteString(frame.Function)
-		builder.WriteByte('\n')
-		builder.WriteByte('\t')
-		builder.WriteString(frame.File)
-		builder.WriteByte(':')
-		builder.WriteString(strconv.Itoa(frame.Line))
-		if !more {
-			break
-		}
-	}
-	return builder.String()
+	// Keep Datadog frames in span error stack traces, but omit this wrapper on top
+	// of the stacktrace package's own machinery.
+	stack := stacktrace.SkipAndCaptureWithInternalFrames(int(depth), int(skip)+1)
+	return stacktrace.Format(stack)
 }
 
-// setMeta sets a string tag. This method is not safe for concurrent use.
-func (s *span) setMeta(key, v string) {
-	if s.Meta == nil {
-		s.Meta = make(map[string]string, 1)
+// setMeta sets a string tag during span initialization (before the span is published).
+// This method should only be used during span construction in spanStart and StartSpan.
+func (s *Span) setMeta(key, v string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.setMetaLocked(key, v)
+}
+
+// setMetaLocked sets a string tag. This method assumes the span lock is already held.
+// +checklocks:s.mu
+func (s *Span) setMetaLocked(key, v string) {
+	assert.RWMutexLocked(&s.mu)
+	s.setMetaInit(key, v)
+	if s.context != nil {
+		s.context.setSpanSnapshotMeta(key, v)
 	}
-	delete(s.Metrics, key)
+}
+
+// setMetaInit sets a string tag without acquiring the lock and asserting the lock is held.
+// +checklocksignore — Initialization time, span not yet shared.
+func (s *Span) setMetaInit(key, v string) {
+	delete(s.metrics, key)
 	switch key {
 	case ext.SpanName:
-		s.Name = v
+		s.name = v
 	case ext.ServiceName:
-		s.Service = v
+		s.service = v
+		s.serviceSource = serviceSourceManual
+		if s.context != nil {
+			s.context.setSpanSnapshotService(v, serviceSourceManual)
+		}
 	case ext.ResourceName:
-		s.Resource = v
+		s.resource = v
 	case ext.SpanType:
-		s.Type = v
+		s.spanType = v
 	default:
-		s.Meta[key] = v
+		s.meta.Set(key, v)
 	}
 }
 
-// setTagBool sets a boolean tag on the span.
-func (s *span) setTagBool(key string, v bool) {
+// setMetaStructLocked sets structured metadata. This method assumes the span lock is already held.
+// +checklocks:s.mu
+func (s *Span) setMetaStructLocked(key string, v any) {
+	assert.RWMutexLocked(&s.mu)
+	if s.metaStruct == nil {
+		s.metaStruct = make(metaStructMap, 1)
+	}
+	if key == stacktrace.SpanKey {
+		if current, ok := s.metaStruct[key]; ok {
+			merged, err := stacktrace.MergeSpanValues(current, v)
+			if err != nil {
+				telemetrylog.Warn(
+					"failed to merge stack-trace span values",
+					slog.Any("error", telemetrylog.NewSafeError(err)),
+					slog.String("current_type", fmt.Sprintf("%T", current)),
+					slog.String("next_type", fmt.Sprintf("%T", v)),
+				)
+				return
+			}
+			v = merged
+		}
+	}
+	s.metaStruct[key] = v
+}
+
+// setTagBoolLocked sets a boolean tag on the span. This method assumes the span lock is already held.
+// +checklocks:s.mu
+func (s *Span) setTagBoolLocked(key string, v bool) {
+	assert.RWMutexLocked(&s.mu)
 	switch key {
 	case ext.AnalyticsEvent:
 		if v {
-			s.setMetric(ext.EventSampleRate, 1.0)
+			s.setMetricLocked(ext.EventSampleRate, 1.0)
 		} else {
-			s.setMetric(ext.EventSampleRate, 0.0)
+			s.setMetricLocked(ext.EventSampleRate, 0.0)
 		}
 	case ext.ManualDrop:
 		if v {
-			s.setSamplingPriorityLocked(ext.PriorityUserReject, samplernames.Manual)
+			s.forceSetSamplingPriorityLocked(ext.PriorityUserReject, samplernames.Manual)
 		}
 	case ext.ManualKeep:
 		if v {
-			s.setSamplingPriorityLocked(ext.PriorityUserKeep, samplernames.Manual)
+			s.forceSetSamplingPriorityLocked(ext.PriorityUserKeep, samplernames.Manual)
 		}
 	default:
 		if v {
-			s.setMeta(key, "true")
+			s.setMetaLocked(key, "true")
 		} else {
-			s.setMeta(key, "false")
+			s.setMetaLocked(key, "false")
 		}
 	}
 }
 
-// setMetric sets a numeric tag, in our case called a metric. This method
-// is not safe for concurrent use.
-func (s *span) setMetric(key string, v float64) {
-	if s.Metrics == nil {
-		s.Metrics = make(map[string]float64, 1)
+// setMetric sets a numeric tag during span initialization (before the span is published).
+// This method should only be used during span construction in spanStart and StartSpan.
+// +checklocksignore — Initialization time, span not yet shared.
+func (s *Span) setMetricInit(key string, v float64) {
+	if s.metrics == nil {
+		s.metrics = make(map[string]float64, 1)
 	}
-	delete(s.Meta, key)
+	s.meta.Delete(key)
+	// Note: We don't handle ManualKeep or _sampling_priority_v1shim during init
+	// because those require modifying trace-level state which needs locking
+	s.metrics[key] = v
+}
+
+func (s *Span) setMetric(key string, v float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.setMetricLocked(key, v)
+}
+
+// setMetricLocked sets a numeric tag, in our case called a metric. This method
+// assumes the span lock is already held.
+// +checklocks:s.mu
+func (s *Span) setMetricLocked(key string, v float64) {
+	assert.RWMutexLocked(&s.mu)
+	if s.metrics == nil {
+		s.metrics = make(map[string]float64, 1)
+	}
+	s.meta.Delete(key)
+	if s.context != nil {
+		s.context.setSpanSnapshotMeta(key, "")
+	}
 	switch key {
 	case ext.ManualKeep:
 		if v == float64(samplernames.AppSec) {
 			s.setSamplingPriorityLocked(ext.PriorityUserKeep, samplernames.AppSec)
 		}
-	case ext.SamplingPriority:
-		// ext.SamplingPriority is deprecated in favor of ext.ManualKeep and ext.ManualDrop.
-		// We have it here for backward compatibility.
+	case "_sampling_priority_v1shim":
+		// We have this for backward compatibility with the v1 shim.
 		s.setSamplingPriorityLocked(int(v), samplernames.Manual)
 	default:
-		s.Metrics[key] = v
+		s.metrics[key] = v
+	}
+}
+
+// AddLink appends the given link to the span's span links.
+func (s *Span) AddLink(link SpanLink) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// We don't lock spans when flushing, so we could have a data race when
+	// modifying a span as it's being flushed. This protects us against that
+	// race, since spans are marked `finished` before we flush them.
+	if s.finished {
+		// already finished
+		return
+	}
+	s.spanLinks = append(s.spanLinks, link)
+}
+
+// serializeSpanLinksInMeta saves span links as a JSON string under `Span[meta][_dd.span_links]`.
+// +checklocks:s.mu
+func (s *Span) serializeSpanLinksInMeta() {
+	assert.RWMutexLocked(&s.mu)
+	if len(s.spanLinks) == 0 {
+		return
+	}
+	spanLinkBytes, err := json.Marshal(s.spanLinks)
+	if err != nil {
+		log.Debug("Unable to marshal span links. Not adding span links to span meta.")
+		return
+	}
+	s.meta.Set("_dd.span_links", string(spanLinkBytes))
+}
+
+// serializeSpanEvents sets the span events from the current span in the correct transport, depending on whether the
+// agent supports the native method or not.
+// +checklocks:s.mu
+func (s *Span) serializeSpanEvents() {
+	assert.RWMutexLocked(&s.mu)
+	if len(s.spanEvents) == 0 {
+		return
+	}
+	// if span events are natively supported by the agent, there's nothing to do
+	// as the events will be already included when the span is serialized.
+	if s.supportsEvents {
+		return
+	}
+	// otherwise, we need to serialize them as a string tag and remove them from the struct
+	// so they are not sent twice.
+	b, err := json.Marshal(s.spanEvents)
+	s.spanEvents = nil
+	if err != nil {
+		log.Debug("Unable to marshal span events; events dropped from span meta\n%s", err.Error())
+		return
+	}
+	s.meta.Set("events", string(b))
+}
+
+// recordFFEEvaluation records a feature flag evaluation for FFE span enrichment.
+// Used by github.com/DataDog/dd-trace-go/v2/openfeature via go:linkname.
+//
+// Feature flag evaluations are collected while a request is in progress and
+// copied onto the root span as tags when the span finishes. The temporary
+// storage lives in internal/openfeature, but access to it must be coordinated
+// with the span lifecycle here.
+//
+// The OpenFeature hook reaches this function instead of writing to the store
+// directly because it cannot safely inspect or synchronize with Span.finished.
+// Holding s.mu serializes recording an evaluation with Finish draining the
+// stored evaluations. The s.finished check prevents recording evaluations after
+// the span has already finished; Finish drains the stored evaluations exactly
+// once while holding the same lock.
+func recordFFEEvaluation(s *Span, eval *iof.FeatureFlagEvaluation) {
+	if s == nil || eval == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.finished {
+		return
+	}
+	iof.AddSpanEnrichment(s, eval)
+}
+
+// serializeFFEEvaluations writes the accumulated OpenFeature evaluation tags onto
+// the span and removes the pending FFE span enrichment from the temporary store.
+// +checklocks:s.mu
+func (s *Span) serializeFFEEvaluations() {
+	assert.RWMutexLocked(&s.mu)
+	enrichment := iof.DrainSpanEnrichment(s)
+	if enrichment == nil {
+		return
+	}
+	for tag, value := range enrichment.GetSpanTags() {
+		s.meta.Set(tag, value)
 	}
 }
 
 // Finish closes this Span (but not its children) providing the duration
 // of its part of the tracing session.
-func (s *span) Finish(opts ...ddtrace.FinishOption) {
+func (s *Span) Finish(opts ...FinishOption) {
+	if s == nil {
+		return
+	}
+
 	t := now()
 	if len(opts) > 0 {
-		cfg := ddtrace.FinishConfig{
+		cfg := FinishConfig{
 			NoDebugStack: s.noDebugStack,
 		}
 		for _, fn := range opts {
+			if fn == nil {
+				continue
+			}
 			fn(&cfg)
 		}
 		if !cfg.FinishTime.IsZero() {
 			t = cfg.FinishTime.UnixNano()
 		}
 		if cfg.Error != nil {
-			s.Lock()
-			s.setTagError(cfg.Error, errorConfig{
+			s.mu.Lock()
+			s.setTagErrorLocked(cfg.Error, errorConfig{
 				noDebugStack: cfg.NoDebugStack,
 				stackFrames:  cfg.StackFrames,
 				stackSkip:    cfg.SkipStackFrames,
 			})
-			s.Unlock()
+			s.mu.Unlock()
 		}
 	}
-	if s.taskEnd != nil {
-		s.taskEnd()
-	}
+
 	if s.goExecTraced && rt.IsEnabled() {
 		// Only tag spans as traced if they both started & ended with
 		// execution tracing enabled. This is technically not sufficient
@@ -481,25 +1080,25 @@ func (s *span) Finish(opts ...ddtrace.FinishOption) {
 		s.SetTag("go_execution_traced", "partial")
 	}
 
-	if tr, ok := internal.GetGlobalTracer().(*tracer); ok && tr.rulesSampling.traces.enabled() {
-		if !s.context.trace.isLocked() {
-			tr.rulesSampling.SampleTrace(s)
+	if s.Root() == s {
+		if tr, ok := getGlobalTracer().(*tracer); ok && tr.rulesSampling.traces.enabled() {
+			if !s.context.trace.isLocked() && s.context.trace.propagatingTag(keyDecisionMaker) != "-4" {
+				tr.rulesSampling.SampleTrace(s)
+			}
 		}
 	}
 
 	s.finish(t)
-
-	if s.pprofCtxRestore != nil {
-		// Restore the labels of the parent span so any CPU samples after this
-		// point are attributed correctly.
-		pprof.SetGoroutineLabels(s.pprofCtxRestore)
-	}
 }
 
 // SetOperationName sets or changes the operation name.
-func (s *span) SetOperationName(operationName string) {
-	s.Lock()
-	defer s.Unlock()
+func (s *Span) SetOperationName(operationName string) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// We don't lock spans when flushing, so we could have a data race when
 	// modifying a span as it's being flushed. This protects us against that
 	// race, since spans are marked `finished` before we flush them.
@@ -507,12 +1106,24 @@ func (s *span) SetOperationName(operationName string) {
 		// already finished
 		return
 	}
-	s.Name = operationName
+	s.name = operationName
 }
 
-func (s *span) finish(finishTime int64) {
-	s.Lock()
-	defer s.Unlock()
+// enrichServiceSource writes the _dd.svc_src meta tag at finish time.
+// No tag is written when the span's service matches the global DD_SERVICE (no override)
+// or when no source was determined.
+// +checklocks:s.mu
+func (s *Span) enrichServiceSource() {
+	if s.serviceSource == "" || s.service == globalconfig.ServiceName() {
+		return
+	}
+	s.meta.Set(ext.KeyServiceSource, s.serviceSource)
+}
+
+func (s *Span) finish(finishTime int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// We don't lock spans when flushing, so we could have a data race when
 	// modifying a span as it's being flushed. This protects us against that
 	// race, since spans are marked `finished` before we flush them.
@@ -520,41 +1131,37 @@ func (s *span) finish(finishTime int64) {
 		// already finished
 		return
 	}
-	if s.Duration == 0 {
-		s.Duration = finishTime - s.Start
+
+	s.serializeSpanLinksInMeta()
+	s.serializeSpanEvents()
+	s.serializeFFEEvaluations()
+	s.enrichServiceSource()
+
+	if s.duration == 0 {
+		s.duration = finishTime - s.start
 	}
-	if s.Duration < 0 {
-		s.Duration = 0
+	if s.duration < 0 {
+		s.duration = 0
+	}
+	if s.taskEnd != nil {
+		s.taskEnd()
 	}
 
 	keep := true
-	if t, ok := internal.GetGlobalTracer().(*tracer); ok {
-		if !t.config.enabled.current {
+	tracer, hasTracer := getGlobalTracer().(*tracer)
+	if hasTracer {
+		if !tracer.config.internalConfig.TracingEnabled() {
 			return
 		}
-		// we have an active tracer
-		if t.config.canComputeStats() && shouldComputeStats(s) {
-			// the agent supports computed stats
-			select {
-			case t.stats.In <- newAggregableSpan(s, t.obfuscator):
-				// ok
-			default:
-				log.Error("Stats channel full, disregarding span.")
-			}
-		}
-		if t.config.canDropP0s() {
+		if tracer.config.canDropP0s() {
 			// the agent supports dropping p0's in the client
 			keep = shouldKeep(s)
 		}
-		if t.config.debugAbandonedSpans {
+		if tracer.config.internalConfig.DebugAbandonedSpans() {
 			// the tracer supports debugging abandoned spans
-			select {
-			case t.abandonedSpansDebugger.In <- newAbandonedSpanCandidate(s, true):
-				// ok
-			default:
-				log.Error("Abandoned spans channel full, disregarding span.")
-			}
+			tracer.submitAbandonedSpan(s, true)
 		}
+		tracer.spansFinished.Inc(s.integration)
 	}
 	if keep {
 		// a single kept span keeps the whole trace.
@@ -562,35 +1169,18 @@ func (s *span) finish(finishTime int64) {
 	}
 	if log.DebugEnabled() {
 		// avoid allocating the ...interface{} argument if debug logging is disabled
-		log.Debug("Finished Span: %v, Operation: %s, Resource: %s, Tags: %v, %v",
-			s, s.Name, s.Resource, s.Meta, s.Metrics)
+		log.Debug("Finished Span: %v, Operation: %s, Resource: %s, Tags: %v, %v", //nolint:gocritic // Debug logging needs full span representation
+			s, s.name, s.resource, &s.meta, s.metrics)
 	}
-	s.context.finish()
-}
+	// Call context.finish() which handles trace-level bookkeeping and may modify
+	// this span (to set trace-level tags).
+	// Lock ordering is span.mu -> trace.mu.
+	s.context.finish(s)
 
-// newAggregableSpan creates a new summary for the span s, within an application
-// version version.
-func newAggregableSpan(s *span, obfuscator *obfuscate.Obfuscator) *aggregableSpan {
-	var statusCode uint32
-	if sc, ok := s.Meta["http.status_code"]; ok && sc != "" {
-		if c, err := strconv.Atoi(sc); err == nil && c > 0 && c <= math.MaxInt32 {
-			statusCode = uint32(c)
-		}
-	}
-	key := aggregation{
-		Name:       s.Name,
-		Resource:   obfuscatedResource(obfuscator, s.Type, s.Resource),
-		Service:    s.Service,
-		Type:       s.Type,
-		Synthetics: strings.HasPrefix(s.Meta[keyOrigin], "synthetics"),
-		StatusCode: statusCode,
-	}
-	return &aggregableSpan{
-		key:      key,
-		Start:    s.Start,
-		Duration: s.Duration,
-		TopLevel: s.Metrics[keyTopLevel] == 1,
-		Error:    s.Error,
+	if s.pprofCtxRestore != nil {
+		// Restore the labels of the parent span so any CPU samples after this
+		// point are attributed correctly.
+		pprof.SetGoroutineLabels(s.pprofCtxRestore)
 	}
 }
 
@@ -608,11 +1198,11 @@ func obfuscatedResource(o *obfuscate.Obfuscator, typ, resource string) string {
 	case "sql", "cassandra":
 		oq, err := o.ObfuscateSQLString(resource)
 		if err != nil {
-			log.Error("Error obfuscating stats group resource %q: %v", resource, err)
+			log.Error("Error obfuscating stats group resource %q: %v", resource, err.Error())
 			return textNonParsable
 		}
 		return oq.Query
-	case "redis":
+	case "redis", "valkey":
 		return o.QuantizeRedisString(resource)
 	default:
 		return resource
@@ -621,28 +1211,33 @@ func obfuscatedResource(o *obfuscate.Obfuscator, typ, resource string) string {
 
 // shouldKeep reports whether the trace should be kept.
 // a single span being kept implies the whole trace being kept.
-func shouldKeep(s *span) bool {
+// s.mu must be held for reading.
+// +checklocksread:s.mu
+func shouldKeep(s *Span) bool {
+	assert.RWMutexRLocked(&s.mu)
 	if p, ok := s.context.SamplingPriority(); ok && p > 0 {
 		// positive sampling priorities stay
 		return true
 	}
-	if atomic.LoadInt32(&s.context.errors) > 0 {
+	if s.context.errors.Load() > 0 {
 		// traces with any span containing an error get kept
 		return true
 	}
-	if v, ok := s.Metrics[ext.EventSampleRate]; ok {
-		return sampledByRate(s.TraceID, v)
+	if v, ok := s.metrics[ext.EventSampleRate]; ok {
+		return sampledByRate(s.traceID, v)
 	}
 	return false
 }
 
 // shouldComputeStats mentions whether this span needs to have stats computed for.
-// Warning: callers must guard!
-func shouldComputeStats(s *span) bool {
-	if v, ok := s.Metrics[keyMeasured]; ok && v == 1 {
+// s.mu must be held for reading.
+// +checklocksread:s.mu
+func shouldComputeStats(s *Span) bool {
+	assert.RWMutexRLocked(&s.mu)
+	if v, ok := s.metrics[keyMeasured]; ok && v == 1 {
 		return true
 	}
-	if v, ok := s.Metrics[keyTopLevel]; ok && v == 1 {
+	if v, ok := s.metrics[keyTopLevel]; ok && v == 1 {
 		return true
 	}
 	return false
@@ -650,34 +1245,41 @@ func shouldComputeStats(s *span) bool {
 
 // String returns a human readable representation of the span. Not for
 // production, just debugging.
-func (s *span) String() string {
-	s.RLock()
-	defer s.RUnlock()
+func (s *Span) String() string {
+	if s == nil {
+		return "<nil>"
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	lines := []string{
-		fmt.Sprintf("Name: %s", s.Name),
-		fmt.Sprintf("Service: %s", s.Service),
-		fmt.Sprintf("Resource: %s", s.Resource),
-		fmt.Sprintf("TraceID: %d", s.TraceID),
-		fmt.Sprintf("TraceID128: %s", s.context.TraceID128()),
-		fmt.Sprintf("SpanID: %d", s.SpanID),
-		fmt.Sprintf("ParentID: %d", s.ParentID),
-		fmt.Sprintf("Start: %s", time.Unix(0, s.Start)),
-		fmt.Sprintf("Duration: %s", time.Duration(s.Duration)),
-		fmt.Sprintf("Error: %d", s.Error),
-		fmt.Sprintf("Type: %s", s.Type),
+		"Name: " + s.name,
+		"Service: " + s.service,
+		"Resource: " + s.resource,
+		fmt.Sprintf("TraceID: %d", s.traceID),
+		"TraceID128: " + s.context.TraceID(),
+		fmt.Sprintf("SpanID: %d", s.spanID),
+		fmt.Sprintf("ParentID: %d", s.parentID),
+		fmt.Sprintf("Start: %s", time.Unix(0, s.start)),
+		fmt.Sprintf("Duration: %s", time.Duration(s.duration)),
+		fmt.Sprintf("Error: %d", s.error),
+		"Type: " + s.spanType,
 		"Tags:",
 	}
-	for key, val := range s.Meta {
-		lines = append(lines, fmt.Sprintf("\t%s:%s", key, val))
+	for k, v := range s.meta.All() {
+		lines = append(lines, fmt.Sprintf("\t%s:%s", k, v))
 	}
-	for key, val := range s.Metrics {
+	for key, val := range s.metrics {
 		lines = append(lines, fmt.Sprintf("\t%s:%f", key, val))
 	}
 	return strings.Join(lines, "\n")
 }
 
 // Format implements fmt.Formatter.
-func (s *span) Format(f fmt.State, c rune) {
+// +checklocksignore — Reads only immutable fields (spanID, traceID, parentID) set during init.
+func (s *Span) Format(f fmt.State, c rune) {
+	if s == nil {
+		fmt.Fprintf(f, "<nil>")
+	}
 	switch c {
 	case 's':
 		fmt.Fprint(f, s.String())
@@ -685,42 +1287,105 @@ func (s *span) Format(f fmt.State, c rune) {
 		if svc := globalconfig.ServiceName(); svc != "" {
 			fmt.Fprintf(f, "dd.service=%s ", svc)
 		}
-		if tr, ok := internal.GetGlobalTracer().(*tracer); ok {
-			if tr.config.env != "" {
-				fmt.Fprintf(f, "dd.env=%s ", tr.config.env)
-			}
-			if tr.config.version != "" {
-				fmt.Fprintf(f, "dd.version=%s ", tr.config.version)
-			}
-		} else {
-			if env := os.Getenv("DD_ENV"); env != "" {
+		if tr := getGlobalTracer(); tr != nil {
+			tc := tr.TracerConf()
+			if tc.EnvTag != "" {
+				fmt.Fprintf(f, "dd.env=%s ", tc.EnvTag)
+			} else if env := env.Get("DD_ENV"); env != "" { //nolint:configaudit — intentional: read env directly when tracer has stopped and TracerConf is empty
 				fmt.Fprintf(f, "dd.env=%s ", env)
 			}
-			if v := os.Getenv("DD_VERSION"); v != "" {
+			if tc.VersionTag != "" {
+				fmt.Fprintf(f, "dd.version=%s ", tc.VersionTag)
+			} else if v := env.Get("DD_VERSION"); v != "" { //nolint:configaudit — intentional: read env directly when tracer has stopped and TracerConf is empty
 				fmt.Fprintf(f, "dd.version=%s ", v)
 			}
 		}
 		var traceID string
-		if sharedinternal.BoolEnv("DD_TRACE_128_BIT_TRACEID_LOGGING_ENABLED", false) && s.context.traceID.HasUpper() {
-			traceID = s.context.TraceID128()
+		if sharedinternal.BoolEnv("DD_TRACE_128_BIT_TRACEID_LOGGING_ENABLED", true) && s.context.traceID.HasUpper() {
+			traceID = s.context.TraceID()
 		} else {
-			traceID = fmt.Sprintf("%d", s.TraceID)
+			traceID = strconv.FormatUint(s.traceID, 10)
 		}
 		fmt.Fprintf(f, `dd.trace_id=%q `, traceID)
-		fmt.Fprintf(f, `dd.span_id="%d" `, s.SpanID)
-		fmt.Fprintf(f, `dd.parent_id="%d"`, s.ParentID)
+		fmt.Fprintf(f, `dd.span_id="%d" `, s.spanID)
+		fmt.Fprintf(f, `dd.parent_id="%d"`, s.parentID)
 	default:
-		fmt.Fprintf(f, "%%!%c(ddtrace.Span=%v)", c, s)
+		fmt.Fprintf(f, "%%!%c(tracer.Span=%v)", c, s)
 	}
+}
+
+// AddEvent attaches a new event to the current span.
+func (s *Span) AddEvent(name string, opts ...SpanEventOption) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// We don't lock spans when flushing, so we could have a data race when
+	// modifying a span as it's being flushed. This protects us against that
+	// race, since spans are marked `finished` before we flush them.
+	if s.finished {
+		return
+	}
+	cfg := SpanEventConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if cfg.Time.IsZero() {
+		cfg.Time = time.Now()
+	}
+	event := spanEvent{
+		Name:         name,
+		TimeUnixNano: uint64(cfg.Time.UnixNano()),
+	}
+	if s.supportsEvents {
+		event.Attributes = toSpanEventAttributeMsg(cfg.Attributes)
+	} else {
+		event.RawAttributes = cfg.Attributes
+	}
+	s.spanEvents = append(s.spanEvents, event)
+}
+
+func setLLMObsPropagatingTags(ctx context.Context, spanCtx *SpanContext) {
+	llmSpan, ok := illmobs.ActiveLLMSpanFromContext(ctx)
+	if !ok {
+		return
+	}
+	spanCtx.trace.setPropagatingTag(keyPropagatedLLMObsParentID, llmSpan.SpanID())
+	spanCtx.trace.setPropagatingTag(keyPropagatedLLMObsTraceID, llmSpan.TraceID())
+	spanCtx.trace.setPropagatingTag(keyPropagatedLLMObsMLAPP, llmSpan.MLApp())
+	// session_id is optional. Propagating tags are trace-scoped, so unset the key when the active
+	// span has no session; otherwise a predecessor's value lingers and propagates downstream.
+	if sessionID := llmSpan.SessionID(); sessionID != "" {
+		spanCtx.trace.setPropagatingTag(keyPropagatedLLMObsSessionID, sessionID)
+	} else {
+		spanCtx.trace.unsetPropagatingTag(keyPropagatedLLMObsSessionID)
+	}
+}
+
+// used in internal/civisibility/integrations/manual_api_common.go using linkname
+func getMeta(s *Span, key string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.meta.Get(key)
+}
+
+// used in internal/civisibility/integrations/manual_api_common.go using linkname
+func getMetric(s *Span, key string) (float64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	val, ok := s.metrics[key]
+	return val, ok
 }
 
 const (
 	keySamplingPriority     = "_sampling_priority_v1"
 	keySamplingPriorityRate = "_dd.agent_psr"
 	keyDecisionMaker        = "_dd.p.dm"
-	keyServiceHash          = "_dd.dm.service_hash"
 	keyOrigin               = "_dd.origin"
-	// keyHostname can be used to override the agent's hostname detection when using `WithHostname`. Not to be confused with keyTracerHostname
+	keyReparentID           = "_dd.parent_id"
+	// keyHostname can be used to override the agent's hostname detection when using `WithHostname`.
 	// which is set via auto-detection.
 	keyHostname                = "_dd.hostname"
 	keyRulesSamplerAppliedRate = "_dd.rule_psr"
@@ -740,8 +1405,9 @@ const (
 	keySingleSpanSamplingMPS = "_dd.span_sampling.max_per_second"
 	// keyPropagatedUserID holds the propagated user identifier, if user id propagation is enabled.
 	keyPropagatedUserID = "_dd.p.usr.id"
-	//keyTracerHostname holds the tracer detected hostname, only present when not connected over UDS to agent.
-	keyTracerHostname = "_dd.tracer_hostname"
+	// keyPropagatedTraceSource holds a 2 character hexadecimal string representation of the product responsible
+	// for the span creation.
+	keyPropagatedTraceSource = "_dd.p.ts"
 	// keyTraceID128 is the lowercase, hex encoded upper 64 bits of a 128-bit trace id, if present.
 	keyTraceID128 = "_dd.p.tid"
 	// keySpanAttributeSchemaVersion holds the selected DD_TRACE_SPAN_ATTRIBUTE_SCHEMA version.
@@ -752,11 +1418,28 @@ const (
 	keyPeerServiceRemappedFrom = "_dd.peer.service.remapped_from"
 	// keyBaseService contains the globally configured tracer service name. It is only set for spans that override it.
 	keyBaseService = "_dd.base_service"
+	// keyProcessTags contains a list of process tags to identify the service.
+	keyProcessTags = "_dd.tags.process"
+	// keyKnuthSamplingRate holds the propagated Knuth-based sampling rate applied by agent or trace sampling rules.
+	// Value is a string with up to 6 decimal digits and is forwarded unchanged.
+	keyKnuthSamplingRate = "_dd.p.ksr"
+	// keyPropagatedLLMObsParentID contains the propagated llmobs span ID.
+	keyPropagatedLLMObsParentID = "_dd.p.llmobs_parent_id"
+	// keyPropagatedLLMObsMLAPP contains the propagated ML App.
+	keyPropagatedLLMObsMLAPP = "_dd.p.llmobs_ml_app"
+	// keyPropagatedLLMObsTraceID contains the propagated llmobs trace ID.
+	keyPropagatedLLMObsTraceID = "_dd.p.llmobs_trace_id"
+	// keyPropagatedLLMObsSessionID contains the propagated llmobs session ID.
+	keyPropagatedLLMObsSessionID = "_dd.p.llmobs_sid"
+
+	// serviceSourceManual is the service source value used when the service name is set manually via SetTag.
+	serviceSourceManual = "m"
 )
 
 // The following set of tags is used for user monitoring and set through calls to span.SetUser().
 const (
 	keyUserID        = "usr.id"
+	keyUserLogin     = "usr.login"
 	keyUserEmail     = "usr.email"
 	keyUserName      = "usr.name"
 	keyUserRole      = "usr.role"

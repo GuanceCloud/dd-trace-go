@@ -6,9 +6,10 @@
 package fastdelta
 
 import (
+	"errors"
 	"fmt"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/profiler/internal/pproflite"
+	"github.com/DataDog/dd-trace-go/v2/profiler/internal/pproflite"
 
 	"github.com/spaolacci/murmur3"
 )
@@ -111,7 +112,7 @@ func (dm *DeltaMap) Delta(sample *pproflite.Sample) (bool, error) {
 	c, ok := dm.m[hash]
 	if !ok {
 		// !ok should not happen, since the prior pass visited every sample
-		return false, fmt.Errorf("found sample with unknown hash in merge pass")
+		return false, errors.New("found sample with unknown hash in merge pass")
 	}
 	if c.written {
 		return false, nil

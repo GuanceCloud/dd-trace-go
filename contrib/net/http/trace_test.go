@@ -11,13 +11,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func TestTraceAndServe(t *testing.T) {
@@ -30,7 +31,7 @@ func TestTraceAndServe(t *testing.T) {
 		w := httptest.NewRecorder()
 		r, err := http.NewRequest("GET", "/path?token=value", nil)
 		assert.NoError(err)
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(w http.ResponseWriter, _ *http.Request) {
 			_, ok := w.(http.Hijacker)
 			assert.False(ok)
 			http.Error(w, "some error", http.StatusServiceUnavailable)
@@ -51,7 +52,9 @@ func TestTraceAndServe(t *testing.T) {
 		assert.Equal("GET", span.Tag(ext.HTTPMethod))
 		assert.Equal("/path?<redacted>", span.Tag(ext.HTTPURL))
 		assert.Equal("503", span.Tag(ext.HTTPCode))
-		assert.Equal("503: Service Unavailable", span.Tag(ext.Error).(error).Error())
+		assert.Equal("503: Service Unavailable", span.Tag(ext.ErrorMsg))
+		assert.Equal("server", span.Tag(ext.SpanKind))
+		assert.Equal("net/http", span.Tag(ext.Component))
 	})
 
 	t.Run("custom", func(t *testing.T) {
@@ -66,7 +69,7 @@ func TestTraceAndServe(t *testing.T) {
 		}{httptest.NewRecorder()}
 		r, err := http.NewRequest("GET", "/path?token=value", nil)
 		assert.NoError(err)
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(w http.ResponseWriter, _ *http.Request) {
 			_, ok := w.(http.Hijacker)
 			assert.False(ok)
 			http.Error(w, "some error", http.StatusServiceUnavailable)
@@ -87,7 +90,9 @@ func TestTraceAndServe(t *testing.T) {
 		assert.Equal("GET", span.Tag(ext.HTTPMethod))
 		assert.Equal("/path?<redacted>", span.Tag(ext.HTTPURL))
 		assert.Equal("503", span.Tag(ext.HTTPCode))
-		assert.Equal("503: Service Unavailable", span.Tag(ext.Error).(error).Error())
+		assert.Equal("503: Service Unavailable", span.Tag(ext.ErrorMsg))
+		assert.Equal("server", span.Tag(ext.SpanKind))
+		assert.Equal("net/http", span.Tag(ext.Component))
 	})
 
 	t.Run("query-params", func(t *testing.T) {
@@ -99,7 +104,7 @@ func TestTraceAndServe(t *testing.T) {
 		w := httptest.NewRecorder()
 		r, err := http.NewRequest("GET", "/path?token=value&id=1", nil)
 		assert.NoError(err)
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(_ http.ResponseWriter, _ *http.Request) {
 			called = true
 		}
 		TraceAndServe(http.HandlerFunc(handler), w, r, &ServeConfig{
@@ -117,7 +122,7 @@ func TestTraceAndServe(t *testing.T) {
 	t.Run("Hijacker,Flusher,CloseNotifier", func(t *testing.T) {
 		assert := assert.New(t)
 		called := false
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(w http.ResponseWriter, _ *http.Request) {
 			_, ok := w.(http.Hijacker)
 			assert.True(ok, "ResponseWriter should implement http.Hijacker")
 			_, ok = w.(http.Flusher)
@@ -144,33 +149,13 @@ func TestTraceAndServe(t *testing.T) {
 		assert.Equal("Hello, world!\n", string(slurp))
 	})
 
-	// there doesn't appear to be an easy way to test http.Pusher support via an http request
-	// so we'll just confirm wrapResponseWriter preserves it
-	t.Run("Pusher", func(t *testing.T) {
-		var i struct {
-			http.ResponseWriter
-			http.Pusher
-		}
-		var w http.ResponseWriter = i
-		_, ok := w.(http.ResponseWriter)
-		assert.True(t, ok)
-		_, ok = w.(http.Pusher)
-		assert.True(t, ok)
-
-		w, _ = wrapResponseWriter(w)
-		_, ok = w.(http.ResponseWriter)
-		assert.True(t, ok)
-		_, ok = w.(http.Pusher)
-		assert.True(t, ok)
-	})
-
 	t.Run("distributed", func(t *testing.T) {
 		mt := mocktracer.Start()
 		assert := assert.New(t)
 		defer mt.Stop()
 
 		called := false
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(_ http.ResponseWriter, _ *http.Request) {
 			called = true
 		}
 
@@ -189,7 +174,7 @@ func TestTraceAndServe(t *testing.T) {
 			Resource: "resource",
 		})
 
-		var p, c mocktracer.Span
+		var p, c *mocktracer.Span
 		spans := mt.FinishedSpans()
 		assert.Len(spans, 2)
 		if spans[0].OperationName() == "parent" {
@@ -207,7 +192,7 @@ func TestTraceAndServe(t *testing.T) {
 		defer mt.Stop()
 
 		called := false
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(_ http.ResponseWriter, _ *http.Request) {
 			called = true
 		}
 
@@ -224,7 +209,7 @@ func TestTraceAndServe(t *testing.T) {
 			Resource: "resource",
 		})
 
-		var p, c mocktracer.Span
+		var p, c *mocktracer.Span
 		spans := mt.FinishedSpans()
 		assert.Len(spans, 2)
 		if spans[0].OperationName() == "parent" {
@@ -241,7 +226,7 @@ func TestTraceAndServe(t *testing.T) {
 		assert := assert.New(t)
 		defer mt.Stop()
 
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
@@ -267,7 +252,7 @@ func TestTraceAndServe(t *testing.T) {
 		w := httptest.NewRecorder()
 		r, err := http.NewRequest("GET", "/path?token=value", nil)
 		assert.NoError(err)
-		handler := func(w http.ResponseWriter, r *http.Request) {
+		handler := func(w http.ResponseWriter, _ *http.Request) {
 			_, ok := w.(http.Hijacker)
 			assert.False(ok)
 			called = true
@@ -287,9 +272,42 @@ func TestTraceAndServe(t *testing.T) {
 		assert.Equal("GET", span.Tag(ext.HTTPMethod))
 		assert.Equal("/path?<redacted>", span.Tag(ext.HTTPURL))
 		assert.Equal("200", span.Tag(ext.HTTPCode))
+		assert.Equal("server", span.Tag(ext.SpanKind))
+		assert.Equal("net/http", span.Tag(ext.Component))
 	})
 
 	t.Run("noconfig", func(t *testing.T) {
+		mt := mocktracer.Start()
+		assert := assert.New(t)
+		defer mt.Stop()
+
+		called := false
+		w := httptest.NewRecorder()
+		r, err := http.NewRequest("GET", "/path?token=value", nil)
+		assert.NoError(err)
+		handler := func(w http.ResponseWriter, _ *http.Request) {
+			_, ok := w.(http.Hijacker)
+			assert.False(ok)
+			called = true
+		}
+		TraceAndServe(http.HandlerFunc(handler), w, r, &ServeConfig{})
+		spans := mt.FinishedSpans()
+		span := spans[0]
+
+		assert.True(called)
+		assert.Len(spans, 1)
+		assert.Equal(ext.SpanTypeWeb, span.Tag(ext.SpanType))
+		assert.Equal("", span.Tag(ext.ServiceName)) // This is nil since mocktracer does not behave like the actual tracer, which will set a default.
+		assert.Equal("http.request", span.Tag(ext.ResourceName))
+		assert.Nil(span.Tag(ext.HTTPRoute))
+		assert.Equal("GET", span.Tag(ext.HTTPMethod))
+		assert.Equal("/path?<redacted>", span.Tag(ext.HTTPURL))
+		assert.Equal("200", span.Tag(ext.HTTPCode))
+		assert.Equal("server", span.Tag(ext.SpanKind))
+		assert.Equal("net/http", span.Tag(ext.Component))
+	})
+
+	t.Run("override kind and component", func(t *testing.T) {
 		mt := mocktracer.Start()
 		assert := assert.New(t)
 		defer mt.Stop()
@@ -303,24 +321,123 @@ func TestTraceAndServe(t *testing.T) {
 			assert.False(ok)
 			called = true
 		}
-		TraceAndServe(http.HandlerFunc(handler), w, r, &ServeConfig{})
+		customOpts := []tracer.StartSpanOption{tracer.Tag(ext.SpanKind, "custom.kind"), tracer.Tag(ext.Component, "custom.component")}
+		TraceAndServe(http.HandlerFunc(handler), w, r, &ServeConfig{SpanOpts: customOpts})
 		spans := mt.FinishedSpans()
 		span := spans[0]
 
 		assert.True(called)
 		assert.Len(spans, 1)
 		assert.Equal(ext.SpanTypeWeb, span.Tag(ext.SpanType))
-		assert.Nil(span.Tag(ext.ServiceName)) // This is nil since mocktracer does not behave like the actual tracer, which will set a default.
+		assert.Equal("", span.Tag(ext.ServiceName)) // This is nil since mocktracer does not behave like the actual tracer, which will set a default.
 		assert.Equal("http.request", span.Tag(ext.ResourceName))
 		assert.Nil(span.Tag(ext.HTTPRoute))
 		assert.Equal("GET", span.Tag(ext.HTTPMethod))
 		assert.Equal("/path?<redacted>", span.Tag(ext.HTTPURL))
 		assert.Equal("200", span.Tag(ext.HTTPCode))
+		assert.Equal("custom.kind", span.Tag(ext.SpanKind))
+		assert.Equal("custom.component", span.Tag(ext.Component))
+	})
+
+	t.Run("integrationLevelErrorHandling", func(t *testing.T) {
+		mt := mocktracer.Start()
+		assert := assert.New(t)
+		defer mt.Stop()
+
+		handler := func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		r, err := http.NewRequest("GET", "/", nil)
+		assert.NoError(err)
+		w := httptest.NewRecorder()
+		TraceAndServe(http.HandlerFunc(handler), w, r, &ServeConfig{
+			IsStatusError: func(i int) bool { return i >= 400 },
+		})
+
+		spans := mt.FinishedSpans()
+		assert.Len(spans, 1)
+		assert.Equal("400", spans[0].Tag(ext.HTTPCode))
+		assert.Equal("400: Bad Request", spans[0].Tag(ext.ErrorMsg))
+	})
+
+	t.Run("envLevelErrorHandling", func(t *testing.T) {
+		mt := mocktracer.Start()
+		assert := assert.New(t)
+		defer mt.Stop()
+
+		t.Setenv("DD_TRACE_HTTP_SERVER_ERROR_STATUSES", "500")
+
+		cfg := &ServeConfig{
+			Service:  "service",
+			Resource: "resource",
+		}
+
+		handler := func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError) // 500
+		}
+
+		r, err := http.NewRequest("GET", "/", nil)
+		assert.NoError(err)
+		w := httptest.NewRecorder()
+		TraceAndServe(http.HandlerFunc(handler), w, r, cfg)
+
+		spans := mt.FinishedSpans()
+		assert.Len(spans, 1)
+		assert.Equal("500", spans[0].Tag(ext.HTTPCode))
+		assert.Equal("500: Internal Server Error", spans[0].Tag(ext.ErrorMsg))
+	})
+
+	t.Run("integrationOverridesEnvConfig", func(t *testing.T) {
+		mt := mocktracer.Start()
+		assert := assert.New(t)
+		defer mt.Stop()
+
+		// Set environment variable to treat 500 as an error
+		t.Setenv("DD_TRACE_HTTP_SERVER_ERROR_STATUSES", "500")
+
+		cfg := &ServeConfig{
+			IsStatusError: func(i int) bool { return i == 400 },
+		}
+
+		// Test a 400 response, which should be reported as an error
+		handler400 := func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusBadRequest) // 400
+		}
+
+		r400, err := http.NewRequest("GET", "/", nil)
+		assert.NoError(err)
+		w400 := httptest.NewRecorder()
+		TraceAndServe(http.HandlerFunc(handler400), w400, r400, cfg)
+
+		spans := mt.FinishedSpans()
+		assert.Len(spans, 1)
+		assert.Equal("400", spans[0].Tag(ext.HTTPCode))
+		assert.Equal("400: Bad Request", spans[0].Tag(ext.ErrorMsg))
+
+		// Reset the tracer
+		mt.Reset()
+
+		// Test a 500 response, which should NOT be reported as an error,
+		// even though the environment variable says 500 is an error.
+		handler500 := func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError) // 500
+		}
+
+		r500, err := http.NewRequest("GET", "/", nil)
+		assert.NoError(err)
+		w500 := httptest.NewRecorder()
+		TraceAndServe(http.HandlerFunc(handler500), w500, r500, cfg)
+
+		spans = mt.FinishedSpans()
+		assert.Len(spans, 1)
+		assert.Equal("500", spans[0].Tag(ext.HTTPCode))
+		// Confirm that the span is NOT marked as an error.
+		assert.Nil(spans[0].Tag(ext.ErrorMsg))
 	})
 }
 
 func TestTraceAndServeHost(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	t.Run("on", func(t *testing.T) {
@@ -357,6 +474,48 @@ func TestTraceAndServeHost(t *testing.T) {
 	})
 }
 
+// TestUnwrap tests the implementation of the rwUnwrapper interface, which is used internally
+// by the standard library: https://github.com/golang/go/blob/6d89b38ed86e0bfa0ddaba08dc4071e6bb300eea/src/net/http/responsecontroller.go#L42-L44
+// See also: https://github.com/DataDog/dd-trace-go/issues/2674
+func TestUnwrap(t *testing.T) {
+	h := WrapHandler(deadlineHandler, "service-name", "resource-name")
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	resp, err := srv.Client().Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	respText := string(b)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "OK", respText)
+}
+
+var deadlineHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	rc := http.NewResponseController(w)
+
+	// Use the SetReadDeadline and SetWriteDeadline methods, which are not explicitly implemented in the trace_gen.go
+	// generated file. Before the Unwrap change, these methods returned a "feature not supported" error.
+
+	err := rc.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	err = rc.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+})
+
 type noopHandler struct{}
 
 func (noopHandler) ServeHTTP(_ http.ResponseWriter, _ *http.Request) {}
@@ -373,14 +532,15 @@ func BenchmarkTraceAndServe(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	for i := 0; i < b.N; i++ {
-		cfg := ServeConfig{
-			Service:     "service-name",
-			Resource:    "resource-name",
-			FinishOpts:  []ddtrace.FinishOption{},
-			SpanOpts:    []ddtrace.StartSpanOption{},
-			QueryParams: false,
-		}
+	cfg := ServeConfig{
+		Service:     "service-name",
+		Resource:    "resource-name",
+		FinishOpts:  []tracer.FinishOption{},
+		SpanOpts:    []tracer.StartSpanOption{},
+		QueryParams: false,
+	}
+	b.ResetTimer()
+	for b.Loop() {
 		TraceAndServe(handler, noopWriter{}, req, &cfg)
 	}
 }

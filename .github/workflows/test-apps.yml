@@ -7,10 +7,6 @@ name: Test Apps
         type: string
         default: '["unit-of-work/v1","unit-of-work/v2","memory-leak/goroutine","memory-leak/heap","memory-leak/goroutine-heap"]'
         description: Scenarios to run
-      ref:
-        description: The branch to run the workflow on
-        required: false
-        type: string
       'env: prod':
         type: boolean
         default: true
@@ -33,6 +29,10 @@ name: Test Apps
         type: string
         default: trigger:manual
         description: Extra DD_TAGS
+      ref:
+        description: The branch to run the workflow on
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       scenarios:
@@ -64,6 +64,9 @@ name: Test Apps
 env:
   DD_ENV: github
   DD_TAGS: 'github_run_id:${{ github.run_id }} github_run_number:${{ github.run_number }} ${{ inputs[''arg: tags''] }}'
+permissions:
+  id-token: write
+  contents: read
 jobs:
   job-0-0:
     name: unit-of-work/v1 (prod)
@@ -71,16 +74,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''unit-of-work/v1'') && inputs[''env: prod'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_APP_API_KEY'] }}
+          policy: dd-trace-go
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datadoghq.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -97,16 +106,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''unit-of-work/v1'') && inputs[''env: staging'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_AND_DEMO_API_KEY'] }}
+          policy: dd-trace-go-staging
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datad0g.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -123,16 +138,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''unit-of-work/v2'') && inputs[''env: prod'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_APP_API_KEY'] }}
+          policy: dd-trace-go
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datadoghq.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -149,16 +170,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''unit-of-work/v2'') && inputs[''env: staging'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_AND_DEMO_API_KEY'] }}
+          policy: dd-trace-go-staging
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datad0g.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -175,16 +202,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''memory-leak/goroutine'') && inputs[''env: prod'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_APP_API_KEY'] }}
+          policy: dd-trace-go
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datadoghq.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -201,16 +234,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''memory-leak/goroutine'') && inputs[''env: staging'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_AND_DEMO_API_KEY'] }}
+          policy: dd-trace-go-staging
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datad0g.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -227,16 +266,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''memory-leak/heap'') && inputs[''env: prod'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_APP_API_KEY'] }}
+          policy: dd-trace-go
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datadoghq.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -253,16 +298,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''memory-leak/heap'') && inputs[''env: staging'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_AND_DEMO_API_KEY'] }}
+          policy: dd-trace-go-staging
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datad0g.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -279,16 +330,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''memory-leak/goroutine-heap'') && inputs[''env: prod'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_APP_API_KEY'] }}
+          policy: dd-trace-go
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datadoghq.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true
@@ -305,16 +362,22 @@ jobs:
     if: 'contains(fromJSON(inputs[''scenarios'']), ''memory-leak/goroutine-heap'') && inputs[''env: staging'']'
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ inputs.ref || github.ref }}
-      - name: Start Agent
-        uses: datadog/agent-github-action@v1.3
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
         with:
-          api_key: ${{ secrets['DD_TEST_AND_DEMO_API_KEY'] }}
+          policy: dd-trace-go-staging
+      - name: Start Agent
+        uses: datadog/agent-github-action@8240b406d73cb84cd5085a3919a78f59c258da3a # v1.3.1
+        with:
+          api_key: ${{ steps.dd-sts.outputs.api_key }}
           datadog_site: datad0g.com
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           check-latest: true

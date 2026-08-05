@@ -10,24 +10,29 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"testing"
 
-	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/internal/sqltest"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
+	sqltrace "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
+	sqltest "github.com/DataDog/dd-trace-go/v2/instrumentation/testutils/sql"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/lib/pq"
 	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	mysqlgorm "gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
+	"gorm.io/gorm/utils/tests"
 )
 
 // tableName holds the SQL table that these tests will be run against. It must be unique cross-repo.
@@ -64,7 +69,7 @@ func TestOpenDoesNotPanic(t *testing.T) {
 }
 
 func TestMySQL(t *testing.T) {
-	sqltrace.Register("mysql", &mysql.MySQLDriver{}, sqltrace.WithServiceName("mysql-test"))
+	sqltrace.Register("mysql", &mysql.MySQLDriver{}, sqltrace.WithService("mysql-test"))
 	sqlDb, err := sqltrace.Open("mysql", mysqlConnString)
 	if err != nil {
 		log.Fatal(err)
@@ -172,10 +177,6 @@ type Product struct {
 }
 
 func TestCallbacks(t *testing.T) {
-	a := assert.New(t)
-	mt := mocktracer.Start()
-	defer mt.Stop()
-
 	sqltrace.Register("pgx", &stdlib.Driver{})
 	sqlDb, err := sqltrace.Open("pgx", pgConnString)
 	if err != nil {
@@ -193,12 +194,15 @@ func TestCallbacks(t *testing.T) {
 	}
 
 	t.Run("create", func(t *testing.T) {
+		a := assert.New(t)
+		mt := mocktracer.Start()
+		defer mt.Stop()
 		parentSpan, ctx := tracer.StartSpanFromContext(context.Background(), "http.request",
 			tracer.ServiceName("fake-http-server"),
 			tracer.SpanType(ext.SpanTypeWeb),
 		)
 
-		db = db.WithContext(ctx)
+		db := db.WithContext(ctx)
 		var queryText string
 		db.Callback().Create().After("testing").Register("query text", func(d *gorm.DB) {
 			queryText = d.Statement.SQL.String()
@@ -215,15 +219,28 @@ func TestCallbacks(t *testing.T) {
 		a.Equal(ext.SpanTypeSQL, span.Tag(ext.SpanType))
 		a.Equal(queryText, span.Tag(ext.ResourceName))
 		a.Equal("gorm.io/gorm.v1", span.Tag(ext.Component))
+		a.Equal(string(instrumentation.PackageGormIOGormV1), span.Integration())
+		a.Equal(parentSpan.Context().SpanID(), span.ParentID())
+		a.Equal(string(instrumentation.PackageGormIOGormV1), span.Tag(ext.KeyServiceSource))
+
+		for _, s := range spans {
+			if s.Tag(ext.Component) == "jackc/pgx.v5" {
+				// The underlying driver should receive the gorm span
+				a.Equal(span.SpanID(), s.ParentID())
+			}
+		}
 	})
 
 	t.Run("query", func(t *testing.T) {
+		a := assert.New(t)
+		mt := mocktracer.Start()
+		defer mt.Stop()
 		parentSpan, ctx := tracer.StartSpanFromContext(context.Background(), "http.request",
 			tracer.ServiceName("fake-http-server"),
 			tracer.SpanType(ext.SpanTypeWeb),
 		)
 
-		db = db.WithContext(ctx)
+		db := db.WithContext(ctx)
 		var queryText string
 		db.Callback().Query().After("testing").Register("query text", func(d *gorm.DB) {
 			queryText = d.Statement.SQL.String()
@@ -241,15 +258,47 @@ func TestCallbacks(t *testing.T) {
 		a.Equal(ext.SpanTypeSQL, span.Tag(ext.SpanType))
 		a.Equal(queryText, span.Tag(ext.ResourceName))
 		a.Equal("gorm.io/gorm.v1", span.Tag(ext.Component))
+		a.Equal(string(instrumentation.PackageGormIOGormV1), span.Integration())
+		a.Equal(parentSpan.Context().SpanID(), span.ParentID())
+
+		for _, s := range spans {
+			if s.Tag(ext.Component) == "jackc/pgx.v5" {
+				// The underlying driver should receive the gorm span
+				a.Equal(span.SpanID(), s.ParentID())
+			}
+		}
 	})
 
-	t.Run("update", func(t *testing.T) {
+	t.Run("dry_run", func(t *testing.T) {
+		a := assert.New(t)
+		mt := mocktracer.Start()
+		defer mt.Stop()
 		parentSpan, ctx := tracer.StartSpanFromContext(context.Background(), "http.request",
 			tracer.ServiceName("fake-http-server"),
 			tracer.SpanType(ext.SpanTypeWeb),
 		)
 
-		db = db.WithContext(ctx)
+		db := db.WithContext(ctx)
+		db.DryRun = true
+		var product Product
+		db.First(&product, "code = ?", "L1212")
+
+		parentSpan.Finish()
+
+		spans := mt.FinishedSpans()
+		a.Len(spans, 1) // No additional span generated
+	})
+
+	t.Run("update", func(t *testing.T) {
+		a := assert.New(t)
+		mt := mocktracer.Start()
+		defer mt.Stop()
+		parentSpan, ctx := tracer.StartSpanFromContext(context.Background(), "http.request",
+			tracer.ServiceName("fake-http-server"),
+			tracer.SpanType(ext.SpanTypeWeb),
+		)
+
+		db := db.WithContext(ctx)
 		var queryText string
 		db.Callback().Update().After("testing").Register("query text", func(d *gorm.DB) {
 			queryText = d.Statement.SQL.String()
@@ -268,15 +317,27 @@ func TestCallbacks(t *testing.T) {
 		a.Equal(ext.SpanTypeSQL, span.Tag(ext.SpanType))
 		a.Equal(queryText, span.Tag(ext.ResourceName))
 		a.Equal("gorm.io/gorm.v1", span.Tag(ext.Component))
+		a.Equal(string(instrumentation.PackageGormIOGormV1), span.Integration())
+		a.Equal(parentSpan.Context().SpanID(), span.ParentID())
+
+		for _, s := range spans {
+			if s.Tag(ext.Component) == "jackc/pgx.v5" {
+				// The underlying driver should receive the gorm span
+				a.Equal(span.SpanID(), s.ParentID())
+			}
+		}
 	})
 
 	t.Run("delete", func(t *testing.T) {
+		a := assert.New(t)
+		mt := mocktracer.Start()
+		defer mt.Stop()
 		parentSpan, ctx := tracer.StartSpanFromContext(context.Background(), "http.request",
 			tracer.ServiceName("fake-http-server"),
 			tracer.SpanType(ext.SpanTypeWeb),
 		)
 
-		db = db.WithContext(ctx)
+		db := db.WithContext(ctx)
 		var queryText string
 		db.Callback().Delete().After("testing").Register("query text", func(d *gorm.DB) {
 			queryText = d.Statement.SQL.String()
@@ -295,15 +356,27 @@ func TestCallbacks(t *testing.T) {
 		a.Equal(ext.SpanTypeSQL, span.Tag(ext.SpanType))
 		a.Equal(queryText, span.Tag(ext.ResourceName))
 		a.Equal("gorm.io/gorm.v1", span.Tag(ext.Component))
+		a.Equal(string(instrumentation.PackageGormIOGormV1), span.Integration())
+		a.Equal(parentSpan.Context().SpanID(), span.ParentID())
+
+		for _, s := range spans {
+			if s.Tag(ext.Component) == "jackc/pgx.v5" {
+				// The underlying driver should receive the gorm span
+				a.Equal(span.SpanID(), s.ParentID())
+			}
+		}
 	})
 
 	t.Run("raw", func(t *testing.T) {
+		a := assert.New(t)
+		mt := mocktracer.Start()
+		defer mt.Stop()
 		parentSpan, ctx := tracer.StartSpanFromContext(context.Background(), "http.request",
 			tracer.ServiceName("fake-http-server"),
 			tracer.SpanType(ext.SpanTypeWeb),
 		)
 
-		db = db.WithContext(ctx)
+		db := db.WithContext(ctx)
 		var queryText string
 		db.Callback().Raw().After("testing").Register("query text", func(d *gorm.DB) {
 			queryText = d.Statement.SQL.String()
@@ -321,6 +394,13 @@ func TestCallbacks(t *testing.T) {
 		a.Equal("gorm.raw_query", span.OperationName())
 		a.Equal(ext.SpanTypeSQL, span.Tag(ext.SpanType))
 		a.Equal(queryText, span.Tag(ext.ResourceName))
+
+		for _, s := range spans {
+			if s.Tag(ext.Component) == "jackc/pgx.v5" {
+				// The underlying driver should receive the gorm span
+				a.Equal(span.SpanID(), s.ParentID())
+			}
+		}
 	})
 }
 
@@ -361,51 +441,42 @@ func TestAnalyticsSettings(t *testing.T) {
 		parentSpan.Finish()
 
 		spans := mt.FinishedSpans()
-		assert.True(t, len(spans) > 2)
+		require.Greater(t, len(spans), 2)
 		s := spans[len(spans)-2]
 		assert.Equal(t, rate, s.Tag(ext.EventSampleRate))
 	}
 
 	t.Run("defaults", func(t *testing.T) {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		defer mt.Reset()
 
 		assertRate(t, mt, nil)
 	})
 
 	t.Run("global", func(t *testing.T) {
 		t.Skip("global flag disabled")
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		defer mt.Reset()
 
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
+		testutils.SetGlobalAnalyticsRate(t, 0.4)
 
 		assertRate(t, mt, 0.4)
 	})
 
 	t.Run("enabled", func(t *testing.T) {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		defer mt.Reset()
 
 		assertRate(t, mt, 1.0, WithAnalytics(true))
 	})
 
 	t.Run("disabled", func(t *testing.T) {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		defer mt.Reset()
 
 		assertRate(t, mt, nil, WithAnalytics(false))
 	})
 
 	t.Run("override", func(t *testing.T) {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		defer mt.Reset()
 
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
+		testutils.SetGlobalAnalyticsRate(t, 0.4)
 
 		assertRate(t, mt, 0.23, WithAnalyticsRate(0.23))
 	})
@@ -454,18 +525,17 @@ func TestError(t *testing.T) {
 		// Get last span (gorm.db)
 		s := spans[len(spans)-1]
 
-		assert.Equal(t, errExist, s.Tag(ext.Error) != nil)
+		assert.Equal(t, errExist, s.Tag(ext.ErrorMsg) != nil)
 	}
 
 	t.Run("defaults", func(t *testing.T) {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		defer mt.Reset()
+
 		assertErrCheck(t, mt, true)
 	})
 
 	t.Run("errcheck", func(t *testing.T) {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		defer mt.Reset()
 		errFn := func(err error) bool {
 			return err != gorm.ErrRecordNotFound
 		}
@@ -487,7 +557,7 @@ func TestCustomTags(t *testing.T) {
 	db, err := Open(
 		postgres.New(postgres.Config{Conn: sqlDb}),
 		&gorm.Config{},
-		WithCustomTag("foo", func(db *gorm.DB) interface{} {
+		WithCustomTag("foo", func(_ *gorm.DB) interface{} {
 			return "bar"
 		}),
 	)
@@ -510,4 +580,65 @@ func TestCustomTags(t *testing.T) {
 	s := spans[len(spans)-1]
 
 	assert.Equal("bar", s.Tag("foo"))
+}
+
+func TestPlugin(t *testing.T) {
+	db, err := gorm.Open(&tests.DummyDialector{})
+	require.NoError(t, err)
+
+	opt := WithCustomTag("foo", func(_ *gorm.DB) interface{} {
+		return "bar"
+	})
+	plugin := NewTracePlugin(opt).(tracePlugin)
+
+	assert.Equal(t, "DDTracePlugin", plugin.Name())
+	assert.Len(t, plugin.options, 1)
+	require.NoError(t, db.Use(plugin))
+
+	assert.NotNil(t, db.Callback().Create().Get("dd-trace-go:before_create"))
+	assert.NotNil(t, db.Callback().Create().Get("dd-trace-go:after_create"))
+
+	assert.NotNil(t, db.Callback().Update().Get("dd-trace-go:before_update"))
+	assert.NotNil(t, db.Callback().Update().Get("dd-trace-go:after_update"))
+
+	assert.NotNil(t, db.Callback().Delete().Get("dd-trace-go:before_delete"))
+	assert.NotNil(t, db.Callback().Delete().Get("dd-trace-go:after_delete"))
+
+	assert.NotNil(t, db.Callback().Query().Get("dd-trace-go:before_query"))
+	assert.NotNil(t, db.Callback().Query().Get("dd-trace-go:after_query"))
+
+	assert.NotNil(t, db.Callback().Row().Get("dd-trace-go:before_row_query"))
+	assert.NotNil(t, db.Callback().Row().Get("dd-trace-go:after_row_query"))
+
+	assert.NotNil(t, db.Callback().Raw().Get("dd-trace-go:before_raw_query"))
+	assert.NotNil(t, db.Callback().Raw().Get("dd-trace-go:before_raw_query"))
+}
+
+func newStubDB() *gorm.DB {
+	sqlbuilder := strings.Builder{}
+	sqlbuilder.WriteString("SELECT * FROM products WHERE id = ?")
+	statement := &gorm.Statement{SQL: sqlbuilder, Context: context.Background()}
+	config := &gorm.Config{DryRun: false}
+	return &gorm.DB{Statement: statement, Config: config}
+}
+
+func TestCustomResourceName(t *testing.T) {
+	// This test is meant to ensure that the resource name can be overridden by a custom tag.
+	assert := assert.New(t)
+	mt := mocktracer.Start()
+	defer mt.Stop()
+
+	cfg := newConfigWithDefaults()
+	customResourceName := "custom resource name"
+	WithCustomTag(ext.ResourceName, func(db *gorm.DB) interface{} {
+		return customResourceName
+	})(cfg)
+
+	db := newStubDB()
+	before(db, "gorm.query", cfg)
+	after(db, cfg)
+
+	spans := mt.FinishedSpans()
+	assert.True(len(spans) > 0)
+	assert.Equal(customResourceName, spans[len(spans)-1].Tag(ext.ResourceName))
 }

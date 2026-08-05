@@ -1,43 +1,61 @@
 name: Main Branch and Release Tests
 
 on:
-  workflow_call: # allows to reuse this workflow
-    inputs:
-      ref:
-        description: 'The branch to run the workflow on'
-        required: true
-        type: string
   push:
     branches:
-      - main
       - release-v*
-    tags:
-      - "**"
+      - mq-working-branch-**
+    tags-ignore:
+      - 'contrib/**'
+      - 'instrumentation/**'
+      - 'internal/**'
+      - 'orchestrion/**'
+      - 'scripts/**'
+  schedule: # nightly
+    - cron: "0 0 * * *"
 
-concurrency: 
+concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   unit-integration-tests:
-    strategy:
-      matrix:
-        go-version: ["1.19", "1.20", "1.21"]
-      fail-fast: false
     uses: ./.github/workflows/unit-integration-tests.yml
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     with:
-      go-version: ${{ matrix.go-version }}
-      ref: ${{ inputs.ref || github.ref }}
+      go-version: "1.26.4" # Should be the highest supported version of Go
     secrets: inherit
+
+  warm-repo-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git
+          key: gitdb-${{ github.repository_id }}-${{ github.sha }}
+
   multios-unit-tests:
+    needs:
+      - warm-repo-cache
     strategy:
       matrix:
         runs-on: [ macos-latest, windows-latest, ubuntu-latest ]
-        go-version: ["1.19", "1.20", "1.21"]
+        go-version: [ "1.25", "1.26.4" ]
       fail-fast: false
     uses: ./.github/workflows/multios-unit-tests.yml
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     with:
       go-version: ${{ matrix.go-version }}
       runs-on: ${{ matrix.runs-on }}
-      ref: ${{ inputs.ref || github.ref }}
     secrets: inherit

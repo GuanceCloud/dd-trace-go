@@ -9,19 +9,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/traceprof"
-	"gopkg.in/DataDog/dd-trace-go.v1/profiler/internal/immutable"
+	"github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/traceprof"
+	"github.com/DataDog/dd-trace-go/v2/profiler/internal/immutable"
 )
 
 // outChannelSize specifies the size of the profile output channel.
@@ -34,15 +39,34 @@ const customProfileLabelLimit = 10
 var (
 	mu             sync.Mutex
 	activeProfiler *profiler
-	containerID    = internal.ContainerID() // replaced in tests
-	entityID       = internal.EntityID()    // replaced in tests
+	containerID    atomic.Pointer[string]
+	entityID       atomic.Pointer[string]
+
+	// errProfilerStopped is a sentinel for suppressing errors if we are
+	// about to stop the profiler
+	errProfilerStopped = errors.New("profiler stopped")
+
+	// testLookupProfile is a global hook for testing that replaces the
+	// pprof.Lookup-based profile collection. Set it before calling Start
+	// and restore it to nil after calling Stop.
+	testLookupProfile func(name string, w io.Writer, debug int) error
 )
+
+func init() {
+	cid := internal.ContainerID()
+	containerID.Store(&cid)
+	eid := internal.EntityID()
+	entityID.Store(&eid)
+}
 
 // Start starts the profiler. If the profiler is already running, it will be
 // stopped and restarted with the given options.
 //
 // It may return an error if an API key is not provided by means of the
 // WithAPIKey option, or if a hostname is not found.
+//
+// If DD_PROFILING_ENABLED=false is set in the process environment, it will
+// prevent the profiler from starting.
 func Start(opts ...Option) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -53,6 +77,9 @@ func Start(opts ...Option) error {
 	p, err := newProfiler(opts...)
 	if err != nil {
 		return err
+	}
+	if !p.cfg.enabled {
+		return nil
 	}
 	activeProfiler = p
 	activeProfiler.run()
@@ -75,49 +102,24 @@ func Stop() {
 // profiler collects and sends preset profiles to the Datadog API at a given frequency
 // using a given configuration.
 type profiler struct {
-	cfg             *config           // profile configuration
-	out             chan batch        // upload queue
-	uploadFunc      func(batch) error // defaults to (*profiler).upload; replaced in tests
-	exit            chan struct{}     // exit signals the profiler to stop; it is closed after stopping
-	stopOnce        sync.Once         // stopOnce ensures the profiler is stopped exactly once.
-	wg              sync.WaitGroup    // wg waits for all goroutines to exit when stopping.
-	met             *metrics          // metric collector state
+	cfg             *config        // profile configuration
+	out             chan batch     // upload queue
+	exit            chan struct{}  // exit signals the profiler to stop; it is closed after stopping
+	stopOnce        sync.Once      // stopOnce ensures the profiler is stopped exactly once.
+	wg              sync.WaitGroup // wg waits for all goroutines to exit when stopping.
+	met             *metrics       // metric collector state
 	deltas          map[ProfileType]*fastDeltaProfiler
+	compressors     map[ProfileType]compressor
 	seq             uint64         // seq is the value of the profile_seq tag
 	pendingProfiles sync.WaitGroup // signal that profile collection is done, for stopping CPU profiling
-
-	testHooks testHooks
 
 	// lastTrace is the last time an execution trace was collected
 	lastTrace time.Time
 }
 
-// testHooks are functions that are replaced during testing which would normally
-// depend on accessing runtime state that is not needed/available for the test
-type testHooks struct {
-	startCPUProfile func(w io.Writer) error
-	stopCPUProfile  func()
-	lookupProfile   func(name string, w io.Writer, debug int) error
-}
-
-func (p *profiler) startCPUProfile(w io.Writer) error {
-	if p.testHooks.startCPUProfile != nil {
-		return p.testHooks.startCPUProfile(w)
-	}
-	return pprof.StartCPUProfile(w)
-}
-
-func (p *profiler) stopCPUProfile() {
-	if p.testHooks.startCPUProfile != nil {
-		p.testHooks.stopCPUProfile()
-		return
-	}
-	pprof.StopCPUProfile()
-}
-
 func (p *profiler) lookupProfile(name string, w io.Writer, debug int) error {
-	if p.testHooks.lookupProfile != nil {
-		return p.testHooks.lookupProfile(name, w, debug)
+	if testLookupProfile != nil {
+		return testLookupProfile(name, w, debug)
 	}
 	prof := pprof.Lookup(name)
 	if prof == nil {
@@ -126,10 +128,15 @@ func (p *profiler) lookupProfile(name string, w io.Writer, debug int) error {
 	return prof.WriteTo(w, debug)
 }
 
+var (
+	errProfilingNotSupportedInAWSLambda = errors.New("profiling is not supported in AWS Lambda runtimes")
+	errAgentlessUploadRequiresAPIKey    = errors.New("agentless upload requires a valid API key - set the DD_API_KEY env variable to configure one")
+)
+
 // newProfiler creates a new, unstarted profiler.
 func newProfiler(opts ...Option) (*profiler, error) {
-	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
-		return nil, errors.New("profiling not supported in AWS Lambda runtimes")
+	if env.Get("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		return nil, errProfilingNotSupportedInAWSLambda
 	}
 	cfg, err := defaultConfig()
 	if err != nil {
@@ -141,19 +148,25 @@ func newProfiler(opts ...Option) (*profiler, error) {
 	if len(cfg.customProfilerLabels) > customProfileLabelLimit {
 		cfg.customProfilerLabels = cfg.customProfilerLabels[:customProfileLabelLimit]
 	}
-	// TODO(fg) remove this after making expGoroutineWaitProfile public.
-	if os.Getenv("DD_PROFILING_WAIT_PROFILE") != "" {
-		cfg.addProfileType(expGoroutineWaitProfile)
+
+	if cfg.traceConfig.Enabled && (cfg.traceConfig.Period == 0 || cfg.traceConfig.Limit == 0) {
+		log.Warn("Invalid execution trace config, enabled is true but size limit or frequency is 0. Disabling execution tracing")
+		cfg.traceConfig.Enabled = false
+	}
+
+	// Unconditionally enable goroutine leak profiling if it's available.
+	if goroutineLeakProfileAvailable() {
+		cfg.addProfileType(goroutineLeakProfile)
 	}
 	// Agentless upload is disabled by default as of v1.30.0, but
-	// WithAgentlessUpload can be used to enable it for testing and debugging.
+	// DD_PROFILING_AGENTLESS can be set to enable it for testing and debugging.
 	if cfg.agentless {
 		if !isAPIKeyValid(cfg.apiKey) {
-			return nil, errors.New("profiler.WithAgentlessUpload requires a valid API key. Use profiler.WithAPIKey or the DD_API_KEY env variable to set it")
+			return nil, errAgentlessUploadRequiresAPIKey
 		}
 		// Always warn people against using this mode for now. All customers should
 		// use agent based uploading at this point.
-		log.Warn("profiler.WithAgentlessUpload is currently for internal usage only and not officially supported.")
+		log.Warn("Agentless upload is currently for internal usage only and not officially supported.")
 		cfg.targetURL = cfg.apiURL
 	} else {
 		// Historically people could use an API Key to enable agentless uploading.
@@ -162,7 +175,7 @@ func newProfiler(opts ...Option) (*profiler, error) {
 		// key configured, we warn the customers that this is probably a
 		// misconfiguration.
 		if cfg.apiKey != "" {
-			log.Warn("You are currently setting profiler.WithAPIKey or the DD_API_KEY env variable, but as of dd-trace-go v1.30.0 this value is getting ignored by the profiler. Please see the profiler.WithAPIKey go docs and verify that your integration is still working. If you can't remove DD_API_KEY from your environment, you can use WithAPIKey(\"\") to silence this warning.")
+			log.Warn("You are currently setting the DD_API_KEY env variable, but as of dd-trace-go v1.30.0 this value is getting ignored by the profiler. Please verify that your integration is still working.")
 		}
 		cfg.targetURL = cfg.agentURL
 	}
@@ -170,9 +183,9 @@ func newProfiler(opts ...Option) (*profiler, error) {
 		hostname, err := os.Hostname()
 		if err != nil {
 			if cfg.targetURL == cfg.apiURL {
-				return nil, fmt.Errorf("could not obtain hostname: %v", err)
+				return nil, fmt.Errorf("could not obtain hostname: %s", err)
 			}
-			log.Warn("unable to look up hostname: %v", err)
+			log.Warn("unable to look up hostname: %s", err.Error())
 		}
 		cfg.hostname = hostname
 	}
@@ -220,20 +233,52 @@ func newProfiler(opts ...Option) (*profiler, error) {
 	cfg.tags = immutable.NewStringSlice(tags)
 
 	p := profiler{
-		cfg:    cfg,
-		out:    make(chan batch, outChannelSize),
-		exit:   make(chan struct{}),
-		met:    newMetrics(),
-		deltas: make(map[ProfileType]*fastDeltaProfiler),
+		cfg:         cfg,
+		out:         make(chan batch, outChannelSize),
+		exit:        make(chan struct{}),
+		met:         newMetrics(),
+		deltas:      make(map[ProfileType]*fastDeltaProfiler),
+		compressors: make(map[ProfileType]compressor),
 	}
-	for pt := range cfg.types {
-		if d := profileTypes[pt].DeltaValues; len(d) > 0 {
-			p.deltas[pt] = newFastDeltaProfiler(d...)
+	types := slices.Collect(maps.Keys(cfg.types))
+	// We need to manually add executionTrace to the list of profile types to be
+	// initialized for compression, because it's not part of the cfg.types map.
+	// Instead it gets added dynamically in profiler.collect.
+	if p.cfg.traceConfig.Enabled {
+		types = append(types, executionTrace)
+	}
+	var pipelineBuilder compressionPipelineBuilder
+	for _, pt := range types {
+		isDelta := p.cfg.deltaProfiles && len(profileTypes[pt].DeltaValues) > 0
+		in, out := compressionStrategy(pt, isDelta, p.cfg.compressionConfig)
+		compressor, err := pipelineBuilder.Build(in, out)
+		if err != nil {
+			return nil, err
+		}
+		p.compressors[pt] = compressor
+
+		if isDelta {
+			p.deltas[pt] = newFastDeltaProfiler(compressor, profileTypes[pt].DeltaValues...)
 		}
 	}
-	p.uploadFunc = p.upload
 	return &p, nil
 }
+
+var goroutineLeakProfileAvailable = sync.OnceValue(func() bool {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return false
+	}
+	for _, s := range info.Settings {
+		if s.Key != "GOEXPERIMENT" {
+			continue
+		}
+		if strings.Contains(s.Value, "goroutineleakprofile") {
+			return true
+		}
+	}
+	return false
+})
 
 // run runs the profiler.
 func (p *profiler) run() {
@@ -248,19 +293,15 @@ func (p *profiler) run() {
 		runtime.SetBlockProfileRate(p.cfg.blockRate)
 	}
 	startTelemetry(p.cfg)
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
+	p.wg.Go(func() {
 		tick := time.NewTicker(p.cfg.period)
 		defer tick.Stop()
 		p.met.reset(now()) // collect baseline metrics at profiler start
 		p.collect(tick.C)
-	}()
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
+	})
+	p.wg.Go(func() {
 		p.send()
-	}()
+	})
 }
 
 // collect runs the profile types found in the configuration whenever the ticker receives
@@ -285,7 +326,8 @@ func (p *profiler) collect(ticker <-chan time.Time) {
 		endpointCounter.GetAndReset()
 	}()
 
-	for {
+	exit := false
+	for !exit {
 		bat := batch{
 			seq:   p.seq,
 			host:  p.cfg.hostname,
@@ -302,6 +344,7 @@ func (p *profiler) collect(ticker <-chan time.Time) {
 		}
 		p.seq++
 
+		clear(completed)
 		completed = completed[:0]
 		// We need to increment pendingProfiles for every non-CPU
 		// profile _before_ entering the next loop so that we know CPU
@@ -312,8 +355,7 @@ func (p *profiler) collect(ticker <-chan time.Time) {
 
 		profileTypes := p.enabledProfileTypes()
 
-		// Decide whether we should record an execution trace
-		p.cfg.traceConfig.Refresh()
+		// Decide whether we should record an execution trace.
 		// Randomly record a trace with probability (profile period) / (trace period).
 		// Note that if the trace period is equal to or less than the profile period,
 		// we will always record a trace
@@ -343,9 +385,12 @@ func (p *profiler) collect(ticker <-chan time.Time) {
 				}
 				profs, err := p.runProfile(t)
 				if err != nil {
-					log.Error("Error getting %s profile: %v; skipping.", t, err)
-					tags := append(p.cfg.tags.Slice(), t.Tag())
-					p.cfg.statsd.Count("datadog.profiling.go.collect_error", 1, tags, 1)
+					if err != errProfilerStopped {
+						log.Error("Error getting %s profile: %v; skipping.", t, err.Error())
+						tags := append(p.cfg.tags.Slice(), t.Tag())
+						p.cfg.statsd.Count("datadog.profiling.go.collect_error", 1, tags, 1)
+					}
+					return
 				}
 				mu.Lock()
 				defer mu.Unlock()
@@ -371,7 +416,11 @@ func (p *profiler) collect(ticker <-chan time.Time) {
 			// is less than the configured profiling period, the ticker will block
 			// until the end of the profiling period.
 		case <-p.exit:
-			return
+			if !p.cfg.flushOnExit {
+				return
+			}
+			// If we're flushing, we enqueue the batch before exiting the loop.
+			exit = true
 		}
 
 		// Include endpoint hits from tracer in profile `event.json`.
@@ -404,9 +453,9 @@ func (p *profiler) enabledProfileTypes() []ProfileType {
 		BlockProfile,
 		MutexProfile,
 		GoroutineProfile,
-		expGoroutineWaitProfile,
 		MetricsProfile,
 		executionTrace,
+		goroutineLeakProfile,
 	}
 	enabled := []ProfileType{}
 	for _, t := range order {
@@ -444,13 +493,18 @@ func (p *profiler) send() {
 	for {
 		select {
 		case <-p.exit:
-			return
-		case bat := <-p.out:
-			if err := p.outputDir(bat); err != nil {
-				log.Error("Failed to output profile to dir: %v", err)
+			if !p.cfg.flushOnExit {
+				return
 			}
-			if err := p.uploadFunc(bat); err != nil {
-				log.Error("Failed to upload profile: %v", err)
+		case bat, ok := <-p.out:
+			if !ok {
+				return
+			}
+			if err := p.outputDir(bat); err != nil {
+				log.Error("Failed to output profile to dir: %s", err.Error())
+			}
+			if err := p.upload(bat); err != nil {
+				log.Error("Failed to upload profile: %s", err.Error())
 			}
 		}
 	}
@@ -480,10 +534,13 @@ func (p *profiler) outputDir(bat batch) error {
 
 // interruptibleSleep sleeps for the given duration or until interrupted by the
 // p.exit channel being closed.
-func (p *profiler) interruptibleSleep(d time.Duration) {
+// Returns whether the sleep was interrupted
+func (p *profiler) interruptibleSleep(d time.Duration) bool {
 	select {
 	case <-p.exit:
+		return true
 	case <-time.After(d):
+		return false
 	}
 }
 

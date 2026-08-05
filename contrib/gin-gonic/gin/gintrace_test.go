@@ -14,15 +14,17 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/internal/namingschematest"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/normalizer"
-
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/x/agenttest"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/x/tracertest"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
 )
 
 func init() {
@@ -57,7 +59,7 @@ func TestTrace200(t *testing.T) {
 	router.GET("/user/:id", func(c *gin.Context) {
 		span, ok := tracer.SpanFromContext(c.Request.Context())
 		assert.True(ok)
-		assert.Equal(span.(mocktracer.Span).Tag(ext.ServiceName), "foobar")
+		assert.Equal(mocktracer.MockSpan(span).Tag(ext.ServiceName), "foobar")
 		id := c.Param("id")
 		c.Writer.Write([]byte(id))
 	})
@@ -87,6 +89,7 @@ func TestTrace200(t *testing.T) {
 	assert.Equal("http://example.com/user/123", span.Tag(ext.HTTPURL))
 	assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
 	assert.Equal("gin-gonic/gin", span.Tag(ext.Component))
+	assert.Equal(componentName, span.Integration())
 }
 
 func TestTraceDefaultResponse(t *testing.T) {
@@ -126,6 +129,7 @@ func TestTraceDefaultResponse(t *testing.T) {
 	assert.Equal("http://example.com/user/123", span.Tag(ext.HTTPURL))
 	assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
 	assert.Equal("gin-gonic/gin", span.Tag(ext.Component))
+	assert.Equal(componentName, span.Integration())
 }
 
 func TestTraceMultipleResponses(t *testing.T) {
@@ -168,6 +172,7 @@ func TestTraceMultipleResponses(t *testing.T) {
 	assert.Equal("http://example.com/user/123", span.Tag(ext.HTTPURL))
 	assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
 	assert.Equal("gin-gonic/gin", span.Tag(ext.Component))
+	assert.Equal(componentName, span.Integration())
 }
 
 func TestError(t *testing.T) {
@@ -175,13 +180,13 @@ func TestError(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
-	// setup
-	router := gin.New()
-	router.Use(Middleware("foobar"))
 	responseErr := errors.New("oh no")
 
-	t.Run("server error", func(*testing.T) {
+	t.Run("server error - with error propagation", func(*testing.T) {
 		defer mt.Reset()
+
+		router := gin.New()
+		router.Use(Middleware("foobar", WithUseGinErrors()))
 
 		// configure a handler that returns an error and 5xx status code
 		router.GET("/server_err", func(c *gin.Context) {
@@ -205,14 +210,88 @@ func TestError(t *testing.T) {
 		assert.Equal("foobar", span.Tag(ext.ServiceName))
 		assert.Equal("500", span.Tag(ext.HTTPCode))
 		assert.Equal(fmt.Sprintf("Error #01: %s\n", responseErr), span.Tag("gin.errors"))
-		// server errors set the ext.Error tag
-		assert.Equal("500: Internal Server Error", span.Tag(ext.Error).(error).Error())
+		// server errors set the ext.ErrorMsg tag
+		assert.Equal(fmt.Sprintf("Error #01: %s\n", responseErr), span.Tag(ext.ErrorMsg))
 		assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
 		assert.Equal("gin-gonic/gin", span.Tag(ext.Component))
+		assert.Equal(componentName, span.Integration())
+	})
+
+	t.Run("server error - with error propagation - nil Errors in gin context", func(*testing.T) {
+		defer mt.Reset()
+
+		router := gin.New()
+		router.Use(Middleware("foobar", WithUseGinErrors()))
+
+		// configure a handler that returns an error and 5xx status code
+		router.GET("/server_err", func(c *gin.Context) {
+			c.AbortWithStatus(500)
+		})
+		r := httptest.NewRequest("GET", "/server_err", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		response := w.Result()
+		defer response.Body.Close()
+		assert.Equal(response.StatusCode, 500)
+
+		// verify the errors and status are correct
+		spans := mt.FinishedSpans()
+		assert.Len(spans, 1)
+		if len(spans) < 1 {
+			t.Fatalf("no spans")
+		}
+		span := spans[0]
+		assert.Equal("http.request", span.OperationName())
+		assert.Equal("foobar", span.Tag(ext.ServiceName))
+		assert.Equal("500", span.Tag(ext.HTTPCode))
+		assert.Empty(span.Tag("gin.errors"))
+		// server errors set the ext.ErrorMsg tag
+		assert.Equal("500: Internal Server Error", span.Tag(ext.ErrorMsg))
+		assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
+		assert.Equal("gin-gonic/gin", span.Tag(ext.Component))
+		assert.Equal(componentName, span.Integration())
+	})
+
+	t.Run("server error - without error propagation", func(*testing.T) {
+		defer mt.Reset()
+
+		router := gin.New()
+		router.Use(Middleware("foobar"))
+
+		// configure a handler that returns an error and 5xx status code
+		router.GET("/server_err", func(c *gin.Context) {
+			c.AbortWithError(500, responseErr)
+		})
+		r := httptest.NewRequest("GET", "/server_err", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		response := w.Result()
+		defer response.Body.Close()
+		assert.Equal(response.StatusCode, 500)
+
+		// verify the errors and status are correct
+		spans := mt.FinishedSpans()
+		assert.Len(spans, 1)
+		if len(spans) < 1 {
+			t.Fatalf("no spans")
+		}
+		span := spans[0]
+		assert.Equal("http.request", span.OperationName())
+		assert.Equal("foobar", span.Tag(ext.ServiceName))
+		assert.Equal("500", span.Tag(ext.HTTPCode))
+		assert.Equal(fmt.Sprintf("Error #01: %s\n", responseErr), span.Tag("gin.errors"))
+		// server errors set the ext.ErrorMsg tag
+		assert.Equal("500: Internal Server Error", span.Tag(ext.ErrorMsg))
+		assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
+		assert.Equal("gin-gonic/gin", span.Tag(ext.Component))
+		assert.Equal(componentName, span.Integration())
 	})
 
 	t.Run("client error", func(*testing.T) {
 		defer mt.Reset()
+
+		router := gin.New()
+		router.Use(Middleware("foobar"))
 
 		// configure a handler that returns an error and 4xx status code
 		router.GET("/client_err", func(c *gin.Context) {
@@ -236,10 +315,11 @@ func TestError(t *testing.T) {
 		assert.Equal("foobar", span.Tag(ext.ServiceName))
 		assert.Equal("418", span.Tag(ext.HTTPCode))
 		assert.Equal(fmt.Sprintf("Error #01: %s\n", responseErr), span.Tag("gin.errors"))
-		// client errors do not set the ext.Error tag
-		assert.Equal(nil, span.Tag(ext.Error))
+		// client errors do not set the ext.ErrorMsg tag
+		assert.Zero(span.Tag(ext.ErrorMsg))
 		assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
 		assert.Equal("gin-gonic/gin", span.Tag(ext.Component))
+		assert.Equal(componentName, span.Integration())
 	})
 }
 
@@ -274,9 +354,10 @@ func TestHTML(t *testing.T) {
 	for _, s := range spans {
 		assert.Equal("foobar", s.Tag(ext.ServiceName), s.String())
 		assert.Equal("gin-gonic/gin", s.Tag(ext.Component))
+		assert.Equal(componentName, s.Integration())
 	}
 
-	var tspan mocktracer.Span
+	var tspan *mocktracer.Span
 	for _, s := range spans {
 		// we need to pick up the span we're searching for, as the
 		// order is not garanteed within the buffer
@@ -317,14 +398,15 @@ func TestPropagation(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	pspan := tracer.StartSpan("test")
-	tracer.Inject(pspan.Context(), tracer.HTTPHeadersCarrier(r.Header))
+	err := tracer.Inject(pspan.Context(), tracer.HTTPHeadersCarrier(r.Header))
+	require.NoError(t, err)
 
 	router := gin.New()
 	router.Use(Middleware("foobar"))
 	router.GET("/user/:id", func(c *gin.Context) {
 		span, ok := tracer.SpanFromContext(c.Request.Context())
 		assert.True(ok)
-		assert.Equal(span.(mocktracer.Span).ParentID(), pspan.(mocktracer.Span).SpanID())
+		assert.Equal(mocktracer.MockSpan(span).ParentID(), mocktracer.MockSpan(pspan).SpanID())
 	})
 
 	router.ServeHTTP(w, r)
@@ -358,9 +440,7 @@ func TestAnalyticsSettings(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
+		testutils.SetGlobalAnalyticsRate(t, 0.4)
 
 		assertRate(t, mt, 0.4)
 	})
@@ -383,25 +463,23 @@ func TestAnalyticsSettings(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
+		testutils.SetGlobalAnalyticsRate(t, 0.4)
 
 		assertRate(t, mt, 0.23, WithAnalyticsRate(0.23))
 	})
 }
 
 func TestResourceNamerSettings(t *testing.T) {
-	assert := assert.New(t)
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
 	staticName := "foo"
-	staticNamer := func(c *gin.Context) string {
+	staticNamer := func(_ *gin.Context) string {
 		return staticName
 	}
 
 	t.Run("default", func(t *testing.T) {
+		assert := assert.New(t)
 		defer mt.Reset()
 
 		router := gin.New()
@@ -410,7 +488,7 @@ func TestResourceNamerSettings(t *testing.T) {
 		router.GET("/test", func(c *gin.Context) {
 			span, ok := tracer.SpanFromContext(c.Request.Context())
 			assert.True(ok)
-			assert.Equal(span.(mocktracer.Span).Tag(ext.ResourceName), "GET /test")
+			assert.Equal(mocktracer.MockSpan(span).Tag(ext.ResourceName), "GET /test")
 		})
 
 		r := httptest.NewRequest("GET", "/test", nil)
@@ -420,8 +498,8 @@ func TestResourceNamerSettings(t *testing.T) {
 	})
 
 	t.Run("custom", func(t *testing.T) {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+		assert := assert.New(t)
+		defer mt.Reset()
 
 		router := gin.New()
 		router.Use(Middleware("foobar", WithResourceNamer(staticNamer)))
@@ -429,7 +507,7 @@ func TestResourceNamerSettings(t *testing.T) {
 		router.GET("/test", func(c *gin.Context) {
 			span, ok := tracer.SpanFromContext(c.Request.Context())
 			assert.True(ok)
-			assert.Equal(span.(mocktracer.Span).Tag(ext.ResourceName), staticName)
+			assert.Equal(mocktracer.MockSpan(span).Tag(ext.ResourceName), staticName)
 		})
 
 		r := httptest.NewRequest("GET", "/test", nil)
@@ -452,7 +530,6 @@ func TestWithHeaderTags(t *testing.T) {
 		r.Header.Add("h!e@a-d.e*r", "val2")
 		r.Header.Set("2header", "2val")
 		r.Header.Set("3header", "3val")
-		r.Header.Set("x-datadog-header", "value")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, r)
 		return r
@@ -460,69 +537,65 @@ func TestWithHeaderTags(t *testing.T) {
 	t.Run("default-off", func(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
-		htArgs := []string{"h!e@a-d.e*r", "2header", "3header", "x-datadog-header"}
+		htArgs := []string{"h!e@a-d.e*r", "2header", "3header"}
 		setupReq()
 		spans := mt.FinishedSpans()
 		assert := assert.New(t)
 		assert.Equal(len(spans), 1)
 		s := spans[0]
-		for _, arg := range htArgs {
-			_, tag := normalizer.HeaderTag(arg)
+
+		instrumentation.NewHeaderTags(htArgs).Iter(func(_ string, tag string) {
 			assert.NotContains(s.Tags(), tag)
-		}
+		})
 	})
 	t.Run("integration", func(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
+
 		htArgs := []string{"h!e@a-d.e*r", "2header:tag"}
-		r := setupReq(WithHeaderTags(htArgs))
+		_ = setupReq(WithHeaderTags(htArgs))
 		spans := mt.FinishedSpans()
 		assert := assert.New(t)
 		assert.Equal(len(spans), 1)
 		s := spans[0]
-		for _, arg := range htArgs {
-			header, tag := normalizer.HeaderTag(arg)
-			assert.Equal(strings.Join(r.Header.Values(header), ","), s.Tags()[tag])
-		}
+
+		assert.Equal("val,val2", s.Tags()["http.request.headers.h_e_a-d_e_r"])
+		assert.Equal("2val", s.Tags()["tag"])
 		assert.NotContains(s.Tags(), "http.headers.x-datadog-header")
 	})
 	t.Run("global", func(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		header, tag := normalizer.HeaderTag("3header")
-		globalconfig.SetHeaderTag(header, tag)
+		testutils.SetGlobalHeaderTags(t, "3header")
 
-		r := setupReq()
+		_ = setupReq()
 		spans := mt.FinishedSpans()
 		assert := assert.New(t)
 		assert.Equal(len(spans), 1)
 		s := spans[0]
 
-		assert.Equal(strings.Join(r.Header.Values(header), ","), s.Tags()[tag])
+		assert.Equal("3val", s.Tags()["http.request.headers.3header"])
+		assert.NotContains(s.Tags(), "http.request.headers.other")
 		assert.NotContains(s.Tags(), "http.headers.x-datadog-header")
 	})
-
 	t.Run("override", func(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		globalH, globalT := normalizer.HeaderTag("3header")
-		globalconfig.SetHeaderTag(globalH, globalT)
+		testutils.SetGlobalHeaderTags(t, "3header")
 
 		htArgs := []string{"h!e@a-d.e*r", "2header:tag"}
-		r := setupReq(WithHeaderTags(htArgs))
+		_ = setupReq(WithHeaderTags(htArgs))
 		spans := mt.FinishedSpans()
 		assert := assert.New(t)
 		assert.Equal(len(spans), 1)
 		s := spans[0]
 
-		for _, arg := range htArgs {
-			header, tag := normalizer.HeaderTag(arg)
-			assert.Equal(strings.Join(r.Header.Values(header), ","), s.Tags()[tag])
-		}
+		assert.Equal("val,val2", s.Tags()["http.request.headers.h_e_a-d_e_r"])
+		assert.Equal("2val", s.Tags()["tag"])
 		assert.NotContains(s.Tags(), "http.headers.x-datadog-header")
-		assert.NotContains(s.Tags(), globalT)
+		assert.NotContains(s.Tags(), "http.request.headers.3header")
 	})
 }
 
@@ -546,11 +619,10 @@ func TestIgnoreRequestSettings(t *testing.T) {
 		"/skipfoo": true,
 	} {
 		mt := mocktracer.Start()
-		defer mt.Reset()
-
 		r := httptest.NewRequest("GET", "http://localhost"+path, nil)
 		router.ServeHTTP(httptest.NewRecorder(), r)
 		assert.Equal(t, shouldSkip, len(mt.FinishedSpans()) == 0)
+		mt.Stop()
 	}
 }
 
@@ -565,7 +637,7 @@ func TestServiceName(t *testing.T) {
 		router.GET("/ping", func(c *gin.Context) {
 			span, ok := tracer.SpanFromContext(c.Request.Context())
 			assert.True(ok)
-			assert.Equal(span.(mocktracer.Span).Tag(ext.ServiceName), "gin.router")
+			assert.Equal(mocktracer.MockSpan(span).Tag(ext.ServiceName), "gin.router")
 			c.Status(200)
 		})
 
@@ -583,11 +655,11 @@ func TestServiceName(t *testing.T) {
 		assert.Len(spans, 1)
 		span := spans[0]
 		assert.Equal("gin.router", span.Tag(ext.ServiceName))
+		assert.Equal(string(instrumentation.PackageGin), span.Tag(ext.KeyServiceSource))
 	})
 
 	t.Run("global", func(t *testing.T) {
-		globalconfig.SetServiceName("global-service")
-		defer globalconfig.SetServiceName("")
+		testutils.SetGlobalServiceName(t, "global-service")
 
 		assert := assert.New(t)
 		mt := mocktracer.Start()
@@ -598,7 +670,7 @@ func TestServiceName(t *testing.T) {
 		router.GET("/ping", func(c *gin.Context) {
 			span, ok := tracer.SpanFromContext(c.Request.Context())
 			assert.True(ok)
-			assert.Equal(span.(mocktracer.Span).Tag(ext.ServiceName), "global-service")
+			assert.Equal(mocktracer.MockSpan(span).Tag(ext.ServiceName), "global-service")
 			c.Status(200)
 		})
 
@@ -616,6 +688,7 @@ func TestServiceName(t *testing.T) {
 		assert.Len(spans, 1)
 		span := spans[0]
 		assert.Equal("global-service", span.Tag(ext.ServiceName))
+		assert.Nil(span.Tag(ext.KeyServiceSource), "service source should not be set when service matches global service")
 	})
 
 	t.Run("custom", func(t *testing.T) {
@@ -628,7 +701,7 @@ func TestServiceName(t *testing.T) {
 		router.GET("/ping", func(c *gin.Context) {
 			span, ok := tracer.SpanFromContext(c.Request.Context())
 			assert.True(ok)
-			assert.Equal(span.(mocktracer.Span).Tag(ext.ServiceName), "my-service")
+			assert.Equal(mocktracer.MockSpan(span).Tag(ext.ServiceName), "my-service")
 			c.Status(200)
 		})
 
@@ -646,24 +719,34 @@ func TestServiceName(t *testing.T) {
 		assert.Len(spans, 1)
 		span := spans[0]
 		assert.Equal("my-service", span.Tag(ext.ServiceName))
+		assert.Equal(serviceSourceGinMiddleware, span.Tag(ext.KeyServiceSource))
 	})
 }
 
-func TestNamingSchema(t *testing.T) {
-	genSpans := namingschematest.GenSpansFn(func(t *testing.T, serviceOverride string) []mocktracer.Span {
-		mt := mocktracer.Start()
-		defer mt.Stop()
+// TestTracerStartedMultipleTimes tests a v2 regression where the global service name was being set to an empty string
+// when the tracer is started more than once.
+func TestTracerStartedMultipleTimes(t *testing.T) {
+	assert := assert.New(t)
+	_, _, err := tracertest.Bootstrap(t)
+	require.NoError(t, err)
+	tr, agent, err := tracertest.Bootstrap(t, tracer.WithService("global_service"))
+	require.NoError(t, err)
 
-		mux := gin.New()
-		mux.Use(Middleware(serviceOverride))
-		mux.GET("/200", func(c *gin.Context) {
-			c.Status(200)
-		})
-		r := httptest.NewRequest("GET", "/200", nil)
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, r)
-
-		return mt.FinishedSpans()
+	router := gin.New()
+	router.Use(Middleware(""))
+	router.GET("/ping", func(c *gin.Context) {
+		c.Status(200)
 	})
-	namingschematest.NewHTTPServerTest(genSpans, "gin.router")(t)
+
+	r := httptest.NewRequest("GET", "/ping", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	response := w.Result()
+	defer response.Body.Close()
+	assert.Equal(response.StatusCode, 200)
+
+	tr.Flush()
+	assert.Equal(1, agent.CountSpans())
+	span := agent.RequireSpan(t, agenttest.With().Service("global_service"))
+	assert.NotNil(span)
 }

@@ -7,140 +7,150 @@ package grpc
 
 import (
 	"context"
+	"sync/atomic"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec/dyngo"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec/emitter/grpcsec"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec/emitter/grpcsec/types"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec/emitter/sharedsec"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec/trace"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec/trace/grpctrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/appsec/trace/httptrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-
-	"github.com/DataDog/appsec-internal-go/netip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/grpcsec"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/actions"
 )
 
+func applyAction(blockAtomic *atomic.Pointer[actions.BlockGRPC], err *error) bool {
+	if blockAtomic == nil {
+		return false
+	}
+
+	block := blockAtomic.Load()
+	if block == nil {
+		return false
+	}
+
+	code, e := block.GRPCWrapper()
+	*err = status.Error(codes.Code(code), e.Error())
+	return true
+}
+
 // UnaryHandler wrapper to use when AppSec is enabled to monitor its execution.
-func appsecUnaryHandlerMiddleware(span ddtrace.Span, handler grpc.UnaryHandler) grpc.UnaryHandler {
-	trace.SetAppSecEnabledTags(span)
-	return func(ctx context.Context, req interface{}) (interface{}, error) {
-		var err error
-		var blocked bool
+func appsecUnaryHandlerMiddleware(method string, span *tracer.Span, handler grpc.UnaryHandler) grpc.UnaryHandler {
+	return func(ctx context.Context, req any) (res any, rpcErr error) {
 		md, _ := metadata.FromIncomingContext(ctx)
-		clientIP := setClientIP(ctx, span, md)
-		args := types.HandlerOperationArgs{Metadata: md, ClientIP: clientIP}
-		ctx, op := grpcsec.StartHandlerOperation(ctx, args, nil, func(op *types.HandlerOperation) {
-			dyngo.OnData(op, func(a *sharedsec.Action) {
-				code, e := a.GRPC()(md)
-				blocked = a.Blocking()
-				err = status.Error(codes.Code(code), e.Error())
-			})
+		var remoteAddr string
+		if p, ok := peer.FromContext(ctx); ok {
+			remoteAddr = p.Addr.String()
+		}
+
+		ctx, op, blockAtomic := grpcsec.StartHandlerOperation(ctx, span, grpcsec.HandlerOperationArgs{
+			Method:     method,
+			Metadata:   md,
+			RemoteAddr: remoteAddr,
 		})
+
 		defer func() {
-			events := op.Finish(types.HandlerOperationRes{})
-			if blocked {
-				op.SetTag(trace.BlockedRequestTag, true)
+			var statusCode int
+			if statusErr, ok := rpcErr.(interface{ GRPCStatus() *status.Status }); ok && !applyAction(blockAtomic, &rpcErr) {
+				statusCode = int(statusErr.GRPCStatus().Code())
 			}
-			grpctrace.SetRequestMetadataTags(span, md)
-			trace.SetTags(span, op.Tags())
-			if len(events) > 0 {
-				grpctrace.SetSecurityEventsTags(span, events)
-			}
+			op.Finish(grpcsec.HandlerOperationRes{StatusCode: statusCode})
+			applyAction(blockAtomic, &rpcErr)
 		}()
 
-		if err != nil {
-			return nil, err
+		// Check if a blocking condition was detected so far with the start operation event (ip blocking, metadata blocking, etc.)
+		if applyAction(blockAtomic, &rpcErr) {
+			return
 		}
-		defer grpcsec.StartReceiveOperation(types.ReceiveOperationArgs{}, op).Finish(types.ReceiveOperationRes{Message: req})
-		rv, err := handler(ctx, req)
-		if e, ok := err.(*types.MonitoringError); ok {
-			err = status.Error(codes.Code(e.GRPCStatus()), e.Error())
+
+		// As of our gRPC abstract operation definition, we must fake a receive operation for unary RPCs (the same model fits both unary and streaming RPCs)
+		if _ = grpcsec.MonitorRequestMessage(ctx, req); applyAction(blockAtomic, &rpcErr) {
+			return
 		}
-		return rv, err
+
+		defer func() {
+			_ = grpcsec.MonitorResponseMessage(ctx, res)
+			applyAction(blockAtomic, &rpcErr)
+		}()
+
+		// Call the original handler - let the deferred function above handle the blocking condition and return error
+		return handler(ctx, req)
 	}
 }
 
 // StreamHandler wrapper to use when AppSec is enabled to monitor its execution.
-func appsecStreamHandlerMiddleware(span ddtrace.Span, handler grpc.StreamHandler) grpc.StreamHandler {
-	trace.SetAppSecEnabledTags(span)
-	return func(srv interface{}, stream grpc.ServerStream) error {
-		var err error
-		var blocked bool
+func appsecStreamHandlerMiddleware(method string, span *tracer.Span, handler grpc.StreamHandler) grpc.StreamHandler {
+	return func(srv any, stream grpc.ServerStream) (rpcErr error) {
 		ctx := stream.Context()
 		md, _ := metadata.FromIncomingContext(ctx)
-		clientIP := setClientIP(ctx, span, md)
-		grpctrace.SetRequestMetadataTags(span, md)
+		var remoteAddr string
+		if p, ok := peer.FromContext(ctx); ok {
+			remoteAddr = p.Addr.String()
+		}
 
-		ctx, op := grpcsec.StartHandlerOperation(ctx, types.HandlerOperationArgs{Metadata: md, ClientIP: clientIP}, nil, func(op *types.HandlerOperation) {
-			dyngo.OnData(op, func(a *sharedsec.Action) {
-				code, e := a.GRPC()(md)
-				blocked = a.Blocking()
-				err = status.Error(codes.Code(code), e.Error())
-			})
+		// Create the handler operation and listen to blocking gRPC actions to detect a blocking condition
+		ctx, op, blockAtomic := grpcsec.StartHandlerOperation(ctx, span, grpcsec.HandlerOperationArgs{
+			Method:     method,
+			Metadata:   md,
+			RemoteAddr: remoteAddr,
 		})
-		stream = appsecServerStream{
+
+		// Create a ServerStream wrapper with appsec RPC handler operation and the Go context (to implement the ServerStream interface)
+
+		defer func() {
+			var statusCode int
+			if res, ok := rpcErr.(interface{ Status() codes.Code }); ok && !applyAction(blockAtomic, &rpcErr) {
+				statusCode = int(res.Status())
+			}
+
+			op.Finish(grpcsec.HandlerOperationRes{StatusCode: statusCode})
+			applyAction(blockAtomic, &rpcErr)
+		}()
+
+		// Check if a blocking condition was detected so far with the start operation event (ip blocking, metadata blocking, etc.)
+		if applyAction(blockAtomic, &rpcErr) {
+			return
+		}
+
+		// Call the original handler - let the deferred function above handle the blocking condition and return error
+		return handler(srv, &appsecServerStream{
 			ServerStream:     stream,
 			handlerOperation: op,
 			ctx:              ctx,
-		}
-		defer func() {
-			events := op.Finish(types.HandlerOperationRes{})
-			if blocked {
-				op.SetTag(trace.BlockedRequestTag, true)
-			}
-			trace.SetTags(span, op.Tags())
-			if len(events) > 0 {
-				grpctrace.SetSecurityEventsTags(span, events)
-			}
-		}()
-
-		if err != nil {
-			return err
-		}
-
-		err = handler(srv, stream)
-		if e, ok := err.(*types.MonitoringError); ok {
-			err = status.Error(codes.Code(e.GRPCStatus()), e.Error())
-		}
-		return err
+			action:           blockAtomic,
+			rpcErr:           &rpcErr,
+		})
 	}
 }
 
 type appsecServerStream struct {
 	grpc.ServerStream
-	handlerOperation *types.HandlerOperation
+	handlerOperation *grpcsec.HandlerOperation
 	ctx              context.Context
+	action           *atomic.Pointer[actions.BlockGRPC]
+	rpcErr           *error
 }
 
 // RecvMsg implements grpc.ServerStream interface method to monitor its
 // execution with AppSec.
-func (ss appsecServerStream) RecvMsg(m interface{}) error {
-	op := grpcsec.StartReceiveOperation(types.ReceiveOperationArgs{}, ss.handlerOperation)
+func (ss *appsecServerStream) RecvMsg(msg any) (err error) {
 	defer func() {
-		op.Finish(types.ReceiveOperationRes{Message: m})
+		if _ = grpcsec.MonitorRequestMessage(ss.ctx, msg); applyAction(ss.action, ss.rpcErr) {
+			err = *ss.rpcErr
+		}
 	}()
-	return ss.ServerStream.RecvMsg(m)
+	return ss.ServerStream.RecvMsg(msg)
 }
 
-func (ss appsecServerStream) Context() context.Context {
+func (ss *appsecServerStream) SendMsg(msg any) error {
+	if _ = grpcsec.MonitorResponseMessage(ss.ctx, msg); applyAction(ss.action, ss.rpcErr) {
+		return *ss.rpcErr
+	}
+	return ss.ServerStream.SendMsg(msg)
+}
+
+func (ss *appsecServerStream) Context() context.Context {
 	return ss.ctx
-}
-
-func setClientIP(ctx context.Context, span ddtrace.Span, md metadata.MD) netip.Addr {
-	var remoteAddr string
-	if p, ok := peer.FromContext(ctx); ok {
-		remoteAddr = p.Addr.String()
-	}
-	ipTags, clientIP := httptrace.ClientIPTags(md, false, remoteAddr)
-	log.Debug("appsec: http client ip detection returned `%s` given the http headers `%v`", clientIP, md)
-	if len(ipTags) > 0 {
-		trace.SetTags(span, ipTags)
-	}
-	return clientIP
 }

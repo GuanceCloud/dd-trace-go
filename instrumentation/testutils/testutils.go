@@ -1,0 +1,186 @@
+// Unless explicitly stated otherwise all files in this repository are licensed
+// under the Apache License Version 2.0.
+// This product includes software developed at Datadog (https://www.datadoghq.com/).
+// Copyright 2024 Datadog, Inc.
+
+package testutils
+
+import (
+	"strconv"
+	"testing"
+	_ "unsafe" // enables go:linkname directives below
+
+	"github.com/DataDog/go-libddwaf/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/internal/appsec"
+	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
+	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
+	"github.com/DataDog/dd-trace-go/v2/internal/datastreams"
+	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
+	"github.com/DataDog/dd-trace-go/v2/internal/normalizer"
+	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
+	"github.com/DataDog/dd-trace-go/v2/internal/statsdtest"
+	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
+)
+
+//go:linkname decodeTestingPayload github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.decodeTestingPayload
+func decodeTestingPayload(buf []byte) (map[string]any, error)
+
+func SetGlobalServiceName(t *testing.T, val string) {
+	t.Helper()
+	prev := globalconfig.ServiceName()
+	t.Cleanup(func() {
+		globalconfig.SetServiceName(prev)
+	})
+	globalconfig.SetServiceName(val)
+}
+
+func SetGlobalAnalyticsRate(t *testing.T, val float64) {
+	t.Helper()
+	prev := globalconfig.AnalyticsRate()
+	t.Cleanup(func() {
+		globalconfig.SetAnalyticsRate(prev)
+	})
+	globalconfig.SetAnalyticsRate(val)
+}
+
+func SetGlobalDogstatsdAddr(t *testing.T, val string) {
+	t.Helper()
+	prev := globalconfig.DogstatsdAddr()
+	t.Cleanup(func() {
+		globalconfig.SetDogstatsdAddr(prev)
+	})
+	globalconfig.SetDogstatsdAddr(val)
+}
+
+// SetContainerTagsHash sets the container tags hash for the duration of the test.
+func SetContainerTagsHash(t *testing.T, hash string) {
+	t.Helper()
+	processtags.SetContainerTagsHash(hash)
+	t.Cleanup(func() { processtags.SetContainerTagsHash("") })
+}
+
+// DBMBaseHash computes the expected DBM base hash for the given inputs,
+// matching the value injected as ddsh in SQL comments and as _dd.propagated_hash on spans.
+// It mirrors computeBaseHash by returning "" when process tags are unavailable.
+func DBMBaseHash(service, containerTagsHash string) string {
+	pTags := processtags.GlobalTags()
+	if pTags == nil {
+		return ""
+	}
+	env := internalconfig.Get().Env()
+	hash := datastreams.BaseHash(service, env, pTags.Slice(), containerTagsHash)
+	return strconv.FormatInt(int64(hash), 10)
+}
+
+func SetGlobalHeaderTags(t *testing.T, headers ...string) {
+	t.Helper()
+
+	setValue := func(val []string) {
+		globalconfig.ClearHeaderTags()
+		for _, h := range val {
+			header, tag := normalizer.HeaderTag(h)
+			globalconfig.SetHeaderTag(header, tag)
+		}
+	}
+
+	var prev []string
+	globalconfig.HeaderTagMap().Iter(func(_ string, tag string) {
+		prev = append(prev, tag)
+	})
+
+	t.Cleanup(func() {
+		setValue(prev)
+	})
+	setValue(headers)
+}
+
+func StartAppSec(t *testing.T, opts ...config.StartOption) {
+	if usable, err := libddwaf.Usable(); !usable {
+		t.Skipf("AppSec is not supported on this platform: %v", err)
+		return
+	}
+
+	opts = append(
+		append(make([]config.StartOption, 0, len(opts)+1), config.WithEnablementMode(config.ForcedOn)),
+		opts...,
+	)
+	appsec.Start(opts...)
+	require.True(t, appsec.Enabled(), "AppSec failed to start as expected")
+	t.Cleanup(appsec.Stop)
+}
+
+func StartAppSecBench(b *testing.B) {
+	// maximize rate limit to prevent the spam of "too many WAF events" errors
+	// 1000000000 = time.Second.Nanoseconds() is the largest value that we are able to set here
+	b.Setenv("DD_APPSEC_TRACE_RATE_LIMIT", "1000000000")
+	appsec.Start()
+	b.Cleanup(appsec.Stop)
+}
+
+type discardLogger struct{}
+
+func (d discardLogger) Log(_ string) {}
+
+func DiscardLogger() tracer.Logger {
+	return discardLogger{}
+}
+
+type MockStatsdClient = statsdtest.TestStatsdClient
+
+func NewMockStatsdClient() *MockStatsdClient {
+	return &MockStatsdClient{}
+}
+
+//go:linkname setSpanContextPropagatingTag github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.setSpanContextPropagatingTag
+func setSpanContextPropagatingTag(ctx *tracer.SpanContext, k, v string)
+
+// SetPropagatingTag sets a propagating tag on the given span context.
+func SetPropagatingTag(t testing.TB, ctx *tracer.SpanContext, k, v string) {
+	t.Helper()
+	setSpanContextPropagatingTag(ctx, k, v)
+}
+
+// StartTelemetryRecorder starts a new telemetry mock client and returns it.
+func StartTelemetryRecorder(t *testing.T) *telemetrytest.RecordClient {
+	t.Helper()
+
+	// Set a first telemetry client to flush any pending data that may exist...
+	client := new(telemetrytest.RecordClient)
+	oldClient := telemetry.SwapClient(client)
+	FlushTelemetry()
+
+	// Then set the actual client now...
+	client = new(telemetrytest.RecordClient)
+	telemetry.SwapClient(client)
+
+	t.Cleanup(func() {
+		assert.NoError(t, client.Close())
+		telemetry.SwapClient(oldClient)
+	})
+
+	return client
+}
+
+// FlushTelemetry flushes any pending telemetry data.
+func FlushTelemetry() {
+	if client := telemetry.GlobalClient(); client != nil {
+		client.Flush()
+	}
+}
+
+// DecodeV1Traces decodes a msgpack-encoded v1 payload (e.g. bytes read from
+// req.Body of an agent intake request) and returns its top-level fields
+// keyed by their numeric proto field IDs (as strings). Fields absent from
+// the payload (zero value after decode) are omitted from the result.
+func DecodeV1Traces(t *testing.T, buf []byte) map[string]any {
+	t.Helper()
+
+	out, err := decodeTestingPayload(buf)
+	require.NoError(t, err)
+	return out
+}

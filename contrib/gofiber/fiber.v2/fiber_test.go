@@ -6,16 +6,20 @@
 package fiber
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/internal/namingschematest"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +32,7 @@ func TestChildSpan(t *testing.T) {
 	defer mt.Stop()
 
 	router := fiber.New()
-	router.Use(Middleware(WithServiceName("foobar")))
+	router.Use(Middleware(WithService("foobar")))
 	router.Get("/user/:id", func(c *fiber.Ctx) error {
 		return c.SendString(c.Params("id"))
 	})
@@ -70,6 +74,7 @@ func TestTrace200(t *testing.T) {
 		assert.Equal("/user/123", span.Tag(ext.HTTPURL))
 		assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
 		assert.Equal("gofiber/fiber.v2", span.Tag(ext.Component))
+		assert.Equal(componentName, span.Integration())
 		assert.Equal("/user/:id", span.Tag(ext.HTTPRoute))
 	}
 
@@ -79,7 +84,7 @@ func TestTrace200(t *testing.T) {
 		defer mt.Stop()
 
 		router := fiber.New()
-		router.Use(Middleware(WithServiceName("foobar")))
+		router.Use(Middleware(WithService("foobar")))
 		router.Get("/user/:id", func(c *fiber.Ctx) error {
 			return c.SendString(c.Params("id"))
 		})
@@ -93,7 +98,7 @@ func TestTrace200(t *testing.T) {
 		defer mt.Stop()
 
 		router := fiber.New()
-		router.Use(Middleware(WithServiceName("foobar")))
+		router.Use(Middleware(WithService("foobar")))
 		router.Get("/user/:id", func(c *fiber.Ctx) error {
 			return c.SendString(c.Params("id"))
 		})
@@ -108,7 +113,7 @@ func TestStatusError(t *testing.T) {
 
 	// setup
 	router := fiber.New()
-	router.Use(Middleware(WithServiceName("foobar")))
+	router.Use(Middleware(WithService("foobar")))
 	code := 500
 	wantErr := fmt.Sprintf("%d: %s", code, http.StatusText(code))
 
@@ -134,7 +139,7 @@ func TestStatusError(t *testing.T) {
 	assert.Equal("foobar", span.Tag(ext.ServiceName))
 	assert.Equal("500", span.Tag(ext.HTTPCode))
 	assert.Equal("/err", span.Tag(ext.HTTPRoute))
-	assert.Equal(wantErr, span.Tag(ext.Error).(error).Error())
+	assert.Equal(wantErr, span.Tag(ext.ErrorMsg))
 }
 
 func TestCustomError(t *testing.T) {
@@ -143,7 +148,7 @@ func TestCustomError(t *testing.T) {
 	defer mt.Stop()
 
 	router := fiber.New()
-	router.Use(Middleware(WithServiceName("foobar")))
+	router.Use(Middleware(WithService("foobar")))
 
 	router.Get("/err", func(c *fiber.Ctx) error {
 		c.SendStatus(400)
@@ -165,9 +170,10 @@ func TestCustomError(t *testing.T) {
 	assert.Equal("http.request", span.OperationName())
 	assert.Equal("foobar", span.Tag(ext.ServiceName))
 	assert.Equal("400", span.Tag(ext.HTTPCode))
-	assert.Equal(fiber.ErrBadRequest, span.Tag(ext.Error).(*fiber.Error))
+	assert.Equal(fiber.ErrBadRequest.Error(), span.Tag(ext.ErrorMsg))
 	assert.Equal(ext.SpanKindServer, span.Tag(ext.SpanKind))
 	assert.Equal("gofiber/fiber.v2", span.Tag(ext.Component))
+	assert.Equal(componentName, span.Integration())
 	assert.Equal("/err", span.Tag(ext.HTTPRoute))
 }
 
@@ -178,11 +184,30 @@ func TestUserContext(t *testing.T) {
 
 	// setup
 	router := fiber.New()
-	router.Use(Middleware(WithServiceName("foobar")))
+
+	// define a custom context key
+	type contextKey string
+	const fooKey contextKey = "foo"
+
+	// add a middleware that adds a value to the context
+	router.Use(func(c *fiber.Ctx) error {
+		ctx := context.WithValue(c.UserContext(), fooKey, "bar")
+		c.SetUserContext(ctx)
+		return c.Next()
+	})
+
+	// add the middleware
+	router.Use(Middleware(WithService("foobar")))
 
 	router.Get("/", func(c *fiber.Ctx) error {
 		// check if not default empty context
 		assert.NotEmpty(c.UserContext())
+
+		// checks that the user context still has the information provided before using the middleware
+		foo, ok := c.UserContext().Value(fooKey).(string)
+		assert.True(ok)
+		assert.Equal(foo, "bar")
+
 		span, _ := tracer.StartSpanFromContext(c.UserContext(), "http.request")
 		defer span.Finish()
 		return c.SendString("test")
@@ -225,7 +250,7 @@ func TestPropagation(t *testing.T) {
 	requestWithoutSpan := httptest.NewRequest("GET", "/span/exists/false", nil)
 
 	router := fiber.New()
-	router.Use(Middleware(WithServiceName("foobar")))
+	router.Use(Middleware(WithService("foobar")))
 	router.Get("/span/exists/true", func(c *fiber.Ctx) error {
 		s, _ := tracer.SpanFromContext(c.UserContext())
 		assert.Equal(s.Context().TraceID() == pspan.Context().TraceID(), true)
@@ -276,9 +301,7 @@ func TestAnalyticsSettings(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
+		testutils.SetGlobalAnalyticsRate(t, 0.4)
 
 		assertRate(t, mt, 0.4)
 	})
@@ -301,34 +324,172 @@ func TestAnalyticsSettings(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
+		testutils.SetGlobalAnalyticsRate(t, 0.4)
 
 		assertRate(t, mt, 0.23, WithAnalyticsRate(0.23))
 	})
 }
 
-func TestNamingSchema(t *testing.T) {
-	genSpans := namingschematest.GenSpansFn(func(t *testing.T, serviceOverride string) []mocktracer.Span {
-		var opts []Option
-		if serviceOverride != "" {
-			opts = append(opts, WithServiceName(serviceOverride))
-		}
+func TestIgnoreRequest(t *testing.T) {
+	assert := assert.New(t)
+	mt := mocktracer.Start()
+	defer mt.Stop()
+
+	router := fiber.New()
+	router.Use(
+		Middleware(
+			WithIgnoreRequest(func(ctx *fiber.Ctx) bool {
+				return ctx.Method() == "GET" && ctx.Path() == "/ignore"
+			}),
+		),
+	)
+	router.Get("/ignore", func(c *fiber.Ctx) error {
+		return c.SendString("IAMALIVE")
+	})
+
+	r := httptest.NewRequest("GET", "/ignore", nil)
+
+	// do and verify the request
+	resp, err := router.Test(r)
+	assert.Equal(nil, err)
+	defer resp.Body.Close()
+	assert.Equal(resp.StatusCode, 200)
+
+	spans := mt.FinishedSpans()
+
+	assert.Len(spans, 0)
+}
+
+func TestSecurityTestingHeaders(t *testing.T) {
+	assert := assert.New(t)
+	mt := mocktracer.Start()
+	defer mt.Stop()
+
+	router := fiber.New()
+	router.Use(Middleware(WithService("foobar")))
+	router.Get("/test", func(c *fiber.Ctx) error {
+		return c.SendString("ok")
+	})
+
+	r := httptest.NewRequest("GET", "/test", nil)
+	r.Header.Set("x-datadog-endpoint-scan", "true")
+	r.Header.Set("x-datadog-security-test", "test-value")
+
+	resp, err := router.Test(r)
+	assert.Equal(nil, err)
+	defer resp.Body.Close()
+	assert.Equal(resp.StatusCode, 200)
+
+	spans := mt.FinishedSpans()
+	require.Len(t, spans, 1)
+
+	span := spans[0]
+	assert.Equal("true", span.Tag(ext.HTTPRequestHeaders+".x-datadog-endpoint-scan"))
+	assert.Equal("test-value", span.Tag(ext.HTTPRequestHeaders+".x-datadog-security-test"))
+}
+
+// TestFinishedSpanTagsChangeWhenFasthttpReusesConnectionBuffer reproduces
+// https://github.com/DataDog/dd-trace-go/issues/4968.
+//
+// Fiber's Ctx.Method() and Ctx.GetReqHeaders() return zero-copy strings that
+// alias fasthttp's per-connection read buffer. The middleware stores those
+// strings directly as span tags instead of copying them, so once fasthttp
+// reuses the buffer to parse a later keep-alive request on the same
+// connection, an already-finished span's tags can silently change. Same
+// root cause as https://github.com/gofiber/fiber/issues/4464, referenced
+// from #4968.
+//
+// Each subtest drives a real fasthttp.Server over a real connection with two
+// sequential requests, rather than manually overwriting fasthttp's buffer,
+// so the reuse is the same one fasthttp performs in production.
+func TestFinishedSpanTagsChangeWhenFasthttpReusesConnectionBuffer(t *testing.T) {
+	t.Run("http-method", func(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		mux := fiber.New()
-		mux.Use(Middleware(opts...))
-		mux.Get("/200", func(c *fiber.Ctx) error {
+		router := fiber.New()
+		router.Use(Middleware(WithService("foobar")))
+		router.Use(func(c *fiber.Ctx) error {
 			return c.SendString("ok")
 		})
-		req := httptest.NewRequest("GET", "/200", nil)
-		resp, err := mux.Test(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
 
-		return mt.FinishedSpans()
+		conn := serveOnPipe(t, router)
+
+		sendRequest(t, conn, "GET", "/first")
+		sendRequest(t, conn, "DELETE", "/second")
+
+		spans := mt.FinishedSpans()
+		require.Len(t, spans, 2)
+		assert.Equal(t, "GET", spans[0].Tag(ext.HTTPMethod),
+			"first request's http.method tag changed after being served: it aliases fasthttp's reused connection buffer instead of holding a copy")
 	})
-	namingschematest.NewHTTPServerTest(genSpans, "fiber")(t)
+
+	t.Run("security-testing-header", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		router := fiber.New()
+		router.Use(Middleware(WithService("foobar")))
+		router.Use(func(c *fiber.Ctx) error {
+			return c.SendString("ok")
+		})
+
+		conn := serveOnPipe(t, router)
+
+		sendRequest(t, conn, "GET", "/first", "X-Datadog-Security-Test: test-value")
+		sendRequest(t, conn, "GET", "/second", "X-Datadog-Security-Test: corrupted!")
+
+		spans := mt.FinishedSpans()
+		require.Len(t, spans, 2)
+		tagName := ext.HTTPRequestHeaders + ".x-datadog-security-test"
+		assert.Equal(t, "test-value", spans[0].Tag(tagName),
+			"first request's security-testing header tag changed after being served: it aliases fasthttp's reused connection buffer instead of holding a copy")
+	})
+}
+
+// pipedConn is a real, single keep-alive connection to router's underlying
+// fasthttp.Server, backed by a net.Pipe.
+type pipedConn struct {
+	net.Conn
+	r *bufio.Reader
+}
+
+// serveOnPipe starts router's underlying fasthttp.Server serving a single,
+// real keep-alive connection over a net.Pipe, and returns the client side.
+func serveOnPipe(t *testing.T, router *fiber.App) *pipedConn {
+	t.Helper()
+
+	// Build the route tree before serving.
+	router.Handler()
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() { clientConn.Close() })
+	go func() {
+		_ = router.Server().ServeConn(serverConn)
+	}()
+
+	return &pipedConn{Conn: clientConn, r: bufio.NewReader(clientConn)}
+}
+
+// sendRequest writes a raw HTTP/1.1 request for method/path (with optional
+// extra "Key: value" header lines) onto conn, and reads+discards the
+// response so the connection is ready for the next keep-alive request.
+func sendRequest(t *testing.T, conn *pipedConn, method, path string, extraHeaders ...string) {
+	t.Helper()
+
+	var req strings.Builder
+	fmt.Fprintf(&req, "%s %s HTTP/1.1\r\nHost: example.com\r\n", method, path)
+	for _, h := range extraHeaders {
+		req.WriteString(h + "\r\n")
+	}
+	req.WriteString("\r\n")
+
+	_, err := conn.Write([]byte(req.String()))
+	require.NoError(t, err)
+
+	resp, err := http.ReadResponse(conn.r, nil)
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
 }

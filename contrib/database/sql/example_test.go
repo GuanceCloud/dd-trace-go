@@ -9,9 +9,10 @@ import (
 	"context"
 	"log"
 
-	sqltrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/database/sql"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+	sqltrace "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
@@ -37,8 +38,11 @@ func Example() {
 }
 
 func Example_context() {
+	tracer.Start()
+	defer tracer.Stop()
+
 	// Register the driver that we will be using (in this case mysql) under a custom service name.
-	sqltrace.Register("mysql", &mysql.MySQLDriver{}, sqltrace.WithServiceName("my-db"))
+	sqltrace.Register("mysql", &mysql.MySQLDriver{}, sqltrace.WithService("my-db"))
 
 	// Open a connection to the DB using the driver we've just registered with tracing.
 	db, err := sqltrace.Open("mysql", "user:password@/dbname")
@@ -64,7 +68,7 @@ func Example_context() {
 
 func Example_sqlite() {
 	// Register the driver that we will be using (in this case Sqlite) under a custom service name.
-	sqltrace.Register("sqlite", &sqlite.SQLiteDriver{}, sqltrace.WithServiceName("sqlite-example"))
+	sqltrace.Register("sqlite", &sqlite.SQLiteDriver{}, sqltrace.WithService("sqlite-example"))
 
 	// Open a connection to the DB using the driver we've just registered with tracing.
 	db, err := sqltrace.Open("sqlite", "./test.db")
@@ -105,4 +109,22 @@ func Example_dbmPropagation() {
 		log.Fatal(err)
 	}
 	defer rows.Close()
+}
+
+func Example_dbStats() {
+	// Register the driver with the WithDBStats option to enable DBStats metric polling
+	sqltrace.Register("postgres", &pq.Driver{}, sqltrace.WithDBStats())
+	// Followed by a call to Open.
+	db, err := sqltrace.Open("postgres", "postgres://pqgotest:password@localhost/pqgotest?sslmode=disable")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Tracing and metric polling is now enabled. Metrics  will be submitted to Datadog with the prefix `datadog.tracer.sql`
+	rows, err := db.Query("SELECT name FROM users WHERE age=?", 27)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rows.Close()
 }

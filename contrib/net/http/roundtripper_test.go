@@ -6,25 +6,29 @@
 package http
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/contrib/internal/namingschematest"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/mocktracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	internal "github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/config"
+
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/baggage"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
 )
 
 func TestWrapRoundTripperAllowNilTransport(t *testing.T) {
@@ -56,10 +60,10 @@ func TestRoundTripper(t *testing.T) {
 	defer s.Close()
 
 	rt := WrapRoundTripper(http.DefaultTransport,
-		WithBefore(func(req *http.Request, span ddtrace.Span) {
+		WithBefore(func(_ *http.Request, span *tracer.Span) {
 			span.SetTag("CalledBefore", true)
 		}),
-		WithAfter(func(res *http.Response, span ddtrace.Span) {
+		WithAfter(func(_ *http.Response, span *tracer.Span) {
 			span.SetTag("CalledAfter", true)
 		}))
 
@@ -85,8 +89,8 @@ func TestRoundTripper(t *testing.T) {
 	assert.Equal(t, "200", s1.Tag(ext.HTTPCode))
 	assert.Equal(t, "GET", s1.Tag(ext.HTTPMethod))
 	assert.Equal(t, s.URL+"/hello/world", s1.Tag(ext.HTTPURL))
-	assert.Equal(t, true, s1.Tag("CalledBefore"))
-	assert.Equal(t, true, s1.Tag("CalledAfter"))
+	assert.Equal(t, "true", s1.Tag("CalledBefore"))
+	assert.Equal(t, "true", s1.Tag("CalledAfter"))
 	assert.Equal(t, ext.SpanKindClient, s1.Tag(ext.SpanKind))
 	assert.Equal(t, "net/http", s1.Tag(ext.Component))
 	assert.Equal(t, "127.0.0.1", s1.Tag(ext.NetworkDestinationName))
@@ -94,61 +98,69 @@ func TestRoundTripper(t *testing.T) {
 	wantPort, err := strconv.Atoi(strings.TrimPrefix(s.URL, "http://127.0.0.1:"))
 	require.NoError(t, err)
 	require.NotEmpty(t, wantPort)
-	assert.Equal(t, wantPort, s1.Tag(ext.NetworkDestinationPort))
+	assert.Equal(t, float64(wantPort), s1.Tag(ext.NetworkDestinationPort))
 }
 
-func TestRoundTripperServerError(t *testing.T) {
-	mt := mocktracer.Start()
-	defer mt.Stop()
-
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		spanctx, err := tracer.Extract(tracer.HTTPHeadersCarrier(r.Header))
-		assert.NoError(t, err)
-
-		span := tracer.StartSpan("test",
-			tracer.ChildOf(spanctx))
-		defer span.Finish()
-
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Error"))
-	}))
-	defer s.Close()
-
-	rt := WrapRoundTripper(http.DefaultTransport,
-		WithBefore(func(req *http.Request, span ddtrace.Span) {
-			span.SetTag("CalledBefore", true)
-		}),
-		WithAfter(func(res *http.Response, span ddtrace.Span) {
-			span.SetTag("CalledAfter", true)
-		}))
-
+func makeRequests(rt http.RoundTripper, url string, t *testing.T) {
 	client := &http.Client{
 		Transport: rt,
 	}
-
-	resp, err := client.Get(s.URL + "/hello/world")
+	resp, err := client.Get(url + "/400")
 	assert.Nil(t, err)
 	defer resp.Body.Close()
 
-	spans := mt.FinishedSpans()
-	assert.Len(t, spans, 2)
-	assert.Equal(t, spans[0].TraceID(), spans[1].TraceID())
+	resp, err = client.Get(url + "/500")
+	assert.Nil(t, err)
+	defer resp.Body.Close()
 
-	s0 := spans[0]
-	assert.Equal(t, "test", s0.OperationName())
-	assert.Equal(t, "test", s0.Tag(ext.ResourceName))
+	resp, err = client.Get(url + "/200")
+	assert.Nil(t, err)
+	defer resp.Body.Close()
+}
 
-	s1 := spans[1]
-	assert.Equal(t, "http.request", s1.OperationName())
-	assert.Equal(t, "http.request", s1.Tag(ext.ResourceName))
-	assert.Equal(t, "500", s1.Tag(ext.HTTPCode))
-	assert.Equal(t, "GET", s1.Tag(ext.HTTPMethod))
-	assert.Equal(t, s.URL+"/hello/world", s1.Tag(ext.HTTPURL))
-	assert.Equal(t, fmt.Errorf("500: Internal Server Error"), s1.Tag(ext.Error))
-	assert.Equal(t, true, s1.Tag("CalledBefore"))
-	assert.Equal(t, true, s1.Tag("CalledAfter"))
-	assert.Equal(t, ext.SpanKindClient, s1.Tag(ext.SpanKind))
-	assert.Equal(t, "net/http", s1.Tag(ext.Component))
+func TestRoundTripperErrors(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/200", handler200)
+	mux.HandleFunc("/400", handler400)
+	mux.HandleFunc("/500", handler500)
+	s := httptest.NewServer(mux)
+	defer s.Close()
+
+	t.Run("default", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+		rt := WrapRoundTripper(http.DefaultTransport)
+		makeRequests(rt, s.URL, t)
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 3)
+		s := spans[0] // 400 is error
+		assert.Equal(t, "400: Bad Request", s.Tag(ext.ErrorMsg))
+		assert.Equal(t, "400", s.Tag(ext.HTTPCode))
+		s = spans[1] // 500 is not error
+		assert.Empty(t, s.Tag(ext.ErrorMsg))
+		assert.Equal(t, "500", s.Tag(ext.HTTPCode))
+		s = spans[2] // 200 is not error
+		assert.Empty(t, s.Tag(ext.ErrorMsg))
+		assert.Equal(t, "200", s.Tag(ext.HTTPCode))
+	})
+	t.Run("custom", func(t *testing.T) {
+		t.Setenv("DD_TRACE_HTTP_CLIENT_ERROR_STATUSES", "500-510")
+		mt := mocktracer.Start()
+		defer mt.Stop()
+		rt := WrapRoundTripper(http.DefaultTransport)
+		makeRequests(rt, s.URL, t)
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 3)
+		s := spans[0] // 400 is not error
+		assert.Empty(t, s.Tag(ext.ErrorMsg))
+		assert.Equal(t, "400", s.Tag(ext.HTTPCode))
+		s = spans[1] // 500 is error
+		assert.Equal(t, "500: Internal Server Error", s.Tag(ext.ErrorMsg))
+		assert.Equal(t, "500", s.Tag(ext.HTTPCode))
+		s = spans[2] // 200 is not error
+		assert.Empty(t, s.Tag(ext.ErrorMsg))
+		assert.Equal(t, "200", s.Tag(ext.HTTPCode))
+	})
 }
 
 func TestRoundTripperNetworkError(t *testing.T) {
@@ -156,7 +168,7 @@ func TestRoundTripperNetworkError(t *testing.T) {
 	defer mt.Stop()
 
 	done := make(chan struct{})
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		_, err := tracer.Extract(tracer.HTTPHeadersCarrier(r.Header))
 		assert.NoError(t, err)
 		<-done
@@ -165,10 +177,10 @@ func TestRoundTripperNetworkError(t *testing.T) {
 	defer close(done)
 
 	rt := WrapRoundTripper(http.DefaultTransport,
-		WithBefore(func(req *http.Request, span ddtrace.Span) {
+		WithBefore(func(_ *http.Request, span *tracer.Span) {
 			span.SetTag("CalledBefore", true)
 		}),
-		WithAfter(func(res *http.Response, span ddtrace.Span) {
+		WithAfter(func(_ *http.Response, span *tracer.Span) {
 			span.SetTag("CalledAfter", true)
 		}))
 
@@ -189,17 +201,17 @@ func TestRoundTripperNetworkError(t *testing.T) {
 	assert.Equal(t, nil, s0.Tag(ext.HTTPCode))
 	assert.Equal(t, "GET", s0.Tag(ext.HTTPMethod))
 	assert.Equal(t, s.URL+"/hello/world", s0.Tag(ext.HTTPURL))
-	assert.NotNil(t, s0.Tag(ext.Error))
-	assert.Equal(t, true, s0.Tag("CalledBefore"))
-	assert.Equal(t, true, s0.Tag("CalledAfter"))
+	assert.NotNil(t, s0.Tag(ext.ErrorMsg))
+	assert.Equal(t, "true", s0.Tag("CalledBefore"))
+	assert.Equal(t, "true", s0.Tag("CalledAfter"))
 	assert.Equal(t, ext.SpanKindClient, s0.Tag(ext.SpanKind))
 	assert.Equal(t, "net/http", s0.Tag(ext.Component))
 }
 
 func TestRoundTripperNetworkErrorWithErrorCheck(t *testing.T) {
-	failedRequest := func(t *testing.T, mt mocktracer.Tracer, forwardErr bool, opts ...RoundTripperOption) mocktracer.Span {
+	failedRequest := func(t *testing.T, mt mocktracer.Tracer, forwardErr bool, _ ...Option) *mocktracer.Span {
 		done := make(chan struct{})
-		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 			_, err := tracer.Extract(tracer.HTTPHeadersCarrier(r.Header))
 			assert.NoError(t, err)
 			<-done
@@ -208,7 +220,7 @@ func TestRoundTripperNetworkErrorWithErrorCheck(t *testing.T) {
 		defer close(done)
 
 		rt := WrapRoundTripper(http.DefaultTransport,
-			RTWithErrorCheck(func(err error) bool {
+			WithErrorCheck(func(_ error) bool {
 				return forwardErr
 			}))
 
@@ -232,7 +244,7 @@ func TestRoundTripperNetworkErrorWithErrorCheck(t *testing.T) {
 		defer mt.Stop()
 
 		span := failedRequest(t, mt, false)
-		assert.Nil(t, span.Tag(ext.Error))
+		assert.Nil(t, span.Tag(ext.ErrorMsg))
 	})
 
 	t.Run("error forwarded", func(t *testing.T) {
@@ -240,7 +252,7 @@ func TestRoundTripperNetworkErrorWithErrorCheck(t *testing.T) {
 		defer mt.Stop()
 
 		span := failedRequest(t, mt, true)
-		assert.NotNil(t, span.Tag(ext.Error))
+		assert.NotNil(t, span.Tag(ext.ErrorMsg))
 	})
 }
 
@@ -249,7 +261,7 @@ func TestRoundTripperCredentials(t *testing.T) {
 	defer mt.Stop()
 
 	var auth string
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		if enc, ok := r.Header["Authorization"]; ok {
 			encoded := strings.TrimPrefix(enc[0], "Basic ")
 			if b64, err := base64.StdEncoding.DecodeString(encoded); err == nil {
@@ -261,10 +273,10 @@ func TestRoundTripperCredentials(t *testing.T) {
 	defer s.Close()
 
 	rt := WrapRoundTripper(http.DefaultTransport,
-		WithBefore(func(req *http.Request, span ddtrace.Span) {
+		WithBefore(func(_ *http.Request, span *tracer.Span) {
 			span.SetTag("CalledBefore", true)
 		}),
-		WithAfter(func(res *http.Response, span ddtrace.Span) {
+		WithAfter(func(_ *http.Response, span *tracer.Span) {
 			span.SetTag("CalledAfter", true)
 		}))
 
@@ -302,7 +314,7 @@ func TestWrapClient(t *testing.T) {
 
 func TestRoundTripperAnalyticsSettings(t *testing.T) {
 	assertRate := func(t *testing.T, mt mocktracer.Tracer, rate interface{}, opts ...RoundTripperOption) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
 		defer srv.Close()
@@ -326,41 +338,27 @@ func TestRoundTripperAnalyticsSettings(t *testing.T) {
 		assertRate(t, mt, nil)
 	})
 
-	t.Run("global", func(t *testing.T) {
-		t.Skip("global flag disabled")
-		mt := mocktracer.Start()
-		defer mt.Stop()
-
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
-
-		assertRate(t, mt, 0.4)
-	})
-
 	t.Run("enabled", func(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		assertRate(t, mt, 1.0, RTWithAnalytics(true))
+		assertRate(t, mt, 1.0, WithAnalytics(true))
 	})
 
 	t.Run("disabled", func(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		assertRate(t, mt, nil, RTWithAnalytics(false))
+		assertRate(t, mt, nil, WithAnalytics(false))
 	})
 
 	t.Run("override", func(t *testing.T) {
+		testutils.SetGlobalAnalyticsRate(t, 0.4)
+
 		mt := mocktracer.Start()
 		defer mt.Stop()
 
-		rate := globalconfig.AnalyticsRate()
-		defer globalconfig.SetAnalyticsRate(rate)
-		globalconfig.SetAnalyticsRate(0.4)
-
-		assertRate(t, mt, 0.23, RTWithAnalyticsRate(0.23))
+		assertRate(t, mt, 0.23, WithAnalyticsRate(0.23))
 	})
 }
 
@@ -394,12 +392,12 @@ func TestRoundTripperIgnoreRequest(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
 
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("Hello World"))
 	}))
 	defer s.Close()
 
-	rt := WrapRoundTripper(http.DefaultTransport, RTWithIgnoreRequest(
+	rt := WrapRoundTripper(http.DefaultTransport, WithIgnoreRequest(
 		func(req *http.Request) bool {
 			return req.URL.Path == "/ignore"
 		},
@@ -419,6 +417,58 @@ func TestRoundTripperIgnoreRequest(t *testing.T) {
 
 	spans := mt.FinishedSpans()
 	assert.Len(t, spans, 1)
+}
+
+func TestRoundTripperStatusCheck(t *testing.T) {
+	mt := mocktracer.Start()
+	defer mt.Stop()
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/not-found" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		w.WriteHeader(http.StatusTeapot)
+	}))
+	defer s.Close()
+
+	rt := WrapRoundTripper(http.DefaultTransport, WithStatusCheck(func(statusCode int) bool {
+		return statusCode >= 400 && statusCode != http.StatusNotFound
+	}))
+
+	client := &http.Client{
+		Transport: rt,
+	}
+
+	// First request is not marked as an error as it's a 404
+	resp, err := client.Get(s.URL + "/not-found")
+	assert.Nil(t, err)
+	resp.Body.Close()
+
+	spans := mt.FinishedSpans()
+	mt.Reset()
+	assert.Len(t, spans, 1)
+	assert.Equal(t, "http.request", spans[0].OperationName())
+	assert.Equal(t, "http.request", spans[0].Tag(ext.ResourceName))
+	assert.Equal(t, "404", spans[0].Tag(ext.HTTPCode))
+	assert.Equal(t, "GET", spans[0].Tag(ext.HTTPMethod))
+	assert.Nil(t, spans[0].Tag("http.errors"))
+	assert.Nil(t, spans[0].Tag(ext.ErrorNoStackTrace))
+
+	// Second request is marked as an error as it's a 418
+	resp, err = client.Get(s.URL + "/hello/world")
+	assert.Nil(t, err)
+	resp.Body.Close()
+
+	spans = mt.FinishedSpans()
+	assert.Len(t, spans, 1)
+	assert.Equal(t, "http.request", spans[0].OperationName())
+	assert.Equal(t, "http.request", spans[0].Tag(ext.ResourceName))
+	assert.Equal(t, "418", spans[0].Tag(ext.HTTPCode))
+	assert.Equal(t, "GET", spans[0].Tag(ext.HTTPMethod))
+	assert.EqualValues(t, "418 I'm a teapot", spans[0].Tag("http.errors"))
+	assert.EqualValues(t, "418: I'm a teapot", spans[0].Tag(ext.ErrorMsg))
 }
 
 func TestRoundTripperURLWithoutPort(t *testing.T) {
@@ -441,7 +491,7 @@ func TestRoundTripperURLWithoutPort(t *testing.T) {
 	assert.Equal(t, nil, s0.Tag(ext.HTTPCode))
 	assert.Equal(t, "GET", s0.Tag(ext.HTTPMethod))
 	assert.Equal(t, "http://localhost/hello/world", s0.Tag(ext.HTTPURL))
-	assert.NotNil(t, s0.Tag(ext.Error))
+	assert.NotNil(t, s0.Tag(ext.ErrorMsg))
 	assert.Equal(t, ext.SpanKindClient, s0.Tag(ext.SpanKind))
 	assert.Equal(t, "net/http", s0.Tag(ext.Component))
 	assert.Equal(t, "localhost", s0.Tag(ext.NetworkDestinationName))
@@ -449,7 +499,7 @@ func TestRoundTripperURLWithoutPort(t *testing.T) {
 }
 
 func TestServiceName(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("Hello World"))
 	}))
 	defer s.Close()
@@ -458,7 +508,7 @@ func TestServiceName(t *testing.T) {
 		mt := mocktracer.Start()
 		defer mt.Stop()
 		serviceName := "testServer"
-		rt := WrapRoundTripper(http.DefaultTransport, RTWithServiceName(serviceName))
+		rt := WrapRoundTripper(http.DefaultTransport, WithService(serviceName))
 		client := &http.Client{
 			Transport: rt,
 		}
@@ -475,8 +525,8 @@ func TestServiceName(t *testing.T) {
 		defer mt.Stop()
 		serviceName := "testServer"
 		rt := WrapRoundTripper(http.DefaultTransport,
-			RTWithServiceName("wrongServiceName"),
-			WithBefore(func(_ *http.Request, span ddtrace.Span) {
+			WithService("wrongServiceName"),
+			WithBefore(func(_ *http.Request, span *tracer.Span) {
 				span.SetTag(ext.ServiceName, serviceName)
 			}),
 		)
@@ -493,7 +543,7 @@ func TestServiceName(t *testing.T) {
 }
 
 func TestResourceNamer(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("Hello World"))
 	}))
 	defer s.Close()
@@ -519,7 +569,7 @@ func TestResourceNamer(t *testing.T) {
 		customNamer := func(req *http.Request) string {
 			return fmt.Sprintf("%s %s", req.Method, req.URL.Path)
 		}
-		rt := WrapRoundTripper(http.DefaultTransport, RTWithResourceNamer(customNamer))
+		rt := WrapRoundTripper(http.DefaultTransport, WithResourceNamer(customNamer))
 		client := &http.Client{
 			Transport: rt,
 		}
@@ -533,14 +583,14 @@ func TestResourceNamer(t *testing.T) {
 }
 
 func TestSpanOptions(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("")) }))
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("")) }))
 	defer s.Close()
 
 	tagKey := "foo"
 	tagValue := "bar"
 	mt := mocktracer.Start()
 	defer mt.Stop()
-	rt := WrapRoundTripper(http.DefaultTransport, RTWithSpanOptions(tracer.Tag(tagKey, tagValue)))
+	rt := WrapRoundTripper(http.DefaultTransport, WithSpanOptions(tracer.Tag(tagKey, tagValue)))
 	client := &http.Client{Transport: rt}
 
 	resp, err := client.Get(s.URL)
@@ -550,6 +600,194 @@ func TestSpanOptions(t *testing.T) {
 	spans := mt.FinishedSpans()
 	assert.Len(t, spans, 1)
 	assert.Equal(t, tagValue, spans[0].Tag(tagKey))
+}
+
+func TestClientTimings(t *testing.T) {
+	assertClientTimings := func(t *testing.T, enabled bool, expectTags bool) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer srv.Close()
+
+		rt := WrapRoundTripper(http.DefaultTransport, WithClientTimings(enabled))
+		client := &http.Client{Transport: rt}
+		resp, err := client.Get(srv.URL)
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 1)
+		span := spans[0]
+
+		hasTimingTags := span.Tag("http.connect.duration_ms") != nil ||
+			span.Tag("http.get_conn.duration_ms") != nil ||
+			span.Tag("http.first_byte.duration_ms") != nil
+
+		assert.Equal(t, expectTags, hasTimingTags)
+	}
+
+	t.Run("disabled", func(t *testing.T) {
+		assertClientTimings(t, false, false)
+	})
+
+	t.Run("enabled", func(t *testing.T) {
+		assertClientTimings(t, true, true)
+	})
+}
+
+func TestClientTimingsRace(t *testing.T) {
+	mt := mocktracer.Start()
+	defer mt.Stop()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	rt := WrapRoundTripper(http.DefaultTransport, WithClientTimings(true))
+	client := &http.Client{Transport: rt}
+
+	const numGoroutines = 10
+	const numReqs = 10
+
+	var wg sync.WaitGroup
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < numReqs; j++ {
+				resp, err := client.Get(srv.URL)
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+					return
+				}
+				resp.Body.Close()
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func TestClientQueryStringCollected(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte("Hello World"))
+	}))
+	defer s.Close()
+	t.Run("default true", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		rt := WrapRoundTripper(http.DefaultTransport)
+		client := &http.Client{
+			Transport: rt,
+		}
+		resp, err := client.Get(s.URL + "/hello/world?something=fun")
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 1)
+
+		assert.Regexp(t, regexp.MustCompile(`^http://.*?/hello/world\?something=fun$`), spans[0].Tag(ext.HTTPURL))
+	})
+	t.Run("false", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		t.Setenv("DD_TRACE_HTTP_CLIENT_TAG_QUERY_STRING", "false")
+
+		rt := WrapRoundTripper(http.DefaultTransport)
+		client := &http.Client{
+			Transport: rt,
+		}
+		resp, err := client.Get(s.URL + "/hello/world?querystring=xyz")
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 1)
+
+		assert.Regexp(t, regexp.MustCompile(`^http://.*?/hello/world$`), spans[0].Tag(ext.HTTPURL))
+	})
+	// DD_TRACE_HTTP_URL_QUERY_STRING_DISABLED applies only to server spans, not client
+	t.Run("Not impacted by DD_TRACE_HTTP_URL_QUERY_STRING_DISABLED", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		t.Setenv("DD_TRACE_HTTP_URL_QUERY_STRING_DISABLED", "false")
+
+		rt := WrapRoundTripper(http.DefaultTransport)
+		client := &http.Client{
+			Transport: rt,
+		}
+		resp, err := client.Get(s.URL + "/hello/world?something=fun")
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 1)
+
+		assert.Regexp(t, regexp.MustCompile(`^http://.*?/hello/world\?something=fun$`), spans[0].Tag(ext.HTTPURL))
+	})
+}
+
+func TestClientQueryStringObfuscated(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte("Hello World"))
+	}))
+	defer s.Close()
+	t.Run("default", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		rt := WrapRoundTripper(http.DefaultTransport)
+		client := &http.Client{
+			Transport: rt,
+		}
+		resp, err := client.Get(s.URL + "/hello/world?token=value")
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 1)
+
+		assert.Regexp(t, regexp.MustCompile(`^http://.*?/hello/world\?<redacted>$`), spans[0].Tag(ext.HTTPURL))
+	})
+	t.Run("empty", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		t.Setenv(internal.EnvQueryStringRegexp, "")
+
+		rt := WrapRoundTripper(http.DefaultTransport)
+		client := &http.Client{
+			Transport: rt,
+		}
+		resp, err := client.Get(s.URL + "/hello/world?custom=xyz")
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 1)
+
+		assert.Regexp(t, regexp.MustCompile(`^http://.*?/hello/world\?custom=xyz$`), spans[0].Tag(ext.HTTPURL))
+	})
+	t.Run("custom", func(t *testing.T) {
+		mt := mocktracer.Start()
+		defer mt.Stop()
+
+		t.Setenv(internal.EnvQueryStringRegexp, "^custom")
+
+		rt := WrapRoundTripper(http.DefaultTransport)
+		client := &http.Client{
+			Transport: rt,
+		}
+		resp, err := client.Get(s.URL + "/hello/world?token=value")
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		spans := mt.FinishedSpans()
+		assert.Len(t, spans, 1)
+
+		assert.Regexp(t, regexp.MustCompile(`^http://.*?/hello/world\?<redacted>$`), spans[0].Tag(ext.HTTPURL))
+	})
 }
 
 func TestRoundTripperPropagation(t *testing.T) {
@@ -572,7 +810,7 @@ func TestRoundTripperPropagation(t *testing.T) {
 	defer s.Close()
 
 	rt := WrapRoundTripper(http.DefaultTransport,
-		RTWithPropagation(false))
+		WithPropagation(false))
 	client := &http.Client{
 		Transport: rt,
 	}
@@ -582,40 +820,47 @@ func TestRoundTripperPropagation(t *testing.T) {
 	defer resp.Body.Close()
 }
 
-func TestClientNamingSchema(t *testing.T) {
-	genSpans := namingschematest.GenSpansFn(func(t *testing.T, serviceOverride string) []mocktracer.Span {
-		var opts []RoundTripperOption
-		if serviceOverride != "" {
-			opts = append(opts, RTWithServiceName(serviceOverride))
-		}
-		mt := mocktracer.Start()
-		defer mt.Stop()
+type emptyRoundTripper struct {
+	customResponse *http.Response
+}
 
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("")) }))
-		defer srv.Close()
+func (rt *emptyRoundTripper) RoundTrip(_ *http.Request) (*http.Response, error) {
+	if rt.customResponse != nil {
+		return rt.customResponse, nil
+	}
 
-		c := WrapClient(&http.Client{}, opts...)
-		req, err := http.NewRequest(http.MethodGet, srv.URL+"/200", nil)
-		require.NoError(t, err)
-		resp, err := c.Do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
+	recorder := httptest.NewRecorder()
+	recorder.WriteHeader(200)
+	return recorder.Result(), nil
+}
 
-		return mt.FinishedSpans()
-	})
-	assertOpV0 := func(t *testing.T, spans []mocktracer.Span) {
-		require.Len(t, spans, 1)
-		assert.Equal(t, "http.request", spans[0].OperationName())
-	}
-	assertOpV1 := func(t *testing.T, spans []mocktracer.Span) {
-		require.Len(t, spans, 1)
-		assert.Equal(t, "http.client.request", spans[0].OperationName())
-	}
-	wantServiceNameV0 := namingschematest.ServiceNameAssertions{
-		WithDefaults:             []string{""},
-		WithDDService:            []string{""},
-		WithDDServiceAndOverride: []string{namingschematest.TestServiceOverride},
-	}
-	t.Run("ServiceName", namingschematest.NewServiceNameTest(genSpans, wantServiceNameV0))
-	t.Run("SpanName", namingschematest.NewSpanNameTest(genSpans, assertOpV0, assertOpV1))
+func TestRoundTripperWithBaggage(t *testing.T) {
+	t.Setenv("DD_TRACE_PROPAGATION_STYLE", "datadog,tracecontext,baggage")
+	tracer.Start()
+	defer tracer.Stop()
+
+	var capturedHeaders http.Header
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedHeaders = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("Hello with Baggage!"))
+	}))
+	defer s.Close()
+
+	rt := WrapRoundTripper(http.DefaultTransport).(*roundTripper)
+
+	ctx := context.Background()
+	ctx = baggage.Set(ctx, "foo", "bar")
+	ctx = baggage.Set(ctx, "baz", "qux")
+
+	// Build the HTTP request with that context.
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL+"/baggage", nil)
+	assert.NoError(t, err)
+
+	resp, err := rt.RoundTrip(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.NotEmpty(t, capturedHeaders.Get("baggage"), "should have baggage header")
 }

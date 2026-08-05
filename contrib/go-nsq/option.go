@@ -4,17 +4,18 @@
 // Copyright 2021 Datadog, Inc.
 // Author: DataDog (https://github.com/DataDog/)
 
-package nsq // import "gopkg.in/DataDog/dd-trace-go.v1/contrib/go-nsq"
+package nsq // import "github.com/DataDog/dd-trace-go/contrib/go-nsq/v2"
 
 import (
 	"math"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
 )
 
 // config represents a set of options for the client.
 type clientConfig struct {
 	service       string
+	serviceSource string
 	analyticsRate float64
 }
 
@@ -25,6 +26,7 @@ type Option func(cfg *clientConfig)
 func WithService(service string) Option {
 	return func(cfg *clientConfig) {
 		cfg.service = service
+		cfg.serviceSource = instrumentation.ServiceSourceWithServiceOption
 	}
 }
 
@@ -41,9 +43,6 @@ func WithAnalyticsRate(rate float64) Option {
 
 func defaultConfig(cfg *clientConfig) {
 	cfg.service = "nsq"
-	if internal.BoolEnv("DD_TRACE_ANALYTICS_ENABLED", false) {
-		cfg.analyticsRate = 1.0
-	} else {
-		cfg.analyticsRate = math.NaN()
-	}
+	cfg.serviceSource = string(component)
+	cfg.analyticsRate = instr.AnalyticsRate(true)
 }

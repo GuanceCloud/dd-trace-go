@@ -1,11 +1,137 @@
+version: "2"
 run:
-  deadline: 10m
-  skip-dirs:
-    # This package is an exception and has its own test job (Testing outlier gRPC v1.2).
-    - contrib/google.golang.org/grpc.v12
+  build-tags:
+    - goexperiment.synctest
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
 linters:
-  disable-all: true
+  default: none
   enable:
-  - gofmt
-  - revive
-  - bodyclose
+    - bodyclose
+    - depguard
+    - gocritic
+    - forbidigo
+    - govet
+    - makezero
+    - modernize
+    - perfsprint
+    - prealloc
+    - revive
+    # - errorlint # TODO: Enable this once we've fixed all the errorlint issues.
+    # - loggercheck # TODO: Enable this once we've migrated to structured logging.
+    # - unused # TODO: Enable this once we've fixed all the unused issues.
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - \.claude
+    rules:
+      - path: "internal/(env|log|locking)/"
+        linters:
+          - forbidigo
+      - path: "_test\\.go$"
+        linters:
+          - forbidigo
+      - path-except: "^ddtrace/tracer/"
+        linters:
+          - forbidigo
+        text: "use github.com/DataDog/dd-trace-go/v2/internal/locking\\.(RW)?Mutex instead of sync\\.(RW)?Mutex"
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: "^os\\.Getenv$"
+          msg: "use internal/env.Get instead of os.Getenv"
+        - pattern: "^os\\.LookupEnv$"
+          msg: "use internal/env.Lookup instead of os.LookupEnv"
+        - pattern: "sync\\.Mutex"
+          msg: "use github.com/DataDog/dd-trace-go/v2/internal/locking.Mutex instead of sync.Mutex"
+        - pattern: "sync\\.RWMutex"
+          msg: "use github.com/DataDog/dd-trace-go/v2/internal/locking.RWMutex instead of sync.RWMutex"
+      exclude_godoc_examples: true
+      analyze_types: true
+    modernize:
+      disable:
+        - newexpr # Requires Go 1.26; our go.mod minimum is 1.25
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        - shadow # TODO: Enable this once we've fixed all the shadowing issues.
+    depguard:
+      rules:
+        main:
+          list-mode: lax
+          files:
+            - $all
+            - "!**/scripts/**"
+            - "!**/tools/**"
+            - "!**/*_test.go"
+            - "!**/example_test.go"
+            - "!**/internal/log/log.go"
+            - "!**/internal/orchestrion/**"
+            - "!**/instrumentation/testutils/sql/sql.go"
+          deny:
+            - pkg: "log"
+              desc: "Use github.com/DataDog/dd-trace-go/v2/internal/log instead of standard log package"
+          allow:
+            - "log/slog"
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - dynamicFmtString
+        - ruleguard
+      settings:
+        ruleguard:
+          failOn: dsl,import
+          rules: "rules/*_rules.go"
+    # TODO: Enable this when we migrated to structed logging.
+    loggercheck:
+      require-string-key: true
+      # no-printf-like: true
+      rules:
+        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Debug
+        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Warn
+        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Error
+        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Info
+        - github.com/DataDog/dd-trace-go/v2/internal/log.Debug
+        - github.com/DataDog/dd-trace-go/v2/internal/log.Warn
+        - github.com/DataDog/dd-trace-go/v2/internal/log.Error
+        - github.com/DataDog/dd-trace-go/v2/internal/log.Info
+        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Debug
+        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Info
+        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Warn
+        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Error
+    revive:
+      rules:
+        - name: var-naming
+          severity: warning
+          disabled: false
+          exclude: [""]
+          arguments:
+            - [""] # AllowList
+            - [""] # DenyList
+            # NOTICE: Allowlisting "utils" package name, doesn't work. Needs investigation.
+            - - skip-package-name-checks: true # Extra parameter
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/DataDog/dd-trace-go/v2

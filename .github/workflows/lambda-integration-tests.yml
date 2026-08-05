@@ -1,0 +1,116 @@
+name: Lambda Integration Tests
+
+on:
+  schedule:
+    - cron: '0 15 * * *' # Daily at 15:00 UTC
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  contents: read
+  id-token: write # Required for OIDC authentication
+
+jobs:
+  lambda-integration-test:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Get Datadog credentials
+        id: dd-sts
+        uses: DataDog/dd-sts-action@639d841c72f15e4e77747bd726ef8105ce971da2
+        with:
+          policy: dd-trace-go
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS Credentials via OIDC (Build-Stable)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: arn:aws:iam::486234852809:role/dd-trace-go-github-actions
+          role-session-name: dd-trace-go-lambda-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Credentials for Serverless Sandbox
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: arn:aws:iam::425362996713:role/gha-dd-trace-lambda-integration-test
+          role-session-name: dd-trace-go-lambda-${{ github.run_id }}
+          aws-region: us-east-1
+          role-chaining: true
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.26'
+
+      - name: Set up Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Cache Node modules
+        id: cache-node-modules
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: "**/node_modules"
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Install Serverless Framework
+        run: sudo yarn global add serverless@^3.38.0 --prefix /usr/local
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        working-directory: contrib/aws/datadog-lambda-go/test/integration_tests/
+        run: yarn install
+
+      - name: Run Lambda integration tests
+        id: integration-tests
+        env:
+          BUILD_LAYERS: true
+          DD_API_KEY: ${{ steps.dd-sts.outputs.api_key }}
+        working-directory: contrib/aws/datadog-lambda-go/test/integration_tests/
+        run: ./run_integration_tests.sh
+
+      - name: Notify Slack on failure
+        if: failure() && steps.integration-tests.outcome == 'failure'
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Lambda Integration Tests Failed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": ":x: Lambda Integration Tests Failed"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Workflow:*\n${{ github.workflow }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Run:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|#${{ github.run_number }}>"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.APM_SLS_SLACK_WEBHOOK_URL }}

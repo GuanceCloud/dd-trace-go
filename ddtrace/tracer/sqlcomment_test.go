@@ -11,13 +11,20 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/globalconfig"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
+	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
+	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type sqlCommentStringer string
+
+func (s sqlCommentStringer) String() string {
+	return string(s)
+}
 
 func TestSQLCommentCarrier(t *testing.T) {
 	testCases := []struct {
@@ -26,6 +33,9 @@ func TestSQLCommentCarrier(t *testing.T) {
 		mode               DBMPropagationMode
 		injectSpan         bool
 		samplingPriority   int
+		peerDBName         string
+		peerDBHostname     string
+		peerServiceName    string
 		expectedQuery      string
 		expectedSpanIDGen  bool
 		expectedExtractErr error
@@ -35,6 +45,9 @@ func TestSQLCommentCarrier(t *testing.T) {
 			query:              "SELECT * from FOO",
 			mode:               DBMPropagationModeFull,
 			injectSpan:         true,
+			peerDBName:         "",
+			peerDBHostname:     "",
+			peerServiceName:    "",
 			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0',traceparent='00-0000000000000000000000000000000a-<span_id>-00'*/ SELECT * from FOO",
 			expectedSpanIDGen:  true,
 			expectedExtractErr: nil,
@@ -44,6 +57,9 @@ func TestSQLCommentCarrier(t *testing.T) {
 			query:              "SELECT * from FOO",
 			mode:               DBMPropagationModeService,
 			injectSpan:         true,
+			peerDBName:         "",
+			peerDBHostname:     "",
+			peerServiceName:    "",
 			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0'*/ SELECT * from FOO",
 			expectedSpanIDGen:  false,
 			expectedExtractErr: ErrSpanContextNotFound,
@@ -52,6 +68,9 @@ func TestSQLCommentCarrier(t *testing.T) {
 			name:               "no-trace",
 			query:              "SELECT * from FOO",
 			mode:               DBMPropagationModeFull,
+			peerDBName:         "",
+			peerDBHostname:     "",
+			peerServiceName:    "",
 			expectedQuery:      "/*dddbs='whiskey-db',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',traceparent='00-0000000000000000<span_id>-<span_id>-00'*/ SELECT * from FOO",
 			expectedSpanIDGen:  true,
 			expectedExtractErr: nil,
@@ -61,6 +80,9 @@ func TestSQLCommentCarrier(t *testing.T) {
 			query:              "",
 			mode:               DBMPropagationModeFull,
 			injectSpan:         true,
+			peerDBName:         "",
+			peerDBHostname:     "",
+			peerServiceName:    "",
 			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0',traceparent='00-0000000000000000000000000000000a-<span_id>-00'*/",
 			expectedSpanIDGen:  true,
 			expectedExtractErr: nil,
@@ -91,7 +113,62 @@ func TestSQLCommentCarrier(t *testing.T) {
 			mode:               DBMPropagationModeFull,
 			injectSpan:         true,
 			samplingPriority:   1,
+			peerDBName:         "",
+			peerDBHostname:     "",
+			peerServiceName:    "",
 			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0',traceparent='00-0000000000000000000000000000000a-<span_id>-01'*/ /* c */ SELECT * from FOO /**/",
+			expectedSpanIDGen:  true,
+			expectedExtractErr: nil,
+		},
+		{
+			name:               "peer_entity_tags_dddb",
+			query:              "/* c */ SELECT * from FOO /**/",
+			mode:               DBMPropagationModeFull,
+			injectSpan:         true,
+			samplingPriority:   1,
+			peerDBName:         "fake-database",
+			peerDBHostname:     "",
+			peerServiceName:    "",
+			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0',traceparent='00-0000000000000000000000000000000a-<span_id>-01',dddb='fake-database'*/ /* c */ SELECT * from FOO /**/",
+			expectedSpanIDGen:  true,
+			expectedExtractErr: nil,
+		},
+		{
+			name:               "peer_entity_tags_ddh",
+			query:              "/* c */ SELECT * from FOO /**/",
+			mode:               DBMPropagationModeFull,
+			injectSpan:         true,
+			samplingPriority:   1,
+			peerDBName:         "",
+			peerDBHostname:     "fake-hostname",
+			peerServiceName:    "",
+			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0',traceparent='00-0000000000000000000000000000000a-<span_id>-01',ddh='fake-hostname'*/ /* c */ SELECT * from FOO /**/",
+			expectedSpanIDGen:  true,
+			expectedExtractErr: nil,
+		},
+		{
+			name:               "peer_entity_tags_dddb_and_ddh",
+			query:              "/* c */ SELECT * from FOO /**/",
+			mode:               DBMPropagationModeFull,
+			injectSpan:         true,
+			samplingPriority:   1,
+			peerDBName:         "fake-database",
+			peerDBHostname:     "fake-hostname",
+			peerServiceName:    "",
+			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0',traceparent='00-0000000000000000000000000000000a-<span_id>-01',ddh='fake-hostname',dddb='fake-database'*/ /* c */ SELECT * from FOO /**/",
+			expectedSpanIDGen:  true,
+			expectedExtractErr: nil,
+		},
+		{
+			name:               "peer_entity_tags_peer_service",
+			query:              "/* c */ SELECT * from FOO /**/",
+			mode:               DBMPropagationModeFull,
+			injectSpan:         true,
+			samplingPriority:   1,
+			peerDBName:         "",
+			peerDBHostname:     "",
+			peerServiceName:    "test-peer-service",
+			expectedQuery:      "/*dddbs='whiskey-db',dde='test-env',ddps='whiskey-service%20%21%23%24%25%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D',ddpv='1.0.0',traceparent='00-0000000000000000000000000000000a-<span_id>-01',ddprs='test-peer-service'*/ /* c */ SELECT * from FOO /**/",
 			expectedSpanIDGen:  true,
 			expectedExtractErr: nil,
 		},
@@ -101,25 +178,25 @@ func TestSQLCommentCarrier(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// the test service name includes all RFC3986 reserved characters to make sure all of them are url encoded
 			// as per the sqlcommenter spec
-			tracer := newTracer(WithService("whiskey-service !#$%&'()*+,/:;=?@[]"), WithEnv("test-env"), WithServiceVersion("1.0.0"))
+			tracer, err := newTracer(WithService("whiskey-service !#$%&'()*+,/:;=?@[]"), WithEnv("test-env"), WithServiceVersion("1.0.0"))
 			defer globalconfig.SetServiceName("")
 			defer tracer.Stop()
+			assert.NoError(t, err)
 
-			var spanCtx ddtrace.SpanContext
+			var spanCtx *SpanContext
 			var traceID uint64
 			if tc.injectSpan {
 				traceID = uint64(10)
-				root := tracer.StartSpan("service.calling.db", WithSpanID(traceID)).(*span)
-				root.SetTag(ext.SamplingPriority, tc.samplingPriority)
+				root := tracer.StartSpan("service.calling.db", WithSpanID(traceID))
+				root.setSamplingPriority(tc.samplingPriority, samplernames.Default)
 				spanCtx = root.Context()
 			}
 
-			carrier := SQLCommentCarrier{Query: tc.query, Mode: tc.mode, DBServiceName: "whiskey-db"}
-			err := carrier.Inject(spanCtx)
+			carrier := SQLCommentCarrier{Query: tc.query, Mode: tc.mode, DBServiceName: "whiskey-db", PeerDBHostname: tc.peerDBHostname, PeerDBName: tc.peerDBName, PeerService: tc.peerServiceName}
+			err = carrier.Inject(spanCtx)
 			require.NoError(t, err)
 			expected := strings.ReplaceAll(tc.expectedQuery, "<span_id>", fmt.Sprintf("%016s", strconv.FormatUint(carrier.SpanID, 16)))
 			assert.Equal(t, expected, carrier.Query)
-
 			if !tc.injectSpan {
 				traceID = carrier.SpanID
 			}
@@ -129,13 +206,10 @@ func TestSQLCommentCarrier(t *testing.T) {
 			assert.Equal(t, tc.expectedExtractErr, err)
 
 			if tc.expectedExtractErr == nil {
-				xctx, ok := sctx.(*spanContext)
-				require.True(t, ok)
+				assert.Equal(t, carrier.SpanID, sctx.spanID)
+				assert.Equal(t, traceID, sctx.traceID.Lower())
 
-				assert.Equal(t, carrier.SpanID, xctx.spanID)
-				assert.Equal(t, traceID, xctx.traceID.Lower())
-
-				p, ok := xctx.SamplingPriority()
+				p, ok := sctx.SamplingPriority()
 				assert.True(t, ok)
 				assert.Equal(t, tc.samplingPriority, p)
 			}
@@ -143,13 +217,43 @@ func TestSQLCommentCarrier(t *testing.T) {
 	}
 }
 
+// https://github.com/DataDog/dd-trace-go/issues/2837
+func TestSQLCommentCarrierInjectNilSpan(t *testing.T) {
+	tracer, err := newTracer()
+	require.NoError(t, err)
+	defer tracer.Stop()
+
+	headers := TextMapCarrier(map[string]string{
+		DefaultTraceIDHeader:  "4",
+		DefaultParentIDHeader: "1",
+		originHeader:          "synthetics",
+		b3TraceIDHeader:       "0021dc1807524785",
+		traceparentHeader:     "00-00000000000000000000000000000004-2222222222222222-01",
+		tracestateHeader:      "dd=s:2;o:rum;p:0000000000000001;t.tid:1230000000000000~~,othervendor=t61rcWkgMzE",
+	})
+
+	spanCtx, err := tracer.Extract(headers)
+	require.NoError(t, err)
+
+	carrier := SQLCommentCarrier{
+		Query:          "SELECT * from FOO",
+		Mode:           DBMPropagationModeFull,
+		DBServiceName:  "whiskey-db",
+		PeerDBHostname: "",
+		PeerDBName:     "",
+		PeerService:    "",
+	}
+	err = carrier.Inject(spanCtx)
+	require.NoError(t, err)
+}
+
 func TestExtractOpenTelemetryTraceInformation(t *testing.T) {
 	// open-telemetry supports 128 bit trace ids
 	traceID := "5bd66ef5095369c7b0d1f8f4bd33716a"
 	ss := "c532cb4098ac3dd2"
-	upper, err := strconv.ParseUint(traceID[:16], 16, 64)
-	lower, err := strconv.ParseUint(traceID[16:], 16, 64)
-	spanID, err := strconv.ParseUint(ss, 16, 64)
+	upper, _ := strconv.ParseUint(traceID[:16], 16, 64)
+	lower, _ := strconv.ParseUint(traceID[16:], 16, 64)
+	spanID, _ := strconv.ParseUint(ss, 16, 64)
 	ps := "1"
 	priority, err := strconv.Atoi(ps)
 	require.NoError(t, err)
@@ -161,14 +265,12 @@ func TestExtractOpenTelemetryTraceInformation(t *testing.T) {
 	carrier := SQLCommentCarrier{Query: q}
 	sctx, err := carrier.Extract()
 	require.NoError(t, err)
-	xctx, ok := sctx.(*spanContext)
-	assert.True(t, ok)
 
-	assert.Equal(t, spanID, xctx.spanID)
-	assert.Equal(t, lower, xctx.traceID.Lower())
-	assert.Equal(t, upper, xctx.traceID.Upper())
+	assert.Equal(t, spanID, sctx.spanID)
+	assert.Equal(t, lower, sctx.traceID.Lower())
+	assert.Equal(t, upper, sctx.traceID.Upper())
 
-	p, ok := xctx.SamplingPriority()
+	p, ok := sctx.SamplingPriority()
 	assert.True(t, ok)
 	assert.Equal(t, priority, p)
 }
@@ -187,7 +289,7 @@ func FuzzExtract(f *testing.F) {
 	for _, tc := range testCases {
 		f.Add(tc.query)
 	}
-	f.Fuzz(func(t *testing.T, q string) {
+	f.Fuzz(func(_ *testing.T, q string) {
 		carrier := SQLCommentCarrier{Query: q}
 		carrier.Extract() // make sure it doesn't panic
 	})
@@ -209,7 +311,7 @@ func FuzzSpanContextFromTraceComment(f *testing.F) {
 		b.WriteString(ts)
 		ts = b.String()
 
-		traceIDUpper, err := strconv.ParseUint(ts[:16], 16, 64)
+		traceIDUpper, _ := strconv.ParseUint(ts[:16], 16, 64)
 		traceIDLower, err := strconv.ParseUint(ts[16:], 16, 64)
 		if err != nil {
 			t.Skip()
@@ -258,12 +360,169 @@ func FuzzSpanContextFromTraceComment(f *testing.F) {
 	})
 }
 
+// TestSQLCommentUsesUpdatedSpanSnapshotTags verifies that when env, version, and
+// peer.service are set on a span after creation, SQLCommentCarrier.Inject reads
+// the updated values from context.spanSnapshot rather than stale initial values.
+func TestSQLCommentUsesUpdatedSpanSnapshotTags(t *testing.T) {
+	trc, err := newTracer(WithService("my-svc"))
+	require.NoError(t, err)
+	defer globalconfig.SetServiceName("")
+	defer trc.Stop()
+
+	span := trc.StartSpan("op")
+	defer span.Finish()
+
+	span.SetTag(ext.Environment, "staging")
+	span.SetTag(ext.Version, "2.0")
+	span.SetTag(ext.PeerService, "peer-svc")
+
+	carrier := SQLCommentCarrier{
+		Query:         "SELECT 1",
+		Mode:          DBMPropagationModeService,
+		DBServiceName: "mydb",
+	}
+	err = carrier.Inject(span.Context())
+	require.NoError(t, err)
+
+	assert.Contains(t, carrier.Query, "dde='staging'")
+	assert.Contains(t, carrier.Query, "ddpv='2.0'")
+	assert.Contains(t, carrier.Query, "ddprs='peer-svc'")
+}
+
+func TestSQLCommentUsesConvertedInheritedTags(t *testing.T) {
+	trc, err := newTracer(WithService("my-svc"))
+	require.NoError(t, err)
+	defer globalconfig.SetServiceName("")
+	defer trc.Stop()
+
+	span := trc.StartSpan("op")
+	defer span.Finish()
+
+	span.SetTag(ext.Environment, []byte("staging"))
+	span.SetTag(ext.Version, sqlCommentStringer("2.0"))
+	span.SetTag(ext.PeerService, true)
+
+	carrier := SQLCommentCarrier{
+		Query:         "SELECT 1",
+		Mode:          DBMPropagationModeService,
+		DBServiceName: "mydb",
+	}
+	err = carrier.Inject(span.Context())
+	require.NoError(t, err)
+
+	assert.Contains(t, carrier.Query, "dde='staging'")
+	assert.Contains(t, carrier.Query, "ddpv='2.0'")
+	assert.Contains(t, carrier.Query, "ddprs='true'")
+}
+
+func TestSQLCommentCarrierDynamicService(t *testing.T) {
+	globalconfig.SetServiceName("my-svc")
+	defer globalconfig.SetServiceName("")
+	processtags.SetContainerTagsHash("abc123")
+	defer processtags.SetContainerTagsHash("")
+
+	expectedHash := computeBaseHash()
+	require.NotEmpty(t, expectedHash, "expected hash must be non-empty with a service name set")
+
+	c := &SQLCommentCarrier{
+		Query:         "SELECT 1",
+		Mode:          DBMPropagationModeDynamicService,
+		DBServiceName: "mydb",
+	}
+	require.NoError(t, c.Inject(nil))
+	assert.Contains(t, c.Query, "ddsh='"+expectedHash+"'", "base hash must be injected")
+	assert.NotContains(t, c.Query, "traceparent", "traceparent must NOT be injected in dynamic_service mode")
+	assert.Contains(t, c.Query, "dddbs='mydb'", "service name must be injected")
+	assert.Equal(t, expectedHash, c.BaseHash, "BaseHash field must be populated")
+
+	// Without a service name, ddsh must not appear.
+	globalconfig.SetServiceName("")
+	processtags.SetContainerTagsHash("abc123")
+	c2 := &SQLCommentCarrier{Query: "SELECT 1", Mode: DBMPropagationModeDynamicService, DBServiceName: "mydb"}
+	require.NoError(t, c2.Inject(nil))
+	assert.NotContains(t, c2.Query, "ddsh", "ddsh must not be injected when service name is empty")
+	assert.Equal(t, "", c2.BaseHash)
+}
+
+// TestSQLCommentCarrierDynamicServiceNoContainerHash verifies that until the Agent has
+// reported a container tags hash, dynamic_service falls back to service-mode behavior:
+// service tags are injected but ddsh is not.
+func TestSQLCommentCarrierDynamicServiceNoContainerHash(t *testing.T) {
+	globalconfig.SetServiceName("my-svc")
+	defer globalconfig.SetServiceName("")
+	processtags.SetContainerTagsHash("")
+
+	c := &SQLCommentCarrier{
+		Query:         "SELECT 1",
+		Mode:          DBMPropagationModeDynamicService,
+		DBServiceName: "mydb",
+	}
+	require.NoError(t, c.Inject(nil))
+	assert.NotContains(t, c.Query, "ddsh", "ddsh must not be injected without a container hash")
+	assert.Empty(t, c.BaseHash)
+	assert.Contains(t, c.Query, "dddbs='mydb'", "service tags must still be injected (fallback to service mode)")
+}
+
+// TestSQLCommentCarrierFullModeNoHash verifies that DBMPropagationModeFull injects
+// traceparent but does NOT inject the container tags hash (ddsh), even when the hash
+// is non-empty.
+func TestSQLCommentCarrierFullModeNoHash(t *testing.T) {
+	processtags.SetContainerTagsHash("testhash999")
+	defer processtags.SetContainerTagsHash("")
+
+	trc, err := newTracer(WithService("my-svc"), WithEnv("prod"), WithServiceVersion("3.0"))
+	require.NoError(t, err)
+	defer globalconfig.SetServiceName("")
+	defer trc.Stop()
+
+	span := trc.StartSpan("op")
+	defer span.Finish()
+
+	c := &SQLCommentCarrier{
+		Query:         "SELECT 1",
+		Mode:          DBMPropagationModeFull,
+		DBServiceName: "mydb",
+	}
+	require.NoError(t, c.Inject(span.Context()))
+
+	assert.Contains(t, c.Query, "traceparent=", "full mode must inject traceparent")
+	assert.NotContains(t, c.Query, "ddsh", "full mode must NOT inject ddsh even when hash is non-empty")
+	assert.Equal(t, "", c.BaseHash, "BaseHash must remain empty in full mode")
+}
+
 func BenchmarkSQLCommentInjection(b *testing.B) {
 	tracer, spanCtx, carrier := setupBenchmark()
 	defer tracer.Stop()
 
 	b.ReportAllocs()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
+		carrier.Inject(spanCtx)
+	}
+}
+
+func BenchmarkSQLCommentInjectionService(b *testing.B) {
+	tracer, spanCtx, carrier := setupBenchmark()
+	defer tracer.Stop()
+	carrier.Mode = DBMPropagationModeService
+
+	b.ReportAllocs()
+	for b.Loop() {
+		carrier.Inject(spanCtx)
+	}
+}
+
+func BenchmarkSQLCommentInjectionDynamicService(b *testing.B) {
+	tracer, spanCtx, carrier := setupBenchmark()
+	defer tracer.Stop()
+	carrier.Mode = DBMPropagationModeDynamicService
+
+	// dynamic_service derives ddsh from the container tags hash; populate it so the
+	// hot path computes once and then hits the cache on every subsequent Inject.
+	processtags.SetContainerTagsHash("benchmark-container-hash")
+	defer processtags.SetContainerTagsHash("")
+
+	b.ReportAllocs()
+	for b.Loop() {
 		carrier.Inject(spanCtx)
 	}
 }
@@ -274,15 +533,15 @@ func BenchmarkSQLCommentExtraction(b *testing.B) {
 	carrier.Inject(spanCtx)
 
 	b.ReportAllocs()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		carrier.Extract()
 	}
 }
 
-func setupBenchmark() (*tracer, ddtrace.SpanContext, SQLCommentCarrier) {
-	tracer := newTracer(WithService("whiskey-service !#$%&'()*+,/:;=?@[]"), WithEnv("test-env"), WithServiceVersion("1.0.0"))
-	root := tracer.StartSpan("service.calling.db", WithSpanID(10)).(*span)
-	root.SetTag(ext.SamplingPriority, 2)
+func setupBenchmark() (*tracer, *SpanContext, SQLCommentCarrier) {
+	tracer, _ := newTracer(WithService("whiskey-service !#$%&'()*+,/:;=?@[]"), WithEnv("test-env"), WithServiceVersion("1.0.0"))
+	root := tracer.StartSpan("service.calling.db", WithSpanID(10))
+	root.SetTag(ext.ManualKeep, true)
 	spanCtx := root.Context()
 	carrier := SQLCommentCarrier{Query: "SELECT 1 FROM dual", Mode: DBMPropagationModeFull, DBServiceName: "whiskey-db"}
 	return tracer, spanCtx, carrier

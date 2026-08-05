@@ -7,8 +7,11 @@ package internal
 
 import (
 	"net/url"
-	"os"
+	"runtime/debug"
 	"sync"
+
+	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
 )
 
 const (
@@ -37,8 +40,7 @@ const (
 )
 
 var (
-	lock = sync.Mutex{}
-
+	initOnce        sync.Once
 	gitMetadataTags map[string]string
 )
 
@@ -57,14 +59,14 @@ func updateAllTags(tags map[string]string, newtags map[string]string) {
 // Get git metadata from environment variables
 func getTagsFromEnv() map[string]string {
 	return map[string]string{
-		TagRepositoryURL: removeCredentials(os.Getenv(EnvGitRepositoryURL)),
-		TagCommitSha:     os.Getenv(EnvGitCommitSha),
+		TagRepositoryURL: removeCredentials(env.Get(EnvGitRepositoryURL)),
+		TagCommitSha:     env.Get(EnvGitCommitSha),
 	}
 }
 
 // Get git metadata from DD_TAGS
 func getTagsFromDDTags() map[string]string {
-	etags := ParseTagString(os.Getenv(EnvDDTags))
+	etags := ParseTagString(env.Get(EnvDDTags))
 
 	return map[string]string{
 		TagRepositoryURL: removeCredentials(etags[TagRepositoryURL]),
@@ -73,32 +75,51 @@ func getTagsFromDDTags() map[string]string {
 	}
 }
 
-// GetGitMetadataTags returns git metadata tags
-func GetGitMetadataTags() map[string]string {
-	lock.Lock()
-	defer lock.Unlock()
-
-	if gitMetadataTags != nil {
-		return gitMetadataTags
+// getTagsFromBinary extracts git metadata from binary metadata.
+func getTagsFromBinary(readBuildInfo func() (*debug.BuildInfo, bool)) map[string]string {
+	res := make(map[string]string)
+	info, ok := readBuildInfo()
+	if !ok {
+		log.Debug("ReadBuildInfo failed, skip source code metadata extracting")
+		return res
 	}
+	goPath := info.Path
+	var vcs, commitSha string
+	for _, s := range info.Settings {
+		if s.Key == "vcs" {
+			vcs = s.Value
+		} else if s.Key == "vcs.revision" {
+			commitSha = s.Value
+		}
+	}
+	if vcs != "git" {
+		log.Debug("Unknown VCS: '%s', skip source code metadata extracting", vcs)
+		return res
+	}
+	res[TagCommitSha] = commitSha
+	res[TagGoPath] = goPath
+	return res
+}
 
+// GetGitMetadataTags returns git metadata tags. Returned map is read-only
+func GetGitMetadataTags() map[string]string {
+	initOnce.Do(initGitMetadataTags)
+	return gitMetadataTags
+}
+
+func initGitMetadataTags() {
 	gitMetadataTags = make(map[string]string)
 
 	if BoolEnv(EnvGitMetadataEnabledFlag, true) {
 		updateAllTags(gitMetadataTags, getTagsFromEnv())
 		updateAllTags(gitMetadataTags, getTagsFromDDTags())
-		updateAllTags(gitMetadataTags, getTagsFromBinary())
+		updateAllTags(gitMetadataTags, getTagsFromBinary(debug.ReadBuildInfo))
 	}
-
-	return gitMetadataTags
 }
 
-// ResetGitMetadataTags reset cashed metadata tags
-func ResetGitMetadataTags() {
-	lock.Lock()
-	defer lock.Unlock()
-
-	gitMetadataTags = nil
+// RefreshGitMetadataTags reset cached metadata tags. NOT thread-safe, use for testing only
+func RefreshGitMetadataTags() {
+	initGitMetadataTags()
 }
 
 // CleanGitMetadataTags cleans up tags from git metadata
@@ -108,19 +129,13 @@ func CleanGitMetadataTags(tags map[string]string) {
 	delete(tags, TagGoPath)
 }
 
-// GetTracerGitMetadataTags returns git metadata tags for tracer
-// NB: Currently tracer inject tags with some workaround
-// (only with _dd prefix and only for the first span in payload)
-// So we provide different tag names
-func GetTracerGitMetadataTags() map[string]string {
-	res := make(map[string]string)
-	tags := GetGitMetadataTags()
-
-	updateTags(res, TraceTagRepositoryURL, tags[TagRepositoryURL])
-	updateTags(res, TraceTagCommitSha, tags[TagCommitSha])
-	updateTags(res, TraceTagGoPath, tags[TagGoPath])
-
-	return res
+// TracerGitMetadataKeys maps canonical git metadata tag keys to their
+// _dd-prefixed tracer equivalents. The tracer injects these with a _dd
+// prefix because they are only attached to the first span in a payload.
+var TracerGitMetadataKeys = [3][2]string{
+	{TagRepositoryURL, TraceTagRepositoryURL},
+	{TagCommitSha, TraceTagCommitSha},
+	{TagGoPath, TraceTagGoPath},
 }
 
 // removeCredentials returns the passed url with potential credentials removed.

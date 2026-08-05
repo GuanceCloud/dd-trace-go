@@ -7,20 +7,23 @@ package sql
 
 import (
 	"database/sql/driver"
-	"fmt"
 	"math"
-	"os"
 	"reflect"
 	"strings"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/namingschema"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
 )
+
+// serviceSourceSQLDriver is the service source value used when the service
+// name is derived from the driver name (e.g. database/sql Register driverName).
+const serviceSourceSQLDriver = "opt.sql_driver"
 
 type config struct {
 	serviceName        string
+	serviceSource      string
 	spanName           string
 	analyticsRate      float64
 	dsn                string
@@ -29,6 +32,24 @@ type config struct {
 	errCheck           func(err error) bool
 	tags               map[string]interface{}
 	dbmPropagationMode tracer.DBMPropagationMode
+	dbStats            bool
+	statsdClient       instrumentation.StatsdClient
+}
+
+// checkStatsdRequired adds a statsdclient onto the config if dbstats is enabled
+// NOTE: For now, the only use-case for a statsdclient is the dbStats feature. If a statsdclient becomes necessary for other items in future work, then this logic should change
+func (c *config) checkStatsdRequired() {
+	if c.dbStats && c.statsdClient == nil {
+		// contrib/database/sql's statsdclient should always inherit its address from the tracer's statsdclient via the globalconfig
+		// destination is not user-configurable
+		sc, err := instr.StatsdClient(c.statsdExtraTags())
+		if err == nil {
+			c.statsdClient = sc
+		} else {
+			instr.Logger().Warn("Error creating statsd client for database/sql contrib; DB Stats disabled: %s", err.Error())
+			c.dbStats = false
+		}
+	}
 }
 
 func (c *config) checkDBMPropagation(driverName string, driver driver.Driver, dsn string) {
@@ -37,7 +58,7 @@ func (c *config) checkDBMPropagation(driverName string, driver driver.Driver, ds
 			dsn = c.dsn
 		}
 		if dbSystem, ok := dbmFullModeUnsupported(driverName, driver, dsn); ok {
-			log.Warn("Using DBM_PROPAGATION_MODE in 'full' mode is not supported for %s, downgrading to 'service' mode. "+
+			instr.Logger().Warn("Using DBM_PROPAGATION_MODE in 'full' mode is not supported for %s, downgrading to 'service' mode. "+
 				"See https://docs.datadoghq.com/database_monitoring/connect_dbm_and_apm/ for more info.",
 				dbSystem,
 			)
@@ -107,27 +128,28 @@ func dbmFullModeUnsupported(driverName string, driver driver.Driver, dsn string)
 	return "", false
 }
 
-// Option represents an option that can be passed to Register, Open or OpenDB.
-type Option func(*config)
+// Option describes options for the database/sql integration.
+type Option interface {
+	apply(*config)
+}
+
+// OptionFn represents options applicable to Register, Open or OpenDB.
+type OptionFn func(*config)
+
+func (fn OptionFn) apply(cfg *config) {
+	fn(cfg)
+}
 
 type registerConfig = config
 
-// RegisterOption has been deprecated in favor of Option.
-type RegisterOption = Option
-
 func defaults(cfg *config, driverName string, rc *registerConfig) {
-	// cfg.analyticsRate = globalconfig.AnalyticsRate()
-	if internal.BoolEnv("DD_TRACE_SQL_ANALYTICS_ENABLED", false) {
-		cfg.analyticsRate = 1.0
-	} else {
-		cfg.analyticsRate = math.NaN()
-	}
-	mode := os.Getenv("DD_DBM_PROPAGATION_MODE")
+	cfg.analyticsRate = instr.AnalyticsRate(false)
+	mode := env.Get("DD_DBM_PROPAGATION_MODE")
 	if mode == "" {
-		mode = os.Getenv("DD_TRACE_SQL_COMMENT_INJECTION_MODE")
+		mode = env.Get("DD_TRACE_SQL_COMMENT_INJECTION_MODE")
 	}
 	cfg.dbmPropagationMode = tracer.DBMPropagationMode(mode)
-	cfg.serviceName = getServiceName(driverName, rc)
+	cfg.serviceName, cfg.serviceSource = defaultServiceNameAndSource(driverName, rc)
 	cfg.spanName = getSpanName(driverName)
 	if rc != nil {
 		// use registered config as the default value for some options
@@ -140,17 +162,31 @@ func defaults(cfg *config, driverName string, rc *registerConfig) {
 		cfg.errCheck = rc.errCheck
 		cfg.ignoreQueryTypes = rc.ignoreQueryTypes
 		cfg.childSpansOnly = rc.childSpansOnly
+		cfg.dbStats = rc.dbStats
+		if cfg.tags == nil && len(rc.tags) > 0 {
+			cfg.tags = make(map[string]interface{})
+		}
+		for k, v := range rc.tags {
+			cfg.tags[k] = v
+		}
 	}
 }
 
-func getServiceName(driverName string, rc *registerConfig) string {
-	defaultServiceName := fmt.Sprintf("%s.db", driverName)
+func defaultServiceNameAndSource(driverName string, rc *registerConfig) (string, string) {
+	registerService := ""
+	serviceSource := serviceSourceSQLDriver
 	if rc != nil {
-		// if service name was set during Register, we use that value as default instead of
-		// the one calculated above.
-		defaultServiceName = rc.serviceName
+		// if service name was set during Register, we use that value as default.
+		registerService = rc.serviceName
+		if rc.serviceSource != "" {
+			serviceSource = rc.serviceSource
+		}
 	}
-	return namingschema.ServiceNameOverrideV0(defaultServiceName, defaultServiceName)
+	serviceName := instr.ServiceName(instrumentation.ComponentDefault, instrumentation.OperationContext{
+		"driverName":      driverName,
+		"registerService": registerService,
+	})
+	return serviceName, serviceSource
 }
 
 func getSpanName(driverName string) string {
@@ -158,19 +194,23 @@ func getSpanName(driverName string) string {
 	if normalizedDBSystem, ok := normalizeDBSystem(driverName); ok {
 		dbSystem = normalizedDBSystem
 	}
-	return namingschema.DBOpName(dbSystem, fmt.Sprintf("%s.query", driverName))
+	return instr.OperationName(instrumentation.ComponentDefault, instrumentation.OperationContext{
+		"driverName": driverName,
+		ext.DBSystem: dbSystem,
+	})
 }
 
-// WithServiceName sets the given service name when registering a driver,
+// WithService sets the given service name when registering a driver,
 // or opening a database connection.
-func WithServiceName(name string) Option {
+func WithService(name string) OptionFn {
 	return func(cfg *config) {
 		cfg.serviceName = name
+		cfg.serviceSource = instrumentation.ServiceSourceWithServiceOption
 	}
 }
 
 // WithAnalytics enables Trace Analytics for all started spans.
-func WithAnalytics(on bool) Option {
+func WithAnalytics(on bool) OptionFn {
 	return func(cfg *config) {
 		if on {
 			cfg.analyticsRate = 1.0
@@ -182,7 +222,7 @@ func WithAnalytics(on bool) Option {
 
 // WithAnalyticsRate sets the sampling rate for Trace Analytics events
 // correlated to started spans.
-func WithAnalyticsRate(rate float64) Option {
+func WithAnalyticsRate(rate float64) OptionFn {
 	return func(cfg *config) {
 		if rate >= 0.0 && rate <= 1.0 {
 			cfg.analyticsRate = rate
@@ -195,7 +235,7 @@ func WithAnalyticsRate(rate float64) Option {
 // WithDSN allows the data source name (DSN) to be provided when
 // using OpenDB and a driver.Connector.
 // The value is used to automatically set tags on spans.
-func WithDSN(name string) Option {
+func WithDSN(name string) OptionFn {
 	return func(cfg *config) {
 		cfg.dsn = name
 	}
@@ -203,7 +243,7 @@ func WithDSN(name string) Option {
 
 // WithIgnoreQueryTypes specifies the query types for which spans should not be
 // created.
-func WithIgnoreQueryTypes(qtypes ...QueryType) Option {
+func WithIgnoreQueryTypes(qtypes ...QueryType) OptionFn {
 	return func(cfg *config) {
 		if cfg.ignoreQueryTypes == nil {
 			cfg.ignoreQueryTypes = make(map[QueryType]struct{})
@@ -216,7 +256,7 @@ func WithIgnoreQueryTypes(qtypes ...QueryType) Option {
 
 // WithChildSpansOnly causes spans to be created only when
 // there is an existing parent span in the Context.
-func WithChildSpansOnly() Option {
+func WithChildSpansOnly() OptionFn {
 	return func(cfg *config) {
 		cfg.childSpansOnly = true
 	}
@@ -225,14 +265,14 @@ func WithChildSpansOnly() Option {
 // WithErrorCheck specifies a function fn which determines whether the passed
 // error should be marked as an error. The fn is called whenever a database/sql operation
 // finishes with an error
-func WithErrorCheck(fn func(err error) bool) Option {
+func WithErrorCheck(fn func(err error) bool) OptionFn {
 	return func(cfg *config) {
 		cfg.errCheck = fn
 	}
 }
 
-// WithCustomTag will attach the value to the span tagged by the key
-func WithCustomTag(key string, value interface{}) Option {
+// WithCustomTag will attach the key-value pair as a tag onto the spans generated by this integration, as well as DB Stats metrics if dbstats is enabled
+func WithCustomTag(key string, value interface{}) OptionFn {
 	return func(cfg *config) {
 		if cfg.tags == nil {
 			cfg.tags = make(map[string]interface{})
@@ -241,24 +281,26 @@ func WithCustomTag(key string, value interface{}) Option {
 	}
 }
 
-// WithSQLCommentInjection enables injection of tags as sql comments on traced queries.
-// This includes dynamic values like span id, trace id and sampling priority which can make queries
-// unique for some cache implementations.
-//
-// Deprecated: Use WithDBMPropagation instead.
-func WithSQLCommentInjection(mode tracer.SQLCommentInjectionMode) Option {
-	return WithDBMPropagation(tracer.DBMPropagationMode(mode))
-}
-
 // WithDBMPropagation enables injection of tags as sql comments on traced queries.
 // This includes dynamic values like span id, trace id and the sampled flag which can make queries
 // unique for some cache implementations. Use DBMPropagationModeService if this is a concern.
+// DBMPropagationModeDynamicService also injects ddsh, a steady hash derived from process and
+// container tags, enabling service-level correlation in DBM without exposing trace ids.
 //
 // Note that enabling sql comment propagation results in potentially confidential data (service names)
 // being stored in the databases which can then be accessed by other 3rd parties that have been granted
 // access to the database.
-func WithDBMPropagation(mode tracer.DBMPropagationMode) Option {
+func WithDBMPropagation(mode tracer.DBMPropagationMode) OptionFn {
 	return func(cfg *config) {
 		cfg.dbmPropagationMode = mode
+	}
+}
+
+// WithDBStats enables polling of DBStats metrics
+// ref: https://pkg.go.dev/database/sql#DBStats
+// These metrics are submitted to Datadog and are not billed as custom metrics
+func WithDBStats() OptionFn {
+	return func(cfg *config) {
+		cfg.dbStats = true
 	}
 }

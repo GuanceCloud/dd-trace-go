@@ -7,18 +7,20 @@ package hostname
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/hostname/azure"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/hostname/ec2"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/hostname/ecs"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/hostname/gce"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/hostname/validate"
-	"gopkg.in/DataDog/dd-trace-go.v1/internal/log"
+	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/DataDog/dd-trace-go/v2/internal/hostname/azure"
+	"github.com/DataDog/dd-trace-go/v2/internal/hostname/ec2"
+	"github.com/DataDog/dd-trace-go/v2/internal/hostname/ecs"
+	"github.com/DataDog/dd-trace-go/v2/internal/hostname/gce"
+	"github.com/DataDog/dd-trace-go/v2/internal/hostname/validate"
+	"github.com/DataDog/dd-trace-go/v2/internal/log"
 )
 
 // For testing purposes
@@ -150,7 +152,7 @@ func updateHostname(now time.Time) {
 	for _, p := range providerCatalog {
 		detectedHostname, err := p.pf(ctx, hostname)
 		if err != nil {
-			log.Debug("Unable to get hostname from provider %s: %v", p.name, err)
+			log.Debug("Unable to get hostname from provider %q: %v", p.name, err.Error())
 			continue
 		}
 		hostname = detectedHostname
@@ -171,7 +173,7 @@ func updateHostname(now time.Time) {
 }
 
 func fromConfig(_ context.Context, _ string) (string, error) {
-	hn := os.Getenv("DD_HOSTNAME")
+	hn := env.Get("DD_HOSTNAME")
 	err := validate.ValidHostname(hn)
 	if err != nil {
 		return "", err
@@ -184,8 +186,8 @@ func fromFargate(ctx context.Context, _ string) (string, error) {
 }
 
 func fargate(ctx context.Context) (string, error) {
-	if _, ok := os.LookupEnv("ECS_CONTAINER_METADATA_URI_V4"); !ok {
-		return "", fmt.Errorf("not running in fargate")
+	if _, ok := env.Lookup("ECS_CONTAINER_METADATA_URI_V4"); !ok {
+		return "", errors.New("not running in fargate")
 	}
 	launchType, err := ecs.GetLaunchType(ctx)
 	if err != nil {
@@ -195,7 +197,7 @@ func fargate(ctx context.Context) (string, error) {
 		// If we're running on fargate we strip the hostname
 		return "", nil
 	}
-	return "", fmt.Errorf("not running in fargate")
+	return "", errors.New("not running in fargate")
 }
 
 func fromGce(ctx context.Context, _ string) (string, error) {
@@ -219,13 +221,13 @@ func fromOS(_ context.Context, currentHostname string) (string, error) {
 	if currentHostname == "" {
 		return os.Hostname()
 	}
-	return "", fmt.Errorf("skipping OS hostname as a previous provider found a valid hostname")
+	return "", errors.New("skipping OS hostname as a previous provider found a valid hostname")
 }
 
 func fromContainer(_ context.Context, _ string) (string, error) {
 	// This provider is not implemented as most customers do not provide access to kube-api server, kubelet, or docker socket
 	// on their application containers. Providing this access is almost always a not-good idea and could be burdensome for customers.
-	return "", fmt.Errorf("container hostname detection not implemented")
+	return "", errors.New("container hostname detection not implemented")
 }
 
 func fromEC2(ctx context.Context, currentHostname string) (string, error) {
@@ -241,5 +243,5 @@ func fromEC2(ctx context.Context, currentHostname string) (string, error) {
 		}
 		return instanceID, nil
 	}
-	return "", fmt.Errorf("not retrieving hostname from AWS: the host is not an ECS instance and other providers already retrieve non-default hostnames")
+	return "", errors.New("not retrieving hostname from AWS: the host is not an ECS instance and other providers already retrieve non-default hostnames")
 }
