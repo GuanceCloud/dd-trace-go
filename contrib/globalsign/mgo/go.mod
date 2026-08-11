@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/globalsign/mgo/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/stretchr/testify v1.11.1
 )
