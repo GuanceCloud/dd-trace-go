@@ -3,8 +3,8 @@ module github.com/GuanceCloud/dd-trace-go/internal/apps/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.2-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	golang.org/x/sync v0.20.0
 )
 
