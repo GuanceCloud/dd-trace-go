@@ -8,9 +8,9 @@ require (
 	github.com/99designs/gqlgen v0.17.92
 	github.com/DataDog/datadog-agent/pkg/proto v0.79.0
 	github.com/DataDog/go-libddwaf/v5 v5.0.0
-	github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/containers/v2 v2.10.1-ext
-	github.com/GuanceCloud/dd-trace-go/orchestrion/all/v2 v2.10.1-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/containers/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/orchestrion/all/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
 	github.com/GuanceCloud/orchestrion v1.11.1-ext
 	github.com/IBM/sarama v1.44.0
 	github.com/Shopify/sarama v1.38.1
@@ -99,51 +99,51 @@ require (
 	github.com/DataDog/go-sqllexer v0.2.2 // indirect
 	github.com/DataDog/go-tuf v1.1.1-0.5.2 // indirect
 	github.com/DataDog/sketches-go v1.4.8 // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/cloud.google.com/go/pubsub.v1/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/cloud.google.com/go/pubsub.v2/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka.v2/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/elastic/go-elasticsearch.v6/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/gin-gonic/gin/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi.v5/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v7/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v8/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/go.mongodb.org/mongo-driver.v2/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/go.mongodb.org/mongo-driver/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/gocql/gocql/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/gofiber/fiber.v2/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/gomodule/redigo/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/grpc/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/gorm.io/gorm.v1/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/graph-gophers/graphql-go/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/graphql-go/graphql/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/hashicorp/vault/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/jackc/pgx.v5/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/client-go/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v5/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/redis/go-redis.v9/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/redis/rueidis/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/rs/zerolog/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/segmentio/kafka-go/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/sirupsen/logrus/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/twitchtv/twirp/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.10.1-ext // indirect
-	github.com/GuanceCloud/dd-trace-go/contrib/valyala/fasthttp/v2 v2.10.1-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/cloud.google.com/go/pubsub.v1/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/cloud.google.com/go/pubsub.v2/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka.v2/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/elastic/go-elasticsearch.v6/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/gin-gonic/gin/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi.v5/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v7/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v8/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/go.mongodb.org/mongo-driver.v2/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/go.mongodb.org/mongo-driver/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/gocql/gocql/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/gofiber/fiber.v2/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/gomodule/redigo/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/grpc/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/gorm.io/gorm.v1/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/graph-gophers/graphql-go/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/graphql-go/graphql/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/hashicorp/vault/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/jackc/pgx.v5/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/client-go/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v5/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/redis/go-redis.v9/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/redis/rueidis/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/rs/zerolog/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/segmentio/kafka-go/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/sirupsen/logrus/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/twitchtv/twirp/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/contrib/valyala/fasthttp/v2 v2.10.2-ext // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.11.7 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
