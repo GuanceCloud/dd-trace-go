@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/contrib/Shopify/sarama/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/Shopify/sarama v1.38.1
 	github.com/stretchr/testify v1.11.1
 )
@@ -98,5 +98,3 @@ require (
 // Pin Shopify/sarama to the last version available to avoid breaking changes
 // caused by the IBM/sarama fork.
 replace github.com/Shopify/sarama => github.com/Shopify/sarama v1.38.1
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

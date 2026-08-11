@@ -15,9 +15,9 @@ import (
 	extproc "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
 )
 
 var _ proxy.RequestHeaders = (*messageRequestHeaders)(nil)

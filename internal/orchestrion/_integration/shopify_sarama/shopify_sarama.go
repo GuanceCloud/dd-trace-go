@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/instrumentation/testutils/containers/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/containers/v2"
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/modules/kafka"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
 )
 
 const (

@@ -17,12 +17,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 type ClientErrorMock struct {
@@ -373,7 +373,7 @@ func TestExtensionEndInvocationErrorHeaders(t *testing.T) {
 
 	data, err := base64.StdEncoding.DecodeString(hdr.Get("X-Datadog-Invocation-Error-Stack"))
 	assert.Nil(t, err)
-	assert.Contains(t, string(data), "github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2")
+	assert.Contains(t, string(data), "github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2")
 	assert.Contains(t, string(data), "TestExtensionEndInvocationErrorHeaders")
 
 	data, err = base64.StdEncoding.DecodeString(hdr.Get("X-Datadog-Invocation-Error-Msg"))

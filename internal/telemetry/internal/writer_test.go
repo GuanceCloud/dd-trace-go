@@ -22,9 +22,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/transport"
 )
 
 func TestNewWriter_ValidConfig(t *testing.T) {

@@ -13,14 +13,14 @@ import (
 
 	"github.com/DataDog/go-libddwaf/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	globalinternal "github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/listener"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/remoteconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	telemetrylog "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	globalinternal "github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/remoteconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	telemetrylog "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log"
 )
 
 // Enabled returns true when AppSec is up and running. Meaning that the appsec build tag is enabled, the env var

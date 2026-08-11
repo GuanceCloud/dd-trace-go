@@ -10,8 +10,8 @@ import (
 	"hash/fnv"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/apisec/internal/timed"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/limiter"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/apisec/internal/timed"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/limiter"
 )
 
 type (

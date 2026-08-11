@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
 )
 
 func TestContext(t *testing.T) {

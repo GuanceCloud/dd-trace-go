@@ -14,7 +14,7 @@ import (
 
 	"testing/synctest"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/apisec/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/apisec/internal/config"
 
 	"github.com/stretchr/testify/require"
 )

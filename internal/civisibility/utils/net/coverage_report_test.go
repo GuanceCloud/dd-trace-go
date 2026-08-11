@@ -17,11 +17,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	civisibilityutils "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	coretelemetry "github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	civisibilityutils "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	coretelemetry "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/telemetrytest"
 )
 
 func TestCoverageReportApiRequest(t *testing.T) {
@@ -49,7 +49,7 @@ func TestCoverageReportApiRequest(t *testing.T) {
 		require.NoError(t, json.Unmarshal(event.body, &eventPayload))
 		require.Equal(t, "coverage_report", eventPayload["type"])
 		require.Equal(t, FormatLCOV, eventPayload["format"])
-		require.Equal(t, "https://github.com/DataDog/dd-trace-go.git", eventPayload[constants.GitRepositoryURL])
+		require.Equal(t, "https://github.com/GuanceCloud/dd-trace-go.git", eventPayload[constants.GitRepositoryURL])
 		require.Equal(t, "1234567890abcdef1234567890abcdef12345678", eventPayload[constants.GitCommitSHA])
 		require.Equal(t, "main", eventPayload[constants.GitBranch])
 		require.Equal(t, "/ci/workspace", eventPayload[constants.CIWorkspacePath])

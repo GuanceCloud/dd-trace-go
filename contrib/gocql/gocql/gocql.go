@@ -4,7 +4,7 @@
 // Copyright 2016 Datadog, Inc.
 
 // Package gocql provides functions to trace the gocql/gocql package (https://github.com/gocql/gocql).
-package gocql // import "github.com/DataDog/dd-trace-go/contrib/gocql/gocql/v2"
+package gocql // import "github.com/GuanceCloud/dd-trace-go/contrib/gocql/gocql/v2"
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"github.com/gocql/gocql"
 )

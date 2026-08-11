@@ -20,9 +20,9 @@ import (
 
 	"github.com/google/uuid"
 
-	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs/transport"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	illmobs "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 var (

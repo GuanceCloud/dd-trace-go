@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/contrib/envoyproxy/go-control-plane/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/envoyproxy/go-control-plane/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/envoyproxy/go-control-plane/envoy v1.36.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.20.0
@@ -85,5 +85,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

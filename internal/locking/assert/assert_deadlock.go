@@ -14,7 +14,7 @@ import (
 
 	"github.com/trailofbits/go-mutexasserts"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
 )
 
 func MutexLocked(m *locking.Mutex) {

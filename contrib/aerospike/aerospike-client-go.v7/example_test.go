@@ -11,9 +11,9 @@ import (
 
 	as "github.com/aerospike/aerospike-client-go/v7"
 
-	astrace "github.com/DataDog/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2"
+	astrace "github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func Example() {

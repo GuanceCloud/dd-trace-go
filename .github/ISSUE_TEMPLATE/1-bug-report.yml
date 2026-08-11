@@ -6,7 +6,7 @@ body:
   - type: input
     attributes:
       label: Tracer Version(s)
-      description: "Version(s) of the tracer affected by this bug. If you aren't using the [latest version](https://github.com/DataDog/dd-trace-go/releases) of dd-trace-go, try upgrading first to see if your issue has already been resolved."
+      description: "Version(s) of the tracer affected by this bug. If you aren't using the [latest version](https://github.com/GuanceCloud/dd-trace-go/releases) of dd-trace-go, try upgrading first to see if your issue has already been resolved."
       placeholder: 1.70.0
     validations:
       required: true

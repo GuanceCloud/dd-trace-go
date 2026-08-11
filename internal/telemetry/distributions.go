@@ -11,10 +11,10 @@ import (
 
 	"github.com/puzpuzpuz/xsync/v3"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/knownmetrics"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/knownmetrics"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/transport"
 )
 
 type distributions struct {

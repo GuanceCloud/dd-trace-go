@@ -12,19 +12,19 @@ import (
 	"time"
 	_ "unsafe" // for go:linkname
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
 )
 
 // Go linknames
 
-//go:linkname getMeta github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.getMeta
+//go:linkname getMeta github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.getMeta
 func getMeta(s *tracer.Span, key string) (string, bool)
 
-//go:linkname getMetric github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.getMetric
+//go:linkname getMetric github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.getMetric
 func getMetric(s *tracer.Span, key string) (float64, bool)
 
 // common

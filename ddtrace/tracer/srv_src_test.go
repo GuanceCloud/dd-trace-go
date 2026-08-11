@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	sharedinternal "github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	sharedinternal "github.com/GuanceCloud/dd-trace-go/v2/internal"
 )
 
 func BenchmarkServiceOverrideTag(b *testing.B) {

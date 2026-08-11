@@ -6,8 +6,8 @@ This integration provides Datadog tracing for the [modelcontextprotocol/go-sdk](
 
 ```go
 import (
-    gosdktrace "github.com/DataDog/dd-trace-go/contrib/modelcontextprotocol/go-sdk/v2"
-    "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+    gosdktrace "github.com/GuanceCloud/dd-trace-go/contrib/modelcontextprotocol/go-sdk/v2"
+    "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
     "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

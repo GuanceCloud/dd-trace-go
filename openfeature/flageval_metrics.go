@@ -15,11 +15,11 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 
-	ddmetric "github.com/DataDog/dd-trace-go/v2/ddtrace/opentelemetry/metric"
+	ddmetric "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/opentelemetry/metric"
 )
 
 const (
-	meterName  = "github.com/DataDog/dd-trace-go/openfeature"
+	meterName  = "github.com/GuanceCloud/dd-trace-go/openfeature"
 	metricName = "feature_flag.evaluations"
 	metricUnit = "{evaluation}"
 	metricDesc = "Number of feature flag evaluations"

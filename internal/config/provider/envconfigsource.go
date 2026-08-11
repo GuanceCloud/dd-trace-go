@@ -6,8 +6,8 @@
 package provider
 
 import (
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 type envConfigSource struct{}

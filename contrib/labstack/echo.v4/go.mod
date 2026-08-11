@@ -1,10 +1,10 @@
-module github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/stretchr/testify v1.11.1
 )
@@ -88,7 +88,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/contrib/net/http/v2 => ../../net/http
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

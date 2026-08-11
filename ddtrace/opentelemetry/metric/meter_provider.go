@@ -17,9 +17,9 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/otelmetricsinstall"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/otelmetricsinstall"
 )
 
 const (

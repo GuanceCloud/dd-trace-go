@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
-	"github.com/DataDog/dd-trace-go/v2/internal/locking/assert"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking/assert"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
 )
 
 // Sampler is an interface for sampling traces.

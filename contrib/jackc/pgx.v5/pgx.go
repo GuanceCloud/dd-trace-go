@@ -8,7 +8,7 @@ package pgx
 import (
 	"context"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"github.com/jackc/pgx/v5"
 )

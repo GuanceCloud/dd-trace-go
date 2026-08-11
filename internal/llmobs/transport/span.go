@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 )
 
 type SpanLink struct {

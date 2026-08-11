@@ -10,11 +10,11 @@ import (
 	"errors"
 	"log"
 
-	sqltrace "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
-	gormtrace "github.com/DataDog/dd-trace-go/contrib/gorm.io/gorm.v1/v2"
+	sqltrace "github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2"
+	gormtrace "github.com/GuanceCloud/dd-trace-go/contrib/gorm.io/gorm.v1/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/driver/postgres"

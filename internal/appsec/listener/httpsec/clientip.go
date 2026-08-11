@@ -11,7 +11,7 @@ import (
 	"net/textproto"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // ClientIP returns the first public IP address found in the given headers. If

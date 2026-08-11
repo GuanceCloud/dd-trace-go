@@ -6,7 +6,7 @@
 package ossec
 
 import (
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
 )
 
 type (

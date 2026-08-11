@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tinylib/msgp/msgp"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 )
 
 var fixedTime = now()

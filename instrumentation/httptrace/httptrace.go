@@ -15,14 +15,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/baggage"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	appsechttpsec "github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/httpsec"
-	listenerhttpsec "github.com/DataDog/dd-trace-go/v2/internal/appsec/listener/httpsec"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/baggage"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	appsechttpsec "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/httpsec"
+	listenerhttpsec "github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 var (
@@ -57,7 +57,7 @@ const requestSpanTagsSizeHint = 9
 // (http.method, http.url, http.useragent). Any further span start option can be added with opts.
 func StartRequestSpan(r *http.Request, opts ...tracer.StartSpanOption) (*tracer.Span, context.Context, FinishSpanFunc) {
 	// Append our span options before the given ones so that the caller can "overwrite" them.
-	// TODO(): rework span start option handling (https://github.com/DataDog/dd-trace-go/issues/1352)
+	// TODO(): rework span start option handling (https://github.com/GuanceCloud/dd-trace-go/issues/1352)
 
 	// we cannot track the configuration in newConfig because it's called during init() and the the telemetry client
 	// is not initialized yet

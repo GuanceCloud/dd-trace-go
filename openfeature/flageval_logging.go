@@ -16,10 +16,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	telemetrylog "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	telemetrylog "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log"
 
 	of "github.com/open-feature/go-sdk/openfeature"
 )

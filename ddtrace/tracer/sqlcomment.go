@@ -10,12 +10,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/datastreams"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/datastreams"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
 )
 
 // DBMPropagationMode represents the mode of dbm propagation.

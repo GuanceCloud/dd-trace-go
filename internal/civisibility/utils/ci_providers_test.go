@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
 )
 
 func setEnvs(t *testing.T, env map[string]any) {

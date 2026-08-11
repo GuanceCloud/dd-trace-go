@@ -1,6 +1,6 @@
 # Orchestrion Implementations
 
-Orchestrion is a project at [github.com/DataDog/orchestrion](https://github.com/DataDog/orchestrion) that enables auto-instrumentation at compile time for dd-trace-go. The functionality that supports Orchestrion lives in this other project. Within dd-trace-go, Orchestrion exists in several places:
+Orchestrion is a project at [github.com/GuanceCloud/orchestrion](https://github.com/GuanceCloud/orchestrion) that enables auto-instrumentation at compile time for dd-trace-go. The functionality that supports Orchestrion lives in this other project. Within dd-trace-go, Orchestrion exists in several places:
 
 1. `./orchestrion` -- This directory, including a list of all supported integrations and auto generated files
 2. [../internal/orchestrion](../internal/orchestrion/) -- Internal functionality for Orchestrion, including testing data for expected traces after instrumentation. For more information, read the [README.md](../internal/orchestrion/_integration/README.md).

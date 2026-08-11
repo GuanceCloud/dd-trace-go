@@ -5,7 +5,7 @@
 
 package config
 
-import "github.com/DataDog/dd-trace-go/v2/instrumentation"
+import "github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 var Instrumentation *instrumentation.Instrumentation
 

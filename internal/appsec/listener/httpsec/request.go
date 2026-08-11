@@ -12,9 +12,9 @@ import (
 	"net/textproto"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/trace"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 )
 
 const (

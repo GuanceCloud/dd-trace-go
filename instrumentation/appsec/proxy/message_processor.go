@@ -12,13 +12,13 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/actions"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/body"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/body/json"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/waf/actions"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/body"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/body/json"
 )
 
 // Processor is a state machine that handles incoming HTTP request and response in a streaming manner,

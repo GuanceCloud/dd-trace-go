@@ -29,16 +29,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/traceprof"
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/traceprof"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 )
 
 func withTransport(t ddTransport) StartOption {

@@ -4,12 +4,12 @@
 // Copyright 2016 Datadog, Inc.
 
 // Package http provides functions to trace the net/http package (https://golang.org/pkg/net/http).
-package http // import "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+package http // import "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2"
 
 import (
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/wrap"
+	"github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/wrap"
 )
 
 type ServeMux = wrap.ServeMux

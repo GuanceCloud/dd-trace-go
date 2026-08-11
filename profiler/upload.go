@@ -19,11 +19,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 )
 
 // maxRetries specifies the maximum number of retries to have when an error occurs.

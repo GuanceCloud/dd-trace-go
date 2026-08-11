@@ -19,9 +19,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	civisibilitynet "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	civisibilitynet "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
 )
 
 func TestReadCacheSharesBootstrapAcrossGoTestPackages(t *testing.T) {
@@ -59,7 +59,7 @@ func TestReadCacheSharesBootstrapAcrossGoTestPackages(t *testing.T) {
 		{Name: constants.CIVisibilityFlakyRetryEnabledEnvironmentVariable, Value: "false"},
 		{Name: constants.CIVisibilityImpactedTestsDetectionEnabled, Value: "false"},
 		{Name: "DD_SERVICE", Value: "read-cache-e2e-service"},
-		{Name: "DD_GIT_REPOSITORY_URL", Value: "https://github.com/DataDog/dd-trace-go.git"},
+		{Name: "DD_GIT_REPOSITORY_URL", Value: "https://github.com/GuanceCloud/dd-trace-go.git"},
 		{Name: "DD_GIT_COMMIT_SHA", Value: "1234567890abcdef1234567890abcdef12345678"},
 		{Name: "DD_GIT_BRANCH", Value: "refs/heads/main"},
 		{Name: "DD_CIVISIBILITY_LOGS_ENABLED", Value: "false"},
@@ -177,13 +177,13 @@ func writeReadCacheE2EModule(t *testing.T, packageCount int) string {
 	require.FileExists(t, filepath.Join(repoRoot, "go.mod"))
 
 	moduleDir := t.TempDir()
-	goMod := fmt.Sprintf(`module github.com/DataDog/dd-trace-go/v2/internal/civisibility/readcachee2e
+	goMod := fmt.Sprintf(`module github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/readcachee2e
 
 go 1.25.0
 
-require github.com/DataDog/dd-trace-go/v2 v2.0.0
+require github.com/GuanceCloud/dd-trace-go/v2 v2.0.0
 
-replace github.com/DataDog/dd-trace-go/v2 => %s
+replace github.com/GuanceCloud/dd-trace-go/v2 => %s
 `, filepath.ToSlash(repoRoot))
 	require.NoError(t, os.WriteFile(filepath.Join(moduleDir, "go.mod"), []byte(goMod), 0o600))
 
@@ -223,7 +223,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations"
 )
 
 func TestMain(m *testing.M) {

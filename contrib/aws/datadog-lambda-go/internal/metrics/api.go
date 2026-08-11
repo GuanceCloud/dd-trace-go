@@ -14,7 +14,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
 )
 
 type (

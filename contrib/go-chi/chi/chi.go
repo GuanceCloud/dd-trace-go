@@ -4,17 +4,17 @@
 // Copyright 2016 Datadog, Inc.
 
 // Package chi provides tracing functions for tracing the go-chi/chi package (https://github.com/go-chi/chi).
-package chi // import "github.com/DataDog/dd-trace-go/contrib/go-chi/chi/v2"
+package chi // import "github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2"
 
 import (
 	"math"
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/options"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"

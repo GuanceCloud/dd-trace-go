@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
 
 	"github.com/jellydator/ttlcache/v3"
 )

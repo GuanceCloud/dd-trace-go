@@ -11,8 +11,8 @@ import (
 
 	"github.com/dimfeld/httptreemux/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 type routerConfig struct {

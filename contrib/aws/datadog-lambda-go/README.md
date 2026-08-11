@@ -1,9 +1,9 @@
 # Datadog Lambda Library for Go (dd-trace-go)
 
-![build](https://github.com/DataDog/dd-trace-go/actions/workflows/main-branch-tests.yml/badge.svg)
+![build](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/main-branch-tests.yml/badge.svg)
 [![Slack](https://chat.datadoghq.com/badge.svg?bg=632CA6)](https://chat.datadoghq.com/)
-[![Go Reference](https://pkg.go.dev/badge/github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2.svg)](https://pkg.go.dev/github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/DataDog/dd-trace-go/blob/main/LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2.svg)](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/GuanceCloud/dd-trace-go/blob/main/LICENSE)
 
 
 > **IMPORTANT NOTICE**: This package replaces the deprecated https://github.com/DataDog/datadog-lambda-go repository.
@@ -21,7 +21,7 @@ If you are upgrading from the legacy [`github.com/DataDog/datadog-lambda-go`](ht
     go get github.com/DataDog/datadog-lambda-go@none
 
     # Install the new v2 package
-    go get github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2
+    go get github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2
     ```
 
 1. **Update Import Statements.** Update your `datadog-lambda-go` import path:
@@ -36,7 +36,7 @@ If you are upgrading from the legacy [`github.com/DataDog/datadog-lambda-go`](ht
     **After (v2):**
     ```go
     import (
-        ddlambda "github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2"
+        ddlambda "github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2"
     )
     ```
 
@@ -66,7 +66,7 @@ You can also open an issue for a feature request.
 
 ## Contributing
 
-If you find an issue with this package and have a fix, please feel free to open a pull request following the [procedures](https://github.com/DataDog/dd-trace-go/blob/main/CONTRIBUTING.md).
+If you find an issue with this package and have a fix, please feel free to open a pull request following the [procedures](https://github.com/GuanceCloud/dd-trace-go/blob/main/CONTRIBUTING.md).
 
 ## Community
 

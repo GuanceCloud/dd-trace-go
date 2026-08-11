@@ -26,7 +26,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
 )
 
 var (

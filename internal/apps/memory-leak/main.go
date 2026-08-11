@@ -13,9 +13,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/internal/apps/v2"
+	"github.com/GuanceCloud/dd-trace-go/internal/apps/v2"
 
-	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+	httptrace "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2"
 )
 
 var rawJSONData []byte

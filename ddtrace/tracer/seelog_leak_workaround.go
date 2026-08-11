@@ -8,12 +8,12 @@ package tracer
 import (
 	"github.com/cihub/seelog"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // This workaround fixes goroutine leaks caused by seelog.
-// See https://github.com/DataDog/dd-trace-go/issues/2987.
+// See https://github.com/GuanceCloud/dd-trace-go/issues/2987.
 //
 // TODO(felixge): Remove this once a proper fix lands in the agent or after we
 // drop the agent dependency that causes this [1].

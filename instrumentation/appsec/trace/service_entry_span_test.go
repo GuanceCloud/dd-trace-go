@@ -9,7 +9,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion"
 )
 
 func TestServiceEntrySpanOperationFinishClearsGLS(t *testing.T) {

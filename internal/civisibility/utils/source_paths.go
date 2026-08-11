@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
 )
 
 // SourceFilePath contains the source path variants CI Visibility needs for one runtime source file.

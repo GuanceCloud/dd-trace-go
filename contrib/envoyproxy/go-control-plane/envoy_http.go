@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
 )
 
 func continueActionFunc(ctx context.Context, options proxy.ContinueActionOptions) error {

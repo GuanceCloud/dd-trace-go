@@ -10,8 +10,8 @@ import (
 	"maps"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/errortrace"
-	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/errortrace"
+	illmobs "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
 )
 
 const (

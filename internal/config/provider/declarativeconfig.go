@@ -5,7 +5,7 @@
 
 package provider
 
-import "github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 
 // declarativeConfig represents a configuration loaded from a YAML source file.
 type declarativeConfig struct {

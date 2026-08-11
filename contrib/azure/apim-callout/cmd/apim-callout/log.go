@@ -6,9 +6,9 @@
 package main
 
 import (
-	apimcallout "github.com/DataDog/dd-trace-go/contrib/azure/apim-callout/v2"
+	apimcallout "github.com/GuanceCloud/dd-trace-go/contrib/azure/apim-callout/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 // Logger adapts the tracer instrumentation logger

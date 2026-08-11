@@ -10,7 +10,7 @@
 // `orchestrion.yml` file.
 //
 // Orchestrion uses this file when users import
-// "github.com/DataDog/dd-trace-go/orchestrion/all` in their application's
+// "github.com/GuanceCloud/dd-trace-go/orchestrion/all` in their application's
 // `orchestrion.tool.go` file, intending to enable every available feature of
 // the tracer library.
 package main
@@ -33,8 +33,8 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 
 	_ "embed" // For go:embed
 )
@@ -66,7 +66,7 @@ func main() {
 	} else {
 		log.Println("Determining latest version of orchestrion...")
 		var buf bytes.Buffer
-		cmd := exec.Command("go", "list", "-m", "--versions", `-f={{ $v := "" }}{{ range .Versions }}{{ $v = . }}{{ end }}{{ $v }}`, "github.com/DataDog/orchestrion")
+		cmd := exec.Command("go", "list", "-m", "--versions", `-f={{ $v := "" }}{{ range .Versions }}{{ $v = . }}{{ end }}{{ $v }}`, "github.com/GuanceCloud/orchestrion")
 		cmd.Stdout = &buf
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -88,7 +88,7 @@ func main() {
 
 func generateRootConfig(rootDir string, orchestrionLatestVersion string) (map[string]string, error) {
 	var (
-		paths   = []string{"github.com/DataDog/dd-trace-go/v2/orchestrion"} // Allows access to the `/internal/` stuff such as CI Viz.
+		paths   = []string{"github.com/GuanceCloud/dd-trace-go/v2/orchestrion"} // Allows access to the `/internal/` stuff such as CI Viz.
 		modules = make(map[string]string)
 	)
 	err := filepath.WalkDir(rootDir, func(path string, entry fs.DirEntry, err error) error {
@@ -193,7 +193,7 @@ func generateRootConfig(rootDir string, orchestrionLatestVersion string) (map[st
 	}
 
 	// Make sure this is present in the modules map, as it's not a natural part of it...
-	modules["github.com/DataDog/dd-trace-go/orchestrion/all/v2"] = pkgDir
+	modules["github.com/GuanceCloud/dd-trace-go/orchestrion/all/v2"] = pkgDir
 	return modules, nil
 }
 
@@ -311,7 +311,7 @@ const (
 import (
 	"log"
 
-	"github.com/DataDog/orchestrion/runtime/built"
+	"github.com/GuanceCloud/orchestrion/runtime/built"
 )
 
 func main(){
@@ -325,8 +325,8 @@ func main(){
 package tools
 
 import (
-	_ "github.com/DataDog/orchestrion"
-	_ "github.com/DataDog/dd-trace-go/orchestrion/all/v2" // integration
+	_ "github.com/GuanceCloud/orchestrion"
+	_ "github.com/GuanceCloud/dd-trace-go/orchestrion/all/v2" // integration
 )
 `
 )
@@ -338,7 +338,7 @@ func validateValidConfig(modules map[string]string) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	if err := goCmd(tmp, "mod", "init", "github.com/DataDog/dd-trace-go.orchestrion"); err != nil {
+	if err := goCmd(tmp, "mod", "init", "github.com/GuanceCloud/dd-trace-go.orchestrion"); err != nil {
 		return fmt.Errorf("init module: %w", err)
 	}
 	mods := []string{"edit"}
@@ -363,7 +363,7 @@ func validateValidConfig(modules map[string]string) error {
 	logFile := filepath.Join(tmp, "orchestrion.log")
 	fmt.Println("Orchestrion log file is:", logFile)
 	if err := goCmd(tmp, "run",
-		"github.com/DataDog/orchestrion", "-log-level=trace", "-log-file", logFile,
+		"github.com/GuanceCloud/orchestrion", "-log-level=trace", "-log-file", logFile,
 		"go", "run", ".",
 	); err != nil {
 		return fmt.Errorf("go run: %w", err)

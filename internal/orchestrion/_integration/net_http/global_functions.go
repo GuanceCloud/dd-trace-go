@@ -14,7 +14,7 @@ import (
 )
 
 // TestCaseGlobalFunctions tests the aspect replacing global functions.
-// See: https://github.com/DataDog/orchestrion/issues/670 and https://github.com/DataDog/orchestrion/issues/674
+// See: https://github.com/GuanceCloud/orchestrion/issues/670 and https://github.com/GuanceCloud/orchestrion/issues/674
 // The issue is reproduced in this test since the receiver defined below is called `client`, same as the synthetic
 // import added by Orchestrion.
 type TestCaseGlobalFunctions struct {

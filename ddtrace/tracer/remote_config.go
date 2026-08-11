@@ -16,14 +16,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	internalffe "github.com/DataDog/dd-trace-go/v2/internal/openfeature"
-	"github.com/DataDog/dd-trace-go/v2/internal/remoteconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	internalffe "github.com/GuanceCloud/dd-trace-go/v2/internal/openfeature"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/remoteconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 
 	"github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
 )

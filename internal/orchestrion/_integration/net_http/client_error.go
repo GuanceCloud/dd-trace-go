@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
 )
 
 // TestCaseClientError checks of the net/http client instrumentation handles creates error if the returned status code is 4xx.

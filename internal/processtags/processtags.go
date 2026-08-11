@@ -16,8 +16,8 @@ import (
 
 	"github.com/DataDog/datadog-agent/pkg/trace/traceutil/normalize"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 const envProcessTagsEnabled = "DD_EXPERIMENTAL_PROPAGATE_PROCESS_TAGS_ENABLED"

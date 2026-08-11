@@ -8,10 +8,10 @@ package tracer
 import (
 	"context"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/options"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	illmobs "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // activeSpanContextKey is a context key for the snapshotted SpanContext.

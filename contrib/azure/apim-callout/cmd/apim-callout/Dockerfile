@@ -34,7 +34,7 @@ ENV DD_APPSEC_RULES=/app/rules.json
 FROM runtime-base AS runtime
 
 # Set opencontainers labels for Github container registry
-LABEL org.opencontainers.image.source=https://github.com/DataDog/dd-trace-go/tree/main/contrib/azure/apim-callout/cmd/apim-callout
+LABEL org.opencontainers.image.source=https://github.com/GuanceCloud/dd-trace-go/tree/main/contrib/azure/apim-callout/cmd/apim-callout
 LABEL org.opencontainers.image.description="An Azure APIM / Boomi HTTP Callout service with Datadog App & API Protection support"
 LABEL org.opencontainers.image.licenses=Apache-2.0
 

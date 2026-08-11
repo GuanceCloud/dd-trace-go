@@ -132,7 +132,7 @@ if [[ "$contrib" != "" ]]; then
       cd - > /dev/null
       continue
     fi
-    pkg_id="${pkgs[0]#github.com/DataDog/dd-trace-go/v2}"
+    pkg_id="${pkgs[0]#github.com/GuanceCloud/dd-trace-go/v2}"
     pkg_id="${pkg_id//\//_}"
     nice -n20 gotestsum --junitfile "./gotestsum-report.$pkg_id.xml" -- "${TAGS_FLAG[@]}" -race -v -coverprofile="contrib_coverage.$pkg_id.txt" -covermode=atomic "${pkgs[@]}"
     cd - > /dev/null

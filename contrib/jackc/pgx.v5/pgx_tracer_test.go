@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -274,7 +274,7 @@ func TestBatch(t *testing.T) {
 
 // TestConcurrentBatchRace asserts that concurrent batches executing on different
 // pool connections do not race on shared pgxTracer state. Run with -race.
-// Regression test for https://github.com/DataDog/dd-trace-go/issues/4668.
+// Regression test for https://github.com/GuanceCloud/dd-trace-go/issues/4668.
 func TestConcurrentBatchRace(t *testing.T) {
 	mt := mocktracer.Start()
 	defer mt.Stop()
@@ -417,7 +417,7 @@ func TestPoolName(t *testing.T) {
 	})
 }
 
-// https://github.com/DataDog/dd-trace-go/issues/2908
+// https://github.com/GuanceCloud/dd-trace-go/issues/2908
 func TestWrapTracer(t *testing.T) {
 	testCases := []struct {
 		name           string

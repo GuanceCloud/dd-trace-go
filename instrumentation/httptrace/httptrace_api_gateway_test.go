@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/normalizer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/normalizer"
 )
 
 func TestInferredProxySpans(t *testing.T) {

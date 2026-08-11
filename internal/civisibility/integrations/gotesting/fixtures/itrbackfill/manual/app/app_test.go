@@ -8,7 +8,7 @@ package app
 import (
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting/fixtures/itrbackfill/manual/lib"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting/fixtures/itrbackfill/manual/lib"
 )
 
 func TestCoversLib(t *testing.T) {

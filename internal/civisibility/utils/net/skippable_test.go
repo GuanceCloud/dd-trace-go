@@ -18,8 +18,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
 )
 
 func TestSkippableApiRequest(t *testing.T) {

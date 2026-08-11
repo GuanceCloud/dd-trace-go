@@ -19,10 +19,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec/events"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec/events"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/testutils"
 )
 
 func TestAppsec(t *testing.T) {

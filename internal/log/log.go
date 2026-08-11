@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 )
 
 // Level specifies the logging level that the log package prints at.

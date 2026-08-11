@@ -11,9 +11,9 @@ import (
 	"log"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/llmobs/dataset"
-	"github.com/DataDog/dd-trace-go/v2/llmobs/experiment"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/llmobs/dataset"
+	"github.com/GuanceCloud/dd-trace-go/v2/llmobs/experiment"
 )
 
 func ExampleNew() {

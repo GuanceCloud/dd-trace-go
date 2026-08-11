@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	telemetrylog "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	telemetrylog "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log"
 )
 
 type (

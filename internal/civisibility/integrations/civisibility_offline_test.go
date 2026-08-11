@@ -17,11 +17,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 func TestEnsureSettingsInitializationManifestModeSkipsRepositoryUpload(t *testing.T) {
@@ -98,7 +98,7 @@ func TestEnsureSettingsInitializationOnlineSettingsErrorRegistersCloseAction(t *
 	t.Setenv(constants.CIVisibilityAgentlessEnabledEnvironmentVariable, "true")
 	t.Setenv(constants.APIKeyEnvironmentVariable, "test_api_key")
 	t.Setenv(constants.CIVisibilityAgentlessURLEnvironmentVariable, server.URL)
-	t.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/DataDog/dd-trace-go.git")
+	t.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/GuanceCloud/dd-trace-go.git")
 	t.Setenv("DD_GIT_COMMIT_SHA", "1234567890abcdef1234567890abcdef12345678")
 	t.Setenv("DD_GIT_BRANCH", "refs/heads/main")
 
@@ -225,7 +225,7 @@ func TestEnsureSettingsInitializationAppliesEnvironmentOverrides(t *testing.T) {
 	t.Setenv(constants.CIVisibilityAgentlessEnabledEnvironmentVariable, "true")
 	t.Setenv(constants.APIKeyEnvironmentVariable, "test_api_key")
 	t.Setenv(constants.CIVisibilityAgentlessURLEnvironmentVariable, server.URL)
-	t.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/DataDog/dd-trace-go.git")
+	t.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/GuanceCloud/dd-trace-go.git")
 	t.Setenv("DD_GIT_COMMIT_SHA", "1234567890abcdef1234567890abcdef12345678")
 	t.Setenv("DD_GIT_BRANCH", "refs/heads/main")
 	t.Setenv(constants.CIVisibilityFlakyRetryEnabledEnvironmentVariable, "false")

@@ -8,8 +8,8 @@ package valkey
 import (
 	"github.com/valkey-io/valkey-go"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/options"
 )
 
 type config struct {

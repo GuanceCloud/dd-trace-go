@@ -16,14 +16,14 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations"
-	gotesting "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
-	civisibilitynet "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations"
+	gotesting "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
+	civisibilitynet "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 )
 
 const scenarioEnv = "DD_FAILNOW_SCENARIO"
@@ -306,7 +306,7 @@ func startManualMockServer(settings civisibilitynet.SettingsResponseData) (*http
 		constants.CIVisibilityAgentlessEnabledEnvironmentVariable: "1",
 		constants.CIVisibilityAgentlessURLEnvironmentVariable:     server.URL,
 		constants.APIKeyEnvironmentVariable:                       "12345",
-		"DD_GIT_REPOSITORY_URL":                                   "https://github.com/DataDog/dd-trace-go.git",
+		"DD_GIT_REPOSITORY_URL":                                   "https://github.com/GuanceCloud/dd-trace-go.git",
 		"DD_GIT_COMMIT_SHA":                                       "1234567890abcdef1234567890abcdef12345678",
 		"DD_GIT_BRANCH":                                           "main",
 	})

@@ -10,9 +10,9 @@ import (
 
 	"github.com/DataDog/go-libddwaf/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 type SubcontextOperation struct {

@@ -9,9 +9,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/datastreams/options"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	idatastreams "github.com/DataDog/dd-trace-go/v2/internal/datastreams"
+	"github.com/GuanceCloud/dd-trace-go/v2/datastreams/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	idatastreams "github.com/GuanceCloud/dd-trace-go/v2/internal/datastreams"
 )
 
 // dataStreamsContainer is an object that contains a data streams processor.

@@ -10,11 +10,11 @@ import (
 	"log/slog"
 	"time"
 
-	sharedinternal "github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/remoteconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/stableconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	telemetrylog "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	sharedinternal "github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/remoteconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/stableconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	telemetrylog "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log"
 )
 
 func init() {

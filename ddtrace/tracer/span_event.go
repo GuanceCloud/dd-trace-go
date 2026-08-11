@@ -8,7 +8,7 @@ package tracer
 import (
 	"golang.org/x/exp/constraints"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 //go:generate go run github.com/tinylib/msgp -unexported -marshal=false -o=span_event_msgp.go -tests=false

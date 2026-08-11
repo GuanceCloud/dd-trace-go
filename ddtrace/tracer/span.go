@@ -24,21 +24,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	traceinternal "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer/internal"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/errortrace"
-	sharedinternal "github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
-	"github.com/DataDog/dd-trace-go/v2/internal/locking/assert"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	iof "github.com/DataDog/dd-trace-go/v2/internal/openfeature"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
-	"github.com/DataDog/dd-trace-go/v2/internal/stacktrace"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/traceprof"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	traceinternal "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/errortrace"
+	sharedinternal "github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	illmobs "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking/assert"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	iof "github.com/GuanceCloud/dd-trace-go/v2/internal/openfeature"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/traceprof"
 
 	"github.com/tinylib/msgp/msgp"
 
@@ -951,7 +951,7 @@ func (s *Span) serializeSpanEvents() {
 }
 
 // recordFFEEvaluation records a feature flag evaluation for FFE span enrichment.
-// Used by github.com/DataDog/dd-trace-go/v2/openfeature via go:linkname.
+// Used by github.com/GuanceCloud/dd-trace-go/v2/openfeature via go:linkname.
 //
 // Feature flag evaluations are collected while a request is in progress and
 // copied onto the root span as tags when the span finishes. The temporary

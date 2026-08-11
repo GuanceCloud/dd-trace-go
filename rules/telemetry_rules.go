@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	telemetryLogPackage = "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	telemetryLogPackage = "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log"
 	telemetryLoggerType = telemetryLogPackage + ".Logger"
 )
 

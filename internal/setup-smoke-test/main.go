@@ -12,10 +12,10 @@ import (
 	"net/http"
 	"os"
 
-	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+	httptrace "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/profiler"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/profiler"
 )
 
 func main() {

@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/config/configtelemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/config/configtelemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 // equalFloat compares two float64 values, treating NaN as equal to NaN.

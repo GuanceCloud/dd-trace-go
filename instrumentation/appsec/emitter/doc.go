@@ -6,5 +6,5 @@
 // Package emitter provides functions and types used to instrument go libraries
 // to integrate them with Datadog AppSec features. The events produced by this
 // instrumentation can be listened to using the functions found in
-// github.com/DataDog/dd-trace-go/v2/internal/appsec/listener.
+// github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener.
 package emitter

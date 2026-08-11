@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/instrumentation/testutils/containers/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/containers/v2"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
 )
 
 type base struct {

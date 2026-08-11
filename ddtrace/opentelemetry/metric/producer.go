@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	ddversion "github.com/DataDog/dd-trace-go/v2/internal/version"
+	ddversion "github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/instrumentation"

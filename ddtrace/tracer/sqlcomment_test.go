@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -217,7 +217,7 @@ func TestSQLCommentCarrier(t *testing.T) {
 	}
 }
 
-// https://github.com/DataDog/dd-trace-go/issues/2837
+// https://github.com/GuanceCloud/dd-trace-go/issues/2837
 func TestSQLCommentCarrierInjectNilSpan(t *testing.T) {
 	tracer, err := newTracer()
 	require.NoError(t, err)

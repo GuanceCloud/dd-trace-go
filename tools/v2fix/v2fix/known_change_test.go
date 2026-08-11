@@ -18,37 +18,37 @@ func TestRewriteV1ImportPath(t *testing.T) {
 		{
 			name: "core package",
 			in:   "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer",
-			want: "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer",
+			want: "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer",
 		},
 		{
 			name: "contrib module root",
 			in:   "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http",
-			want: "github.com/DataDog/dd-trace-go/contrib/net/http/v2",
+			want: "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2",
 		},
 		{
 			name: "contrib subpackage",
 			in:   "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http/client",
-			want: "github.com/DataDog/dd-trace-go/contrib/net/http/v2/client",
+			want: "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/client",
 		},
 		{
 			name: "contrib nested module root",
 			in:   "gopkg.in/DataDog/dd-trace-go.v1/contrib/confluentinc/confluent-kafka-go/kafka",
-			want: "github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2",
+			want: "github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2",
 		},
 		{
 			name: "contrib nested module subpackage",
 			in:   "gopkg.in/DataDog/dd-trace-go.v1/contrib/confluentinc/confluent-kafka-go/kafka/producer",
-			want: "github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2/producer",
+			want: "github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2/producer",
 		},
 		{
 			name: "longest module prefix wins",
 			in:   "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/api/internal/gen_endpoints/config",
-			want: "github.com/DataDog/dd-trace-go/contrib/google.golang.org/api/internal/gen_endpoints/v2/config",
+			want: "github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/api/internal/gen_endpoints/v2/config",
 		},
 		{
 			name: "unknown contrib fallback",
 			in:   "gopkg.in/DataDog/dd-trace-go.v1/contrib/acme/custom/pkg",
-			want: "github.com/DataDog/dd-trace-go/contrib/acme/custom/pkg/v2",
+			want: "github.com/GuanceCloud/dd-trace-go/contrib/acme/custom/pkg/v2",
 		},
 	}
 

@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	kafkatrace "github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2"
-	"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
+	kafkatrace "github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var testCase = harness.KafkaTestCase(

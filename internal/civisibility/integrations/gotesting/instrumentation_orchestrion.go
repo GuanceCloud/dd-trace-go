@@ -18,14 +18,14 @@ import (
 	"time"
 	_ "unsafe" // required blank import to run orchestrion
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting/coverage"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	civisibilitynet "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting/coverage"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	civisibilitynet "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // ******************************************************************************************************************

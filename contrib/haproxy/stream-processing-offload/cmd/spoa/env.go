@@ -9,10 +9,10 @@ import (
 	"net"
 	"strconv"
 
-	streamprocessingoffload "github.com/DataDog/dd-trace-go/contrib/haproxy/stream-processing-offload/v2"
+	streamprocessingoffload "github.com/GuanceCloud/dd-trace-go/contrib/haproxy/stream-processing-offload/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
 )
 
 // IntEnv returns the parsed int value of an environment variable, or

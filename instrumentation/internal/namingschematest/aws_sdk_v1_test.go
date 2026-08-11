@@ -18,11 +18,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	awstrace "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws"
-	"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
+	awstrace "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 func awsSDKV1Session(opts ...awstrace.Option) *session.Session {

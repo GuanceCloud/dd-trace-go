@@ -10,9 +10,9 @@ import (
 	"strconv"
 	_ "unsafe" // for go:linkname
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/locking/assert"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking/assert"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // loadPropagatingTags returns the current propagating-tags snapshot. The

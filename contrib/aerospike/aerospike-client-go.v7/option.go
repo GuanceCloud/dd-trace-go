@@ -6,9 +6,9 @@
 package aerospike
 
 import (
-	"github.com/DataDog/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2/internal/tracing"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2/internal/tracing"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 type clientConfig struct {

@@ -9,9 +9,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs/transport"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 const (

@@ -10,7 +10,7 @@ package assert
 import (
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
 )
 
 // Note: go-mutexasserts uses os.Exit(1) instead of panic when assertions fail,

@@ -18,12 +18,12 @@ import (
 	"github.com/DataDog/go-libddwaf/v5/timer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
-	tracelib "github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/trace"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/limiter"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
+	tracelib "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/limiter"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/telemetrytest"
 )
 
 const ssrfURL = "http://169.254.169.254/latest/meta-data"

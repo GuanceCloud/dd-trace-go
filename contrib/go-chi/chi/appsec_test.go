@@ -15,9 +15,9 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/testutils"
 )
 
 func TestAppSec(t *testing.T) {

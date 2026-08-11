@@ -1,4 +1,4 @@
-module github.com/DataDog/dd-trace-go/v2/scripts/fixmodules
+module github.com/GuanceCloud/dd-trace-go/v2/scripts/fixmodules
 
 go 1.25.0
 

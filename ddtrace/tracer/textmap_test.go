@@ -16,11 +16,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httpmem"
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httpmem"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/stretchr/testify/assert"
@@ -2977,7 +2977,7 @@ func FuzzExtractTraceID128(f *testing.F) {
 	})
 }
 
-// Regression test for https://github.com/DataDog/dd-trace-go/issues/1944
+// Regression test for https://github.com/GuanceCloud/dd-trace-go/issues/1944
 func TestPropagatingTagsConcurrency(t *testing.T) {
 	// This test ensures Injection can be done concurrently.
 	trc, err := newTracer()

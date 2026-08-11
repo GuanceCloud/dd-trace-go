@@ -18,13 +18,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec/events"
-	wrapos "github.com/DataDog/dd-trace-go/v2/contrib/os"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/ossec"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	lfi "github.com/DataDog/dd-trace-go/v2/internal/appsec/listener/ossec"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec/events"
+	wrapos "github.com/GuanceCloud/dd-trace-go/v2/contrib/os"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/ossec"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	lfi "github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener/ossec"
 )
 
 func TestCmdiDetectorVectors(t *testing.T) {

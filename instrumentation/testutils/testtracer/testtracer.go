@@ -22,9 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tinylib/msgp/msgp"
 
-	llmobstransport "github.com/DataDog/dd-trace-go/v2/internal/llmobs/transport"
+	llmobstransport "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/transport"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 // AgentInfo defines the response from the agent /info endpoint.

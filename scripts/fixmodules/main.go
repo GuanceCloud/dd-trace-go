@@ -35,8 +35,8 @@ var (
 )
 
 var skipModules = []string{
-	"github.com/DataDog/dd-trace-go/tools/v2fix",
-	"github.com/DataDog/dd-trace-go/_tools",
+	"github.com/GuanceCloud/dd-trace-go/tools/v2fix",
+	"github.com/GuanceCloud/dd-trace-go/_tools",
 }
 
 func init() {
@@ -154,7 +154,7 @@ func main() {
 		for _, im := range imports {
 			// the module name and the import path might be different (when the imported package is a sub-package)
 			importModule := im
-			if strings.HasPrefix(im, "github.com/DataDog/dd-trace-go") {
+			if strings.HasPrefix(im, "github.com/GuanceCloud/dd-trace-go") {
 				if left, _, ok := strings.Cut(im, "/v2"); ok {
 					importModule = left + "/v2"
 				}

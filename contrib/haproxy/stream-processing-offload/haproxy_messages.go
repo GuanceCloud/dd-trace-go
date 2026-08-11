@@ -12,10 +12,10 @@ import (
 
 	"github.com/negasus/haproxy-spoe-go/request"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 // The following constants define the variable or message names used for communication between

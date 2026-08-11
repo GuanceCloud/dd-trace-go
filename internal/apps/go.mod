@@ -1,10 +1,10 @@
-module github.com/DataDog/dd-trace-go/internal/apps/v2
+module github.com/GuanceCloud/dd-trace-go/internal/apps/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	golang.org/x/sync v0.20.0
 )
 
@@ -85,7 +85,3 @@ require (
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/contrib/net/http/v2 => ../../contrib/net/http
-
-replace github.com/DataDog/dd-trace-go/v2 => ../..

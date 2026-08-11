@@ -21,11 +21,11 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/errortrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/errortrace"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 const (

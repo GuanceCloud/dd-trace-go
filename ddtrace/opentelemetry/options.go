@@ -8,7 +8,7 @@ package opentelemetry
 import (
 	"context"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 type contextOptionsKey struct{}

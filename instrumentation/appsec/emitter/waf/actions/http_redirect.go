@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // redirectActionParams are the dynamic parameters to be provided to a "redirect_request"

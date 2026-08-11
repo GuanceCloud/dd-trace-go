@@ -8,10 +8,10 @@ package integrations
 import (
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	internaltelemetry "github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	internaltelemetry "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 func resetCIVisibilityStateForTesting() {

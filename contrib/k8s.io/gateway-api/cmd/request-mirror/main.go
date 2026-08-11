@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"os"
 
-	gatewayapi "github.com/DataDog/dd-trace-go/contrib/k8s.io/gateway-api/v2"
+	gatewayapi "github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/gateway-api/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
 )
 
 var (

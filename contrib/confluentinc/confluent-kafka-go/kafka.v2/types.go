@@ -8,7 +8,7 @@ package kafka
 import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
-	"github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace"
 )
 
 type wMessage struct {

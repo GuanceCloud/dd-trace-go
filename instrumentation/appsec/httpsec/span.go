@@ -8,8 +8,8 @@ package httpsec
 import (
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	listenerhttpsec "github.com/DataDog/dd-trace-go/v2/internal/appsec/listener/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	listenerhttpsec "github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener/httpsec"
 )
 
 // SetSecurityTestingHeaderTags tags security-testing headers from the request.

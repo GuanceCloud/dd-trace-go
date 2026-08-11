@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/internal"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	internaltelemetry "github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	internaltelemetry "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/telemetrytest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

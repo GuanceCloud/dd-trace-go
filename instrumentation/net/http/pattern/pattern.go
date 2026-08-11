@@ -16,7 +16,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log"
 
 	"github.com/puzpuzpuz/xsync/v3"
 )

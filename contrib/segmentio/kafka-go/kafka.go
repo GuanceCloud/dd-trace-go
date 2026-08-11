@@ -3,17 +3,17 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-package kafka // import "github.com/DataDog/dd-trace-go/contrib/segmentio/kafka-go/v2"
+package kafka // import "github.com/GuanceCloud/dd-trace-go/contrib/segmentio/kafka-go/v2"
 
 import (
 	"context"
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/contrib/segmentio/kafka-go/v2/internal/tracing"
+	"github.com/GuanceCloud/dd-trace-go/contrib/segmentio/kafka-go/v2/internal/tracing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	_ "github.com/DataDog/dd-trace-go/v2/instrumentation" // Blank import to pass TestIntegrationEnabled test
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	_ "github.com/GuanceCloud/dd-trace-go/v2/instrumentation" // Blank import to pass TestIntegrationEnabled test
 
 	"github.com/segmentio/kafka-go"
 )

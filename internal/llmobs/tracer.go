@@ -9,7 +9,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/transport"
 )
 
 // Tracer represents the interface for the underlying APM tracer.

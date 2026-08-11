@@ -5,7 +5,7 @@
 ---
 # yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
 meta:
-  name: github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2
+  name: github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2
   description: High performance, extensible, minimalist Go web framework.
 
 aspects:
@@ -15,5 +15,5 @@ aspects:
     advice:
       - wrap-expression:
           imports:
-            echotrace: github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2
+            echotrace: github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2
           template: echotrace.Wrap({{ . }})

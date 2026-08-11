@@ -12,11 +12,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
-	"github.com/DataDog/dd-trace-go/v2/profiler"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/telemetrytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/profiler"
 
 	"github.com/stretchr/testify/assert"
 )

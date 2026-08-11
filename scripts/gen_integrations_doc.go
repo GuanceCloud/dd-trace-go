@@ -30,7 +30,7 @@ import (
 
 	"golang.org/x/mod/modfile"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 const outputPath = "./contrib/supported_integrations.md"
@@ -438,7 +438,7 @@ func runCommand(ctx context.Context, dir string, commandAndArgs ...string) ([]by
 }
 
 func integrationWithPackageURL(integrationName string) string {
-	modURL := fmt.Sprintf("github.com/DataDog/dd-trace-go/contrib/%s/v2", integrationName)
+	modURL := fmt.Sprintf("github.com/GuanceCloud/dd-trace-go/contrib/%s/v2", integrationName)
 	return modWithPkgDevURL("contrib/"+integrationName, modURL)
 }
 

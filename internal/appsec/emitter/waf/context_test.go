@@ -10,10 +10,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	tracelib "github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/trace"
-	appsectrace "github.com/DataDog/dd-trace-go/v2/internal/appsec/listener/trace"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	tracelib "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/trace"
+	appsectrace "github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion"
 )
 
 func TestContextOperationFinishClearsServiceEntryGLS(t *testing.T) {

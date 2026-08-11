@@ -26,12 +26,12 @@ func TestExtractThirdPartyLibraries(t *testing.T) {
 	}{
 		{
 			name: "gorilla/mux pattern",
-			goModContent: `module github.com/DataDog/dd-trace-go/contrib/gorilla/mux/v2
+			goModContent: `module github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2
 
 go 1.24.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.3.0-dev.1
+	github.com/GuanceCloud/dd-trace-go/v2 v2.3.0-dev.1
 	github.com/gorilla/mux v1.8.1
 	github.com/stretchr/testify v1.10.0
 )`,
@@ -39,12 +39,12 @@ require (
 		},
 		{
 			name: "gin-gonic/gin pattern",
-			goModContent: `module github.com/DataDog/dd-trace-go/contrib/gin-gonic/gin/v2
+			goModContent: `module github.com/GuanceCloud/dd-trace-go/contrib/gin-gonic/gin/v2
 
 go 1.24.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.3.0-dev.1
+	github.com/GuanceCloud/dd-trace-go/v2 v2.3.0-dev.1
 	github.com/gin-gonic/gin v1.10.1
 	github.com/stretchr/testify v1.10.0
 )`,
@@ -52,25 +52,25 @@ require (
 		},
 		{
 			name: "cloud.google.com pattern",
-			goModContent: `module github.com/DataDog/dd-trace-go/contrib/cloud.google.com/go/pubsub.v1/v2
+			goModContent: `module github.com/GuanceCloud/dd-trace-go/contrib/cloud.google.com/go/pubsub.v1/v2
 
 go 1.24.0
 
 require (
 	cloud.google.com/go/pubsub v1.37.0
-	github.com/DataDog/dd-trace-go/v2 v2.3.0-dev.1
+	github.com/GuanceCloud/dd-trace-go/v2 v2.3.0-dev.1
 	github.com/stretchr/testify v1.10.0
 )`,
 			expected: []string{"cloud.google.com/go/pubsub"},
 		},
 		{
 			name: "redis pattern - multiple versions",
-			goModContent: `module github.com/DataDog/dd-trace-go/contrib/go-redis/redis/v2
+			goModContent: `module github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis/v2
 
 go 1.24.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.3.0-dev.1
+	github.com/GuanceCloud/dd-trace-go/v2 v2.3.0-dev.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/stretchr/testify v1.10.0
 )`,
@@ -78,12 +78,12 @@ require (
 		},
 		{
 			name: "no third-party deps - only DataDog and testify",
-			goModContent: `module github.com/DataDog/dd-trace-go/contrib/internal/test/v2
+			goModContent: `module github.com/GuanceCloud/dd-trace-go/contrib/internal/test/v2
 
 go 1.24.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.3.0-dev.1
+	github.com/GuanceCloud/dd-trace-go/v2 v2.3.0-dev.1
 	github.com/stretchr/testify v1.10.0
 )`,
 			expected: nil,
@@ -158,7 +158,7 @@ func TestClassifySymbolWithGeneratedLibraries(t *testing.T) {
 	}{
 		{
 			name:     "datadog internal",
-			symbol:   symbol{Package: "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"},
+			symbol:   symbol{Package: "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"},
 			expected: frameTypeDatadog,
 		},
 		{

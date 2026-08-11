@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-package mocktracer // import "github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+package mocktracer // import "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
 
 import (
 	"encoding/json"
@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
-//go:linkname spanStart github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.spanStart
+//go:linkname spanStart github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.spanStart
 func spanStart(operationName string, sharedAttrs unsafe.Pointer, poolEnabled bool, options ...tracer.StartSpanOption) *tracer.Span
 
 func newSpan(operationName string, cfg *tracer.StartSpanConfig) *tracer.Span {

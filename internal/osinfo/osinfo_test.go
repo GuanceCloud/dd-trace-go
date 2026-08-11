@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/mod/semver"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/osinfo"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/osinfo"
 )
 
 func Test(t *testing.T) {

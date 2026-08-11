@@ -29,7 +29,7 @@ cd "${REPO_ROOT}"
 protoc \
     --go_out=internal/otelprocesscontext \
     --go_opt=paths=source_relative \
-    "--go_opt=Mprocesscontext.proto=github.com/DataDog/dd-trace-go/v2/internal/otelprocesscontext;otelprocesscontext" \
+    "--go_opt=Mprocesscontext.proto=github.com/GuanceCloud/dd-trace-go/v2/internal/otelprocesscontext;otelprocesscontext" \
     --proto_path="${OTEL_PROTO_DIR}" \
     --proto_path=internal/otelprocesscontext/proto \
     processcontext.proto

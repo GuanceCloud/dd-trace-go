@@ -16,15 +16,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/config"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec/events"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/baggage"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
-	instrumentationhttptrace "github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec/events"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/baggage"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
+	instrumentationhttptrace "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
 )
 
 type AfterRoundTrip = func(*http.Response, error) (*http.Response, error)

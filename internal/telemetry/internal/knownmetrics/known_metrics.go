@@ -8,7 +8,7 @@ package knownmetrics
 import (
 	"slices"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/transport"
 )
 
 type Declaration struct {

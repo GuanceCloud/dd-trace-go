@@ -757,6 +757,22 @@ func TestInvalidVersionStructuredError(t *testing.T) {
 	}
 }
 
+func TestGuanceExtensionVersion(t *testing.T) {
+	t.Parallel()
+	testLogger()
+
+	for _, version := range []string{"v2.9.0-ext", "v2.9.0-ext.1"} {
+		version := version
+		t.Run(version, func(t *testing.T) {
+			t.Parallel()
+			tmpDir := scaffoldRepo(t, "release-v2.9.x")
+			if err := validateVersionAndBranch(tmpDir, version); err != nil {
+				t.Fatalf("expected Guance extension version %q to be valid: %v", version, err)
+			}
+		})
+	}
+}
+
 // TestInvalidBranchStructuredError verifies that validateVersionAndBranch
 // returns a *StructuredError with code invalid_branch for branch-related
 // problems (wrong branch name, major/minor mismatch, detached HEAD).

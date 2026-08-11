@@ -8,7 +8,7 @@ package kgo
 import (
 	kgo "github.com/twmb/franz-go/pkg/kgo"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 // kafkaHeadersCarrier implements tracer.TextMapWriter and tracer.TextMapReader

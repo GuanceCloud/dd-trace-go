@@ -50,7 +50,7 @@ import (
 )
 
 const (
-	internalLogPackage     = "github.com/DataDog/dd-trace-go/v2/internal/log"
+	internalLogPackage     = "github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 	formatVerbRegexPattern = `.*%[+#]?v.*` // %v, %+v, %#v
 
 	// Pattern for %v as the last format verb (allows other non-format chars like \n after)

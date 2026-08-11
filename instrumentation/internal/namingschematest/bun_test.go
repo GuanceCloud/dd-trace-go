@@ -15,13 +15,13 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 
-	buntrace "github.com/DataDog/dd-trace-go/contrib/uptrace/bun/v2"
-	"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
+	buntrace "github.com/GuanceCloud/dd-trace-go/contrib/uptrace/bun/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
 
 	_ "github.com/lib/pq"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var bunTest = harness.TestCase{

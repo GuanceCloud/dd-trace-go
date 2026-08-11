@@ -20,9 +20,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/testutils"
 )
 
 func assertLogEntry(t *testing.T, rawEntry, wantMsg, wantLevel string, traceID string, spanID string, assertExtra func(t *testing.T, entry map[string]interface{})) {
@@ -231,7 +231,7 @@ func TestHandlerWithGroup(t *testing.T) {
 	})
 }
 
-// TestRecordClone is a regression test for https://github.com/DataDog/dd-trace-go/issues/2918.
+// TestRecordClone is a regression test for https://github.com/GuanceCloud/dd-trace-go/issues/2918.
 func TestRecordClone(t *testing.T) {
 	// start a new span
 	span, ctx := tracer.StartSpanFromContext(context.Background(), "test")

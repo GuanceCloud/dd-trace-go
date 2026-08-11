@@ -41,7 +41,7 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 type Logger struct {

@@ -15,13 +15,13 @@ import (
 
 	"github.com/DataDog/go-libddwaf/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/trace"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/limiter"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/stacktrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/waf/addresses"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/limiter"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace"
 )
 
 type (

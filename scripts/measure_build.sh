@@ -125,8 +125,8 @@ go mod download || die "go mod download failed"
 # For orchestrion mode, ensure the binary is installed (untimed)
 if [[ "$MODE" == "orchestrion" ]]; then
   message "Installing orchestrion binary..."
-  go install "github.com/DataDog/orchestrion" || die "Failed to install orchestrion"
-  ORCHESTRION_VERSION="$(go list -m -f '{{.Version}}' github.com/DataDog/orchestrion)"
+  go install "github.com/GuanceCloud/orchestrion" || die "Failed to install orchestrion"
+  ORCHESTRION_VERSION="$(go list -m -f '{{.Version}}' github.com/GuanceCloud/orchestrion)"
   message "  Orchestrion version: $ORCHESTRION_VERSION"
 fi
 

@@ -19,10 +19,10 @@ import (
 	"github.com/DataDog/go-libddwaf/v5"
 	"github.com/DataDog/go-libddwaf/v5/waferrors"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	telemetrylog "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	telemetrylog "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log"
 )
 
 var (

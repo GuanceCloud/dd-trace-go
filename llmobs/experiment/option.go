@@ -6,7 +6,7 @@
 package experiment
 
 import (
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/config"
 )
 
 type newCfg struct {

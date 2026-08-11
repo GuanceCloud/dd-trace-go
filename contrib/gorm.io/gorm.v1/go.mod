@@ -1,12 +1,12 @@
-module github.com/DataDog/dd-trace-go/contrib/gorm.io/gorm.v1/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/gorm.io/gorm.v1/v2
 
 go 1.25.0
 
 godebug x509negativeserial=1
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/database/sql/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/jackc/pgx/v5 v5.9.0
 	github.com/lib/pq v1.11.1
@@ -99,7 +99,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/contrib/database/sql/v2 => ../../database/sql
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

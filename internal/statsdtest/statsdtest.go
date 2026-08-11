@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-package statsdtest // import "github.com/DataDog/dd-trace-go/v2/internal/statsdtest"
+package statsdtest // import "github.com/GuanceCloud/dd-trace-go/v2/internal/statsdtest"
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
 )
 
 type callType int64

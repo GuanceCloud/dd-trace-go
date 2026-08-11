@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-package sql // import "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
+package sql // import "github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2"
 
 import (
 	"context"
@@ -11,12 +11,12 @@ import (
 	"math"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec/events"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/sqlsec"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec/events"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/sqlsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/options"
 )
 
 var _ driver.Conn = (*TracedConn)(nil)
@@ -324,7 +324,7 @@ func (tp *traceParams) tryTrace(ctx context.Context, qtype QueryType, query stri
 		// Not a user error: driver is telling sql package that an
 		// optional interface method is not implemented. There is
 		// nothing to trace here.
-		// See: https://github.com/DataDog/dd-trace-go/issues/270
+		// See: https://github.com/GuanceCloud/dd-trace-go/issues/270
 		return
 	}
 	if tp.cfg.ignoreQueryTypes != nil {

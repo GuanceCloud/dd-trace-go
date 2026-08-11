@@ -45,12 +45,12 @@ func TestRenderTable(t *testing.T) {
 	res := AuditResult{
 		Unmigrated: []ConfigEntry{
 			{Name: "DD_SITE", CallSites: []CallSite{
-				{File: "a.go", Line: 1, Package: "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"},
+				{File: "a.go", Line: 1, Package: "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"},
 			}},
 		},
 		MigratedButStillReadOutside: []ConfigEntry{
 			{Name: "DD_SERVICE", CallSites: []CallSite{
-				{File: "b.go", Line: 1, Package: "github.com/DataDog/dd-trace-go/v2/profiler"},
+				{File: "b.go", Line: 1, Package: "github.com/GuanceCloud/dd-trace-go/v2/profiler"},
 			}},
 		},
 	}
@@ -79,11 +79,11 @@ func TestRenderTable(t *testing.T) {
 func TestFilterByPackage(t *testing.T) {
 	reads := map[string][]CallSite{
 		"DD_SITE": {
-			{Package: "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"},
-			{Package: "github.com/DataDog/dd-trace-go/v2/profiler"},
+			{Package: "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"},
+			{Package: "github.com/GuanceCloud/dd-trace-go/v2/profiler"},
 		},
 		"DD_FOO": {
-			{Package: "github.com/DataDog/dd-trace-go/v2/profiler"},
+			{Package: "github.com/GuanceCloud/dd-trace-go/v2/profiler"},
 		},
 	}
 	got := filterByPackage(reads, "ddtrace/tracer")

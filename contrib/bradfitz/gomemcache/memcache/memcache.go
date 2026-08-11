@@ -9,7 +9,7 @@
 // the same methods, so should be seamless for existing applications. It also
 // has an additional `WithContext` method which can be used to connect a span
 // to an existing trace.
-package memcache // import "github.com/DataDog/dd-trace-go/contrib/bradfitz/gomemcache/v2/memcache"
+package memcache // import "github.com/GuanceCloud/dd-trace-go/contrib/bradfitz/gomemcache/v2/memcache"
 
 import (
 	"context"
@@ -17,9 +17,9 @@ import (
 
 	"github.com/bradfitz/gomemcache/memcache"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 const componentName = "bradfitz/gomemcache/memcache"

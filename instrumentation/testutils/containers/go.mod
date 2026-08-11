@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/instrumentation/testutils/containers/v2
+module github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/containers/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/kafka v0.42.0
@@ -66,5 +66,3 @@ require (
 	golang.org/x/sys v0.45.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

@@ -9,7 +9,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/DataDog/dd-trace-go/v2/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/llmobs"
 )
 
 func ExampleStartLLMSpan() {

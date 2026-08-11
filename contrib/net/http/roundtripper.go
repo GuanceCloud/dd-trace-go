@@ -8,8 +8,8 @@ package http
 import (
 	"net/http"
 
-	internal "github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/wrap"
+	internal "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/wrap"
 )
 
 type roundTripper struct {

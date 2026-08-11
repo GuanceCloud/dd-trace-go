@@ -36,8 +36,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/glsleak"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/glsleak"
 )
 
 func main() {

@@ -1,10 +1,10 @@
-module github.com/DataDog/dd-trace-go/contrib/99designs/gqlgen/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2
 
 go 1.25.0
 
 require (
 	github.com/99designs/gqlgen v0.17.92
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/stretchr/testify v1.11.1
 	github.com/vektah/gqlparser/v2 v2.5.35
 )
@@ -87,5 +87,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

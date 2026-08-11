@@ -5,7 +5,7 @@
 
 package options
 
-import "github.com/DataDog/dd-trace-go/v2/internal"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal"
 
 // Copy should be used any time existing options are copied into
 // a new locally scoped set of options. This is to avoid data races and

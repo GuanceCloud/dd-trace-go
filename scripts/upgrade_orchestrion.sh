@@ -15,7 +15,7 @@ fi
 ORCHESTRION_DIRS="${ORCHESTRION_DIRS:-internal/orchestrion/_integration orchestrion/all}"
 
 echo "Checking Orchestrion upgrade to ${ORCHESTRION_VERSION}"
-TARGET_VERSION="$(cd "$ROOT_DIR" && go list -m "github.com/DataDog/orchestrion@${ORCHESTRION_VERSION}" 2> /dev/null | awk '{print $2}')"
+TARGET_VERSION="$(cd "$ROOT_DIR" && go list -m "github.com/GuanceCloud/orchestrion@${ORCHESTRION_VERSION}" 2> /dev/null | awk '{print $2}')"
 if [[ -z "$TARGET_VERSION" ]]; then
   echo "Error: Could not resolve Orchestrion version ${ORCHESTRION_VERSION}"
   exit 1
@@ -31,7 +31,7 @@ for dir in ${ORCHESTRION_DIRS}; do
   fi
 
   CURRENT_VERSION=""
-  if ! CURRENT_VERSION="$(cd "$module_dir" && go list -m github.com/DataDog/orchestrion 2> /dev/null | awk '{print $2}')"; then
+  if ! CURRENT_VERSION="$(cd "$module_dir" && go list -m github.com/GuanceCloud/orchestrion 2> /dev/null | awk '{print $2}')"; then
     CURRENT_VERSION=""
   fi
 
@@ -65,7 +65,7 @@ for dir in ${ORCHESTRION_DIRS}; do
   (
     echo "Upgrading Orchestrion in ${dir}"
     cd "$module_dir"
-    go get "github.com/DataDog/orchestrion@${ORCHESTRION_VERSION}"
+    go get "github.com/GuanceCloud/orchestrion@${ORCHESTRION_VERSION}"
     go mod tidy
     go mod verify
     echo "Orchestrion upgraded in ${dir}"

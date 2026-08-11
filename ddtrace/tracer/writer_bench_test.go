@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/statsdtest"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/statsdtest"
 )
 
 func BenchmarkAgentTraceWriterAdd(b *testing.B) {

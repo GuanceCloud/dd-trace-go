@@ -1,10 +1,10 @@
-module github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2
 
 go 1.25.0
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.8.3
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/aws/aws-lambda-go v1.46.0
 	github.com/aws/aws-sdk-go-v2 v1.41.5
 	github.com/aws/aws-sdk-go-v2/config v1.29.17
@@ -105,5 +105,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

@@ -10,9 +10,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	ddotel "github.com/DataDog/dd-trace-go/v2/ddtrace/opentelemetry"
-	ddtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	ddotel "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/opentelemetry"
+	ddtracer "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

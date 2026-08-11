@@ -31,7 +31,7 @@ jobs:
         run: |
           PATH="${{ github.workspace }}/bin:$PATH"
           OUTPUT=$(./scripts/apidiff.sh --base-ref "$APIDIFF_BASE_REF" \
-            github.com/DataDog/dd-trace-go/v2/ddtrace/tracer 2>&1) || true
+            github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer 2>&1) || true
 
           if [[ -z "$OUTPUT" ]]; then
             OUTPUT="No API changes detected."
@@ -57,7 +57,7 @@ jobs:
             --incompatible-only \
             --exit-code \
             --base-ref "$APIDIFF_BASE_REF" \
-            github.com/DataDog/dd-trace-go/v2/ddtrace/tracer || apidiff_exit=$?
+            github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer || apidiff_exit=$?
 
           if [[ $apidiff_exit -eq 0 ]]; then
             echo "No incompatible API changes detected."

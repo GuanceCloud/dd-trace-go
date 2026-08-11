@@ -25,12 +25,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/osinfo"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/transport"
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/osinfo"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 )
 
 func TestNewClient(t *testing.T) {

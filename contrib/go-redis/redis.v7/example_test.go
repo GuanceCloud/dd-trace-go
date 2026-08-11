@@ -9,10 +9,10 @@ import (
 	"context"
 	"time"
 
-	redistrace "github.com/DataDog/dd-trace-go/contrib/go-redis/redis.v7/v2"
+	redistrace "github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v7/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/go-redis/redis/v7"
 )

@@ -15,7 +15,7 @@ When migrating a configuration value from another package (e.g. `ddtrace/tracer`
 - **Delete old state**: remove the migrated field from any legacy config structs once no longer referenced.
 - **Update tests**: tests should call the singleton setter/getter (or set env vars) rather than mutating legacy fields.
 
-Sample migration PR: https://github.com/DataDog/dd-trace-go/pull/4214
+Sample migration PR: https://github.com/GuanceCloud/dd-trace-go/pull/4214
 
 ## Cross-product gate
 

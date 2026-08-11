@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 type lcovLineCoverage struct {

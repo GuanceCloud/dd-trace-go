@@ -11,7 +11,7 @@ import (
 	nurl "net/url"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
 )
 
 func parseSQLServerURL(url string) (map[string]string, error) {

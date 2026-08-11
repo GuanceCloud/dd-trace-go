@@ -8,8 +8,8 @@ Both hooks and middleware are used.
 
 ```go
 import (
-    mcpgotrace "github.com/DataDog/dd-trace-go/contrib/mark3labs/mcp-go/v2"
-    "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+    mcpgotrace "github.com/GuanceCloud/dd-trace-go/contrib/mark3labs/mcp-go/v2"
+    "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
     "github.com/mark3labs/mcp-go/server"
 )
 

@@ -21,14 +21,14 @@ import (
 
 	"github.com/DataDog/go-libddwaf/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/apisec"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/listener/waf"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/apisec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener/waf"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
 )
 
 func TestClientIP(t *testing.T) {

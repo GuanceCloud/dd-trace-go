@@ -12,9 +12,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
-	ddlog "github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
+	ddlog "github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // dummyTestSpan is a dummy implementation of the TestSpan interface for testing purposes.

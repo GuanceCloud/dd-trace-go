@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/hostname/cachedfetch"
-	"github.com/DataDog/dd-trace-go/v2/internal/hostname/httputils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/hostname/cachedfetch"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/hostname/httputils"
 )
 
 // declare these as vars not const to ease testing

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/config"
 )
 
 func TestStart(t *testing.T) {

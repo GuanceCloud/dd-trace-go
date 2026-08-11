@@ -12,7 +12,7 @@ Integrations that are considered *clients* (http clients, grpc clients, sql clie
 
 While there are good arguments to be made that client integrations should take the same service name as everything else in the service, that's not how the library is intended to function today. As a work-around, most integrations have a `WithService` `Option` that will allow you to override the default. If the integration you are using cannot be configured the way you want, please open an issue to discuss adding as option.
 
-See also: https://github.com/DataDog/dd-trace-go/pull/603
+See also: https://github.com/GuanceCloud/dd-trace-go/pull/603
 
 ## Why are client integration spans not measured?
 This is primarily for 2 reasons (most client integrations are not measured by default):
@@ -21,12 +21,12 @@ This is primarily for 2 reasons (most client integrations are not measured by de
 
 Some client-like integrations choose to set `tracer.Measured` explicitly (for example, certain messaging consumers), but the default posture is to avoid measuring client calls unless you opt in.
 
-For example, `net/http` [server tracing](https://github.com/DataDog/dd-trace-go/blob/927b5dbf037e267cb3330c93a8d8580c4889bb9c/httptrace/httptrace.go#L136-L143):
+For example, `net/http` [server tracing](https://github.com/GuanceCloud/dd-trace-go/blob/927b5dbf037e267cb3330c93a8d8580c4889bb9c/httptrace/httptrace.go#L136-L143):
 ```
 span, ctx := tracer.StartSpanFromContext(requestContext, instr.OperationName(instrumentation.ComponentServer, nil), nopts...)
 ```
 
-and `net/http` [client tracing](https://github.com/DataDog/dd-trace-go/blob/927b5dbf037e267cb3330c93a8d8580c4889bb9c/contrib/net/http/internal/wrap/roundtrip.go#L121-L123):
+and `net/http` [client tracing](https://github.com/GuanceCloud/dd-trace-go/blob/927b5dbf037e267cb3330c93a8d8580c4889bb9c/contrib/net/http/internal/wrap/roundtrip.go#L121-L123):
 ```
 span, ctx := tracer.StartSpanFromContext(req.Context(), spanName, opts...)
 ```

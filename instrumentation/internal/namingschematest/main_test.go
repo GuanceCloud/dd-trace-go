@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
-	"github.com/DataDog/dd-trace-go/instrumentation/testutils/containers/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/containers/v2"
 )
 
 var kafkaAddr string

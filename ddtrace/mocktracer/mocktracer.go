@@ -17,11 +17,11 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/internal"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/envconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/datastreams"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/envconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/datastreams"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 )

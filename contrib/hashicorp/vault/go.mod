@@ -1,10 +1,10 @@
-module github.com/DataDog/dd-trace-go/contrib/hashicorp/vault/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/hashicorp/vault/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/hashicorp/vault/api v1.15.0
 	github.com/hashicorp/vault/sdk v0.15.0
 	github.com/stretchr/testify v1.11.1
@@ -103,7 +103,3 @@ require (
 // due to the migration to github.com/hashicorp/go-metrics.
 // This will be a no-op once hashicorp/vault/api is updated to use the new go-metrics package.
 replace github.com/armon/go-metrics => github.com/armon/go-metrics v0.4.1
-
-replace github.com/DataDog/dd-trace-go/contrib/net/http/v2 => ../../net/http
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

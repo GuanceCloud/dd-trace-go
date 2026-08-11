@@ -9,8 +9,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
 )
 
 var _ proxy.RequestHeaders = (*requestHeader)(nil)

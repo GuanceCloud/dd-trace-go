@@ -14,7 +14,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DataDog/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver/graph/model"
+	"github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver/graph/model"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 

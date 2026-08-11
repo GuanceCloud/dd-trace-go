@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec/events"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo"
-	emitter "github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	listener "github.com/DataDog/dd-trace-go/v2/internal/appsec/listener/httpsec"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/listener/waf"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec/events"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo"
+	emitter "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	listener "github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/listener/waf"
 )
 
 var (

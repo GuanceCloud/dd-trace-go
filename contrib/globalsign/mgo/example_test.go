@@ -8,9 +8,9 @@ package mgo_test
 import (
 	"log"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
-	ddmgo "github.com/DataDog/dd-trace-go/contrib/globalsign/mgo/v2"
+	ddmgo "github.com/GuanceCloud/dd-trace-go/contrib/globalsign/mgo/v2"
 )
 
 func Example() {

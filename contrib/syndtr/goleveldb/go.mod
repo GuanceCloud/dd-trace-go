@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/contrib/syndtr/goleveldb/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/syndtr/goleveldb/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/stretchr/testify v1.11.1
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 )
@@ -82,5 +82,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

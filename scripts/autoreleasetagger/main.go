@@ -89,7 +89,7 @@ var (
 	// as normal, but which are never tagged or pushed (e.g. internal test helpers
 	// that carry no public API).
 	defaultUntaggedModules = []string{
-		"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2",
+		"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2",
 	}
 	defaultExcludedModules = []string{}
 	defaultExcludedDirs    = []string{
@@ -104,8 +104,8 @@ var (
 	// versionTagRe matches the var Tag line in version.go.
 	versionTagRe = regexp.MustCompile(`^(var Tag = )".+"$`)
 
-	// semverRe matches a valid release version: vMAJOR.MINOR.PATCH(-rc.N)?
-	semverRe = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)(-rc\.\d+)?$`)
+	// semverRe matches upstream releases and GuanceCloud extension releases.
+	semverRe = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)(-(?:rc\.\d+|ext(?:\.\d+)?))?$`)
 
 	// releaseBranchRe matches a release branch name: release-vMAJOR.MINOR.x
 	releaseBranchRe = regexp.MustCompile(`^release-v(\d+)\.(\d+)\.x$`)
@@ -431,7 +431,7 @@ func validateVersionAndBranch(root, version string) error {
 	if vm == nil {
 		return newStructuredError(
 			errInvalidVersion,
-			fmt.Sprintf("invalid version %q: must match v<MAJOR>.<MINOR>.<PATCH>(-rc.<N>)?", version),
+			fmt.Sprintf("invalid version %q: must match v<MAJOR>.<MINOR>.<PATCH>[-rc.<N>|-ext[.<N>]]", version),
 			map[string]any{"version": version},
 		)
 	}

@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -166,9 +166,9 @@ func TestResolveSourceFilePath(t *testing.T) {
 		},
 		{
 			name:               "semantic import version from main module path",
-			runtimePath:        "github.com/DataDog/dd-trace-go/v2/internal/civisibility/foo_test.go",
-			tags:               map[string]string{constants.CIWorkspacePath: workspace, constants.GitRepositoryURL: "https://github.com/DataDog/dd-trace-go.git"},
-			mainModulePath:     "github.com/DataDog/dd-trace-go/v2",
+			runtimePath:        "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/foo_test.go",
+			tags:               map[string]string{constants.CIWorkspacePath: workspace, constants.GitRepositoryURL: "https://github.com/GuanceCloud/dd-trace-go.git"},
+			mainModulePath:     "github.com/GuanceCloud/dd-trace-go/v2",
 			expectedRelative:   "internal/civisibility/foo_test.go",
 			expectedFilesystem: "/ci/workspace/internal/civisibility/foo_test.go",
 			expectedKnown:      true,
@@ -217,8 +217,8 @@ func TestResolveSourceFilePath(t *testing.T) {
 		},
 		{
 			name:               "semantic import version not inferred without build info",
-			runtimePath:        "github.com/DataDog/dd-trace-go/v2/internal/civisibility/foo_test.go",
-			tags:               map[string]string{constants.CIWorkspacePath: workspace, constants.GitRepositoryURL: "https://github.com/DataDog/dd-trace-go.git"},
+			runtimePath:        "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/foo_test.go",
+			tags:               map[string]string{constants.CIWorkspacePath: workspace, constants.GitRepositoryURL: "https://github.com/GuanceCloud/dd-trace-go.git"},
 			expectedRelative:   "v2/internal/civisibility/foo_test.go",
 			expectedFilesystem: "/ci/workspace/v2/internal/civisibility/foo_test.go",
 			expectedKnown:      true,

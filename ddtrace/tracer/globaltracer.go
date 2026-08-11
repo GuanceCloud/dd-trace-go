@@ -5,7 +5,7 @@
 
 package tracer
 
-import "github.com/DataDog/dd-trace-go/v2/ddtrace/internal"
+import "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/internal"
 
 func init() {
 	var tracer Tracer = &NoopTracer{}

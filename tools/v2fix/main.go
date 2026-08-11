@@ -6,7 +6,7 @@
 package main
 
 import (
-	"github.com/DataDog/dd-trace-go/tools/v2fix/v2fix"
+	"github.com/GuanceCloud/dd-trace-go/tools/v2fix/v2fix"
 	"golang.org/x/tools/go/analysis/singlechecker"
 )
 

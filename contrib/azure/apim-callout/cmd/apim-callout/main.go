@@ -19,12 +19,12 @@ import (
 	"syscall"
 	"time"
 
-	apimcallout "github.com/DataDog/dd-trace-go/contrib/azure/apim-callout/v2"
+	apimcallout "github.com/GuanceCloud/dd-trace-go/contrib/azure/apim-callout/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
 )
 
 type config struct {

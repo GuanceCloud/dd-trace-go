@@ -15,8 +15,8 @@ import (
 
 	"github.com/puzpuzpuz/xsync/v3"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/stacktrace"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/transport"
 )
 
 const (

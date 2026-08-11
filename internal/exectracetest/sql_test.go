@@ -16,10 +16,10 @@ import (
 	"github.com/mattn/go-sqlite3"
 	exptrace "golang.org/x/exp/trace"
 
-	sqltrace "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
+	sqltrace "github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httpmem"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httpmem"
 )
 
 func must[T any](val T, err error) T {

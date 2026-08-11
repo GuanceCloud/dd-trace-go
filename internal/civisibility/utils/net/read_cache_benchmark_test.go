@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
 )
 
 // readCacheBenchmarkRequest is a stable semantic request that resembles the
@@ -178,7 +178,7 @@ func newReadCacheBenchmarkClient() *client {
 		baseURL:       "https://api.example.com/api?token=secret",
 		environment:   "benchmark",
 		serviceName:   "benchmark-service",
-		repositoryURL: "https://github.com/DataDog/dd-trace-go.git",
+		repositoryURL: "https://github.com/GuanceCloud/dd-trace-go.git",
 		commitSha:     "1234567890abcdef1234567890abcdef12345678",
 		branchName:    "main",
 		testConfigurations: testConfigurations{

@@ -16,14 +16,14 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 const (
 	v1ImportPrefix        = "gopkg.in/DataDog/dd-trace-go.v1"
 	v1ContribImportPrefix = v1ImportPrefix + "/contrib/"
-	v2ImportPrefix        = "github.com/DataDog/dd-trace-go/v2"
-	v2ContribImportPrefix = "github.com/DataDog/dd-trace-go/contrib/"
+	v2ImportPrefix        = "github.com/GuanceCloud/dd-trace-go/v2"
+	v2ContribImportPrefix = "github.com/GuanceCloud/dd-trace-go/contrib/"
 )
 
 // v2ContribModulePaths contains contrib module roots where /v2 must be inserted.

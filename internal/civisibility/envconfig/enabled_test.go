@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	internalenv "github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	internalenv "github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

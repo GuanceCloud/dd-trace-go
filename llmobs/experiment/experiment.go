@@ -16,12 +16,12 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/errortrace"
-	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs/transport"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
-	"github.com/DataDog/dd-trace-go/v2/llmobs/dataset"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/errortrace"
+	illmobs "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/llmobs/dataset"
 )
 
 var (

@@ -6,7 +6,7 @@
 package openfeature
 
 import (
-	internalffe "github.com/DataDog/dd-trace-go/v2/internal/openfeature"
+	internalffe "github.com/GuanceCloud/dd-trace-go/v2/internal/openfeature"
 )
 
 // attachProvider wires the given provider to the global RC subscription

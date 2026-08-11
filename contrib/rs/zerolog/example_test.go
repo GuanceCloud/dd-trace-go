@@ -12,9 +12,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	ddzerolog "github.com/DataDog/dd-trace-go/contrib/rs/zerolog/v2"
+	ddzerolog "github.com/GuanceCloud/dd-trace-go/contrib/rs/zerolog/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func ExampleHook() {

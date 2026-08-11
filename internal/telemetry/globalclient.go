@@ -11,11 +11,11 @@ import (
 
 	"github.com/puzpuzpuz/xsync/v3"
 
-	globalinternal "github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/knownmetrics"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/transport"
+	globalinternal "github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/knownmetrics"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/transport"
 )
 
 var (

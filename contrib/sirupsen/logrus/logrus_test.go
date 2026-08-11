@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

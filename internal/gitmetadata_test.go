@@ -25,8 +25,8 @@ func TestRemoveCredentials(t *testing.T) {
 		},
 		{
 			name:     "https url without credential",
-			in:       "https://github.com/DataDog/dd-trace-go",
-			expected: "https://github.com/DataDog/dd-trace-go",
+			in:       "https://github.com/GuanceCloud/dd-trace-go",
+			expected: "https://github.com/GuanceCloud/dd-trace-go",
 		},
 		{
 			name:     "ssh url without credential",
@@ -35,18 +35,18 @@ func TestRemoveCredentials(t *testing.T) {
 		},
 		{
 			name:     "https url with user",
-			in:       "https://token@github.com/DataDog/dd-trace-go",
-			expected: "https://github.com/DataDog/dd-trace-go",
+			in:       "https://token@github.com/GuanceCloud/dd-trace-go",
+			expected: "https://github.com/GuanceCloud/dd-trace-go",
 		},
 		{
 			name:     "https url with user and password",
-			in:       "https://user:password@github.com/DataDog/dd-trace-go",
-			expected: "https://github.com/DataDog/dd-trace-go",
+			in:       "https://user:password@github.com/GuanceCloud/dd-trace-go",
+			expected: "https://github.com/GuanceCloud/dd-trace-go",
 		},
 		{
 			name:     "invalid url without scheme",
-			in:       "github.com/DataDog/dd-trace-go",
-			expected: "github.com/DataDog/dd-trace-go",
+			in:       "github.com/GuanceCloud/dd-trace-go",
+			expected: "github.com/GuanceCloud/dd-trace-go",
 		},
 	}
 	for _, tc := range testCases {
@@ -69,13 +69,13 @@ func TestGetTagsFromBinary(t *testing.T) {
 		{
 			name: "build info with module path",
 			expected: map[string]string{
-				TagGoPath: "github.com/DataDog/dd-trace-go",
+				TagGoPath: "github.com/GuanceCloud/dd-trace-go",
 			},
 		},
 		{
 			name: "build info with module path and git repository",
 			expected: map[string]string{
-				TagGoPath:    "github.com/DataDog/dd-trace-go",
+				TagGoPath:    "github.com/GuanceCloud/dd-trace-go",
 				TagCommitSha: "123456",
 			},
 		},

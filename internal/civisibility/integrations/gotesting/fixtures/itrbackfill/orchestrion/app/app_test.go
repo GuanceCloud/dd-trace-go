@@ -8,8 +8,8 @@ package app
 import (
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting/fixtures/itrbackfill/orchestrion/lib"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting/fixtures/itrbackfill/orchestrion/otherlib"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting/fixtures/itrbackfill/orchestrion/lib"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting/fixtures/itrbackfill/orchestrion/otherlib"
 )
 
 func TestCoversLib(t *testing.T) {

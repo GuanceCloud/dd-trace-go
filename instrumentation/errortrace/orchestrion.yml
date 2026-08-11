@@ -22,7 +22,7 @@ aspects:
       - prepend-statements:
           order: 100
           imports:
-            errortrace: github.com/DataDog/dd-trace-go/v2/instrumentation/errortrace
+            errortrace: github.com/GuanceCloud/dd-trace-go/v2/instrumentation/errortrace
           template: |-
             {{ $ret := .Function.LastResultThatImplements "error" }}
             {{ with $ret }}

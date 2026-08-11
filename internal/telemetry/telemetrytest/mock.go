@@ -7,9 +7,9 @@
 package telemetrytest
 
 import (
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/knownmetrics"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/internal/transport"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/knownmetrics"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/internal/transport"
 
 	"github.com/stretchr/testify/mock"
 )

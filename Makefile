@@ -129,11 +129,11 @@ fix/go/diff: ## Preview go fix modernizations (dry-run)
 
 .PHONY: apidiff
 apidiff: tools-install ## Run semantic API diff for ddtrace/tracer against main
-	$(BIN_PATH) ./scripts/apidiff.sh github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
+	$(BIN_PATH) ./scripts/apidiff.sh github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
 
 .PHONY: apidiff/incompatible
 apidiff/incompatible: tools-install ## Show only breaking (incompatible) API changes for ddtrace/tracer
-	$(BIN_PATH) ./scripts/apidiff.sh --incompatible-only --exit-code github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
+	$(BIN_PATH) ./scripts/apidiff.sh --incompatible-only --exit-code github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
 
 .PHONY: tmp/make-help.txt
 tmp/make-help.txt:

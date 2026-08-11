@@ -16,12 +16,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/envconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/envconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 type (

@@ -7,7 +7,7 @@
 //
 // Deprecated: The AWS SDK for Go v1 is deprecated. Please migrate to github.com/aws/aws-sdk-go-v2 and use the corresponding integration.
 // This integration will be removed in a future release.
-package aws // import "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws"
+package aws // import "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws"
 
 import (
 	"errors"
@@ -26,10 +26,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/aws/aws-sdk-go/service/sqs"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 const componentName = "aws/aws-sdk-go/aws"
@@ -42,9 +42,9 @@ func init() {
 
 const (
 	// SendHandlerName is the name of the Datadog NamedHandler for the Send phase of an awsv1 request
-	SendHandlerName = "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws/handlers.Send"
+	SendHandlerName = "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws/handlers.Send"
 	// CompleteHandlerName is the name of the Datadog NamedHandler for the Complete phase of an awsv1 request
-	CompleteHandlerName = "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws/handlers.Complete"
+	CompleteHandlerName = "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws/handlers.Complete"
 )
 
 type handlers struct {

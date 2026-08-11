@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/instrumentation/testutils/containers/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/containers/v2"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-redis/redis"
 	"github.com/google/uuid"
@@ -20,8 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	testredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
 )
 
 type TestCase struct {

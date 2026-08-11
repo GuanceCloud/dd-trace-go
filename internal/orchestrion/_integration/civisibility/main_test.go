@@ -16,7 +16,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DataDog/orchestrion/runtime/built"
+	"github.com/GuanceCloud/orchestrion/runtime/built"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -47,7 +47,7 @@ func TestMain(m *testing.M) {
 	// module event
 	events.
 		CheckEventsByType("test_module_end", 1).
-		CheckEventsByResourceName("github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/civisibility", 1)
+		CheckEventsByResourceName("github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/civisibility", 1)
 
 	// test suite event
 	events.CheckEventsByType("test_suite_end", 1).

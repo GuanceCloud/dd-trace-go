@@ -14,8 +14,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion"
 )
 
 // Result is the retained-heap measurement of a MeasureLeak run.

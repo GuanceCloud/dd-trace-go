@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
 )
 
 func BenchmarkHTTPTransportSend(b *testing.B) {

@@ -33,18 +33,18 @@ import (
 	"go.uber.org/goleak"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/internal/tracerstats"
-	traceinternal "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/remoteconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/statsdtest"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/internal/tracerstats"
+	traceinternal "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/remoteconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/statsdtest"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/stretchr/testify/assert"
@@ -100,7 +100,7 @@ func TestMain(m *testing.M) {
 	// TODO(felixge): We should try to get rid of all the ignored functions
 	// below. And we should definitely try to not add any new ones here!
 	opts := []goleak.Option{
-		goleak.IgnoreAnyFunction("github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.initalizeDynamicInstrumentationRemoteConfigState.func1"),
+		goleak.IgnoreAnyFunction("github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.initalizeDynamicInstrumentationRemoteConfigState.func1"),
 	}
 	if err := goleak.Find(opts...); err != nil {
 		fmt.Fprintf(os.Stderr, "goleak: Errors on successful test run: %v\n\n", err)
@@ -2021,7 +2021,7 @@ func TestPushTrace(t *testing.T) {
 }
 
 func TestTracerFlush(t *testing.T) {
-	// https://github.com/DataDog/dd-trace-go/issues/377
+	// https://github.com/GuanceCloud/dd-trace-go/issues/377
 	tracer, transport, flush, stop, err := startTestTracer(t)
 	assert.Nil(t, err)
 	defer stop()

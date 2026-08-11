@@ -12,9 +12,9 @@ import (
 	"strings"
 	_ "unsafe" // for go:linkname
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	logger "github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	logger "github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 type (

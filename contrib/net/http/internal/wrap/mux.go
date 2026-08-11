@@ -8,13 +8,13 @@ package wrap
 import (
 	"net/http"
 
-	internal "github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/pattern"
+	internal "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/pattern"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
 )
 
 // ServeMux is an HTTP request multiplexer that traces all the incoming requests.

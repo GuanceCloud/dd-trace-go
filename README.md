@@ -1,21 +1,21 @@
-[![Main Branch and Release Tests](https://github.com/DataDog/dd-trace-go/actions/workflows/main-branch-tests.yml/badge.svg)](https://github.com/DataDog/dd-trace-go/actions/workflows/main-branch-tests.yml)
-[![System Tests](https://github.com/DataDog/dd-trace-go/actions/workflows/system-tests.yml/badge.svg)](https://github.com/DataDog/dd-trace-go/actions/workflows/system-tests.yml)
-[![CodeQL](https://github.com/DataDog/dd-trace-go/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/DataDog/dd-trace-go/actions/workflows/codeql-analysis.yml)
-[![APM Parametric Tests](https://github.com/DataDog/dd-trace-go/actions/workflows/parametric-tests.yml/badge.svg)](https://github.com/DataDog/dd-trace-go/actions/workflows/parametric-tests.yml)
+[![Main Branch and Release Tests](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/main-branch-tests.yml/badge.svg)](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/main-branch-tests.yml)
+[![System Tests](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/system-tests.yml/badge.svg)](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/system-tests.yml)
+[![CodeQL](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/codeql-analysis.yml)
+[![APM Parametric Tests](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/parametric-tests.yml/badge.svg)](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/parametric-tests.yml)
 [![codecov](https://codecov.io/gh/DataDog/dd-trace-go/branch/v1/graph/badge.svg?token=jGG20Xhv8i)](https://codecov.io/gh/DataDog/dd-trace-go)
 
-[![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2)
+[![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2)
 
 ### Datadog Client Libraries for Go
 
 This repository contains Go packages for the client-side components of the Datadog product suite for Application Performance Monitoring, Continuous Profiling and Application Security Monitoring of Go applications.
 
 - [Datadog Application Performance Monitoring (APM)](https://docs.datadoghq.com/tracing/): Trace requests as they flow across web servers, databases, and microservices so that developers have great visibility into bottlenecks and troublesome requests.
-The package [`github.com/DataDog/dd-trace-go/v2/ddtrace/tracer`](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/ddtrace/tracer) allows you to trace any piece of your Go code, and commonly used Go libraries can be automatically traced thanks to our out-of-the-box integrations which can be found in the package [`github.com/DataDog/dd-trace-go/v2/contrib`](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/contrib).
+The package [`github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer`](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer) allows you to trace any piece of your Go code, and commonly used Go libraries can be automatically traced thanks to our out-of-the-box integrations which can be found in the package [`github.com/GuanceCloud/dd-trace-go/v2/contrib`](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/contrib).
 <!-- # TODO: review contrib URL -->
 
 - [Datadog Go Continuous Profiler](https://docs.datadoghq.com/profiler/): Continuously profile your Go apps to find CPU, memory, and synchronization bottlenecks, broken down by function name, and line number, to significantly reduce end-user latency and infrastructure costs.
-The package [`github.com/DataDog/dd-trace-go/v2/profiler`](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/profiler) allows you to periodically collect and send Go profiles to the Datadog API.
+The package [`github.com/GuanceCloud/dd-trace-go/v2/profiler`](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/profiler) allows you to periodically collect and send Go profiles to the Datadog API.
 
 - [Datadog Application Security Management (ASM)](https://docs.datadoghq.com/security_platform/application_security/) provides in-app monitoring and protection against application-level attacks that aim to exploit code-level vulnerabilities, such as a Server-Side-Request-Forgery (SSRF), a SQL injection (SQLi), or Reflected Cross-Site-Scripting (XSS). ASM identifies services exposed to application attacks and leverages in-app security rules to detect and protect against threats in your application environment. ASM is not a standalone Go package and is transparently integrated into the APM tracer. You can simply enable it with [`DD_APPSEC_ENABLED=true`](https://docs.datadoghq.com/security/application_security/enabling/go).
 
@@ -24,21 +24,21 @@ The package [`github.com/DataDog/dd-trace-go/v2/profiler`](https://pkg.go.dev/gi
 This module contains many packages, but most users should probably install the two packages below:
 
 ```bash
-go get github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
-go get github.com/DataDog/dd-trace-go/v2/profiler
+go get github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
+go get github.com/GuanceCloud/dd-trace-go/v2/profiler
 ```
 
-Additionally there are many [contrib](./contrib) packages, published as nested modules, that can be installed to automatically instrument and trace commonly used Go libraries such as [net/http](https://pkg.go.dev/github.com/DataDog/dd-trace-go/contrib/net/http/v2), [gorilla/mux](https://pkg.go.dev/github.com/DataDog/dd-trace-go/contrib/gorilla/mux/v2) or [database/sql/v2](https://pkg.go.dev/github.com/DataDog/dd-trace-go/contrib/database/sql/v2)
+Additionally there are many [contrib](./contrib) packages, published as nested modules, that can be installed to automatically instrument and trace commonly used Go libraries such as [net/http](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2), [gorilla/mux](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2) or [database/sql/v2](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2)
 
 ```
-go get github.com/DataDog/dd-trace-go/contrib/gorilla/mux/v2
+go get github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2
 ```
 
 If you installed more packages than you intended, you can use `go mod tidy` to remove any unused packages.
 
 ### Documentation
 
-- [APM Tracing API](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/ddtrace)
+- [APM Tracing API](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/ddtrace)
 - [APM Tracing Go Applications](https://docs.datadoghq.com/tracing/setup/go/)
 - [Continuous Go Profiler](https://docs.datadoghq.com/tracing/profiler/enabling/go)
 - [Application Security Monitoring](https://docs.datadoghq.com/security_platform/application_security/setup_and_configure/?code-lang=go)

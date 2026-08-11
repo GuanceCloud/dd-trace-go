@@ -13,7 +13,7 @@ import (
 
 	"go.uber.org/goleak"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion"
 )
 
 func TestTraceTaskEndContext(t *testing.T) {
@@ -149,7 +149,7 @@ func TestWithExecutionTracedGLSCleanup(t *testing.T) {
 }
 
 // TestGLSLeakReproduction reproduces the leak from
-// https://github.com/DataDog/orchestrion/issues/782 using only the push
+// https://github.com/GuanceCloud/orchestrion/issues/782 using only the push
 // APIs (WithExecutionTraced + WithExecutionNotTraced) WITHOUT any pop.
 // This simulates the behavior on main where no PopExecutionTraced exists.
 //
@@ -207,7 +207,7 @@ func TestGLSStackDoesNotGrowOnRepeatedCycles(t *testing.T) {
 }
 
 // TestGLSLeaksOnCrossGoroutineFinish demonstrates the known GLS leak described
-// in https://github.com/DataDog/orchestrion/issues/782. When span.Finish
+// in https://github.com/GuanceCloud/orchestrion/issues/782. When span.Finish
 // (cleanup) runs on a different goroutine, GLSPopFunc is a no-op — it cannot
 // pop the original goroutine's stack. The subsequent PopExecutionTraced pops
 // the top entry (false from ScopedExecutionNotTraced) but leaves the bottom
@@ -316,7 +316,7 @@ func TestGLSMemoryStabilitySameGoroutine(t *testing.T) {
 
 // TestGLSMemoryGrowthCrossGoroutine proves that cross-goroutine cleanup causes
 // measurable heap growth proportional to the number of iterations. This is the
-// reproduction test for https://github.com/DataDog/orchestrion/issues/782.
+// reproduction test for https://github.com/GuanceCloud/orchestrion/issues/782.
 //
 // At production RPS (~6k), each leaked entry costs ~16 bytes of []any backing
 // storage plus map overhead, leading to ~345MB/hour of unbounded growth.

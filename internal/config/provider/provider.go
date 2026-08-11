@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	configtelemetry "github.com/DataDog/dd-trace-go/v2/internal/config/configtelemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	configtelemetry "github.com/GuanceCloud/dd-trace-go/v2/internal/config/configtelemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 // configSource is a single origin of configuration key-value pairs.

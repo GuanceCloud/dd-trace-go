@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	internaltestserver "github.com/DataDog/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver"
+	internaltestserver "github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
 )
 
 type testServerResponse struct {

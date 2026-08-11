@@ -21,7 +21,7 @@ This directory contains a collection of apps that can be used for such purposes.
 
 ### Manually via CI
 
-1. Follow [this link](https://github.com/DataDog/dd-trace-go/actions/workflows/test-apps.yml) to open the test workflow in GH Actions.
+1. Follow [this link](https://github.com/GuanceCloud/dd-trace-go/actions/workflows/test-apps.yml) to open the test workflow in GH Actions.
 2. Click `Run workflow`
 3. Select the scenarios you want to run.
 4. Configure any other parameters you want to change.

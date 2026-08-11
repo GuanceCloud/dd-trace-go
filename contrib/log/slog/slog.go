@@ -4,7 +4,7 @@
 // Copyright 2016 Datadog, Inc.
 
 // Package slog provides functions to correlate logs and traces using log/slog package (https://pkg.go.dev/log/slog).
-package slog // import "github.com/DataDog/dd-trace-go/contrib/log/slog/v2"
+package slog // import "github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2"
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/options"
 )
 
 var cfg = newConfig()

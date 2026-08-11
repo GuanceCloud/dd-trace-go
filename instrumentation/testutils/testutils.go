@@ -14,20 +14,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/datastreams"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/normalizer"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/statsdtest"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/config"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/datastreams"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/normalizer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/statsdtest"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/telemetrytest"
 )
 
-//go:linkname decodeTestingPayload github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.decodeTestingPayload
+//go:linkname decodeTestingPayload github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.decodeTestingPayload
 func decodeTestingPayload(buf []byte) (map[string]any, error)
 
 func SetGlobalServiceName(t *testing.T, val string) {
@@ -136,7 +136,7 @@ func NewMockStatsdClient() *MockStatsdClient {
 	return &MockStatsdClient{}
 }
 
-//go:linkname setSpanContextPropagatingTag github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.setSpanContextPropagatingTag
+//go:linkname setSpanContextPropagatingTag github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.setSpanContextPropagatingTag
 func setSpanContextPropagatingTag(ctx *tracer.SpanContext, k, v string)
 
 // SetPropagatingTag sets a propagating tag on the given span context.

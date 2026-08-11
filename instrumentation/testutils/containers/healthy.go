@@ -13,7 +13,7 @@ import (
 
 	"github.com/testcontainers/testcontainers-go"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
 )
 
 // SkipIfProviderIsNotHealthy calls [testcontainers.SkipIfProviderIsNotHealthy] to skip tests of

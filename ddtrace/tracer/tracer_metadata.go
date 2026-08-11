@@ -8,7 +8,7 @@ import (
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	resourcev1 "go.opentelemetry.io/proto/otlp/resource/v1"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/otelprocesscontext"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/otelprocesscontext"
 )
 
 // Metadata represents the configuration of the tracer.

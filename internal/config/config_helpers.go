@@ -12,10 +12,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	configtelemetry "github.com/DataDog/dd-trace-go/v2/internal/config/configtelemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	configtelemetry "github.com/GuanceCloud/dd-trace-go/v2/internal/config/configtelemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 // DefaultSocketDSDPath is the UDS socket path probed during DogStatsD

@@ -13,8 +13,8 @@ package llmobs
 import (
 	"context"
 
-	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	illmobs "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // SpanFromContext retrieves the active LLMObs span from the given context.

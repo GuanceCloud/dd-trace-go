@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/DataDog/orchestrion/runtime/built"
+	"github.com/GuanceCloud/orchestrion/runtime/built"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

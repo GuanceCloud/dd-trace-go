@@ -1,11 +1,11 @@
-module github.com/DataDog/dd-trace-go/v2/internal/traceprof/traceproftest
+module github.com/GuanceCloud/dd-trace-go/v2/internal/traceprof/traceproftest
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/google.golang.org/grpc/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/contrib/julienschmidt/httprouter/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/grpc/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/stretchr/testify v1.11.1
@@ -85,10 +85,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/DataDog/dd-trace-go/contrib/google.golang.org/grpc/v2 => ../../../contrib/google.golang.org/grpc
+replace github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/grpc/v2 => ../../../contrib/google.golang.org/grpc
 
-replace github.com/DataDog/dd-trace-go/contrib/julienschmidt/httprouter/v2 => ../../../contrib/julienschmidt/httprouter
+replace github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2 => ../../../contrib/julienschmidt/httprouter
 
-replace github.com/DataDog/dd-trace-go/v2 => ../../..
+replace github.com/GuanceCloud/dd-trace-go/v2 => ../../..
 
-replace github.com/DataDog/dd-trace-go/instrumentation/testutils/grpc/v2 => ../../../instrumentation/testutils/grpc
+replace github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/grpc/v2 => ../../../instrumentation/testutils/grpc

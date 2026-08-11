@@ -40,7 +40,7 @@ linters:
       - path-except: "^ddtrace/tracer/"
         linters:
           - forbidigo
-        text: "use github.com/DataDog/dd-trace-go/v2/internal/locking\\.(RW)?Mutex instead of sync\\.(RW)?Mutex"
+        text: "use github.com/GuanceCloud/dd-trace-go/v2/internal/locking\\.(RW)?Mutex instead of sync\\.(RW)?Mutex"
   settings:
     forbidigo:
       forbid:
@@ -49,9 +49,9 @@ linters:
         - pattern: "^os\\.LookupEnv$"
           msg: "use internal/env.Lookup instead of os.LookupEnv"
         - pattern: "sync\\.Mutex"
-          msg: "use github.com/DataDog/dd-trace-go/v2/internal/locking.Mutex instead of sync.Mutex"
+          msg: "use github.com/GuanceCloud/dd-trace-go/v2/internal/locking.Mutex instead of sync.Mutex"
         - pattern: "sync\\.RWMutex"
-          msg: "use github.com/DataDog/dd-trace-go/v2/internal/locking.RWMutex instead of sync.RWMutex"
+          msg: "use github.com/GuanceCloud/dd-trace-go/v2/internal/locking.RWMutex instead of sync.RWMutex"
       exclude_godoc_examples: true
       analyze_types: true
     modernize:
@@ -77,7 +77,7 @@ linters:
             - "!**/instrumentation/testutils/sql/sql.go"
           deny:
             - pkg: "log"
-              desc: "Use github.com/DataDog/dd-trace-go/v2/internal/log instead of standard log package"
+              desc: "Use github.com/GuanceCloud/dd-trace-go/v2/internal/log instead of standard log package"
           allow:
             - "log/slog"
     gocritic:
@@ -94,18 +94,18 @@ linters:
       require-string-key: true
       # no-printf-like: true
       rules:
-        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Debug
-        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Warn
-        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Error
-        - github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.Info
-        - github.com/DataDog/dd-trace-go/v2/internal/log.Debug
-        - github.com/DataDog/dd-trace-go/v2/internal/log.Warn
-        - github.com/DataDog/dd-trace-go/v2/internal/log.Error
-        - github.com/DataDog/dd-trace-go/v2/internal/log.Info
-        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Debug
-        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Info
-        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Warn
-        - (github.com/DataDog/dd-trace-go/v2/instrumentation.Logger).Error
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log.Debug
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log.Warn
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log.Error
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log.Info
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/log.Debug
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/log.Warn
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/log.Error
+        - github.com/GuanceCloud/dd-trace-go/v2/internal/log.Info
+        - (github.com/GuanceCloud/dd-trace-go/v2/instrumentation.Logger).Debug
+        - (github.com/GuanceCloud/dd-trace-go/v2/instrumentation.Logger).Info
+        - (github.com/GuanceCloud/dd-trace-go/v2/instrumentation.Logger).Warn
+        - (github.com/GuanceCloud/dd-trace-go/v2/instrumentation.Logger).Error
     revive:
       rules:
         - name: var-naming
@@ -131,4 +131,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/DataDog/dd-trace-go/v2
+        - github.com/GuanceCloud/dd-trace-go/v2

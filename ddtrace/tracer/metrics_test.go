@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	globalinternal "github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/statsdtest"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	globalinternal "github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/statsdtest"
 )
 
 func withStatsdClient(s globalinternal.StatsdClient) StartOption {

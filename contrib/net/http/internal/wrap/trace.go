@@ -8,7 +8,7 @@ package wrap
 import (
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
 )
 
 // TraceAndServe serves the handler h using the given ResponseWriter and Request, applying tracing

@@ -9,9 +9,9 @@ import (
 	"context"
 	"log"
 
-	kgotrace "github.com/DataDog/dd-trace-go/contrib/twmb/franz-go/v2"
+	kgotrace "github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 )

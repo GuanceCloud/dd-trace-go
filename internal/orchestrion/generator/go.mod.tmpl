@@ -1,4 +1,4 @@
-module github.com/DataDog/dd-trace-go/orchestrion/all/v2
+module github.com/GuanceCloud/dd-trace-go/orchestrion/all/v2
 
 go {{ .GoVersion }}
 
@@ -6,7 +6,7 @@ require (
 {{- range .Modules }}
 	{{ index . 0 }} {{ $.VersionTag }}
 {{- end }}
-	github.com/DataDog/orchestrion {{ .OrchestrionLatest }}
+	github.com/GuanceCloud/orchestrion {{ .OrchestrionLatest }}
 )
 
 {{/*

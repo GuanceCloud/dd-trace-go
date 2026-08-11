@@ -1,4 +1,4 @@
-[![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/contrib)
+[![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/contrib)
 
 The purpose of these packages is to provide tracing on top of commonly used packages from the standard library as well as the
 community in a "plug-and-play" manner. This means that by simply importing the appropriate path, functions are exposed having
@@ -24,7 +24,7 @@ First, find the library which you'd like to integrate with. The naming conventio
 
 Important: the package itself should retain its un-versioned name. For example, the integration under `user/repo.v2` stays as `package repo`, and does not become `package repo.v2`.
 
-All of these packages must be imported using an import URL following the schema `github.com/DataDog/dd-trace-go/contrib/<package path>/v2`.
+All of these packages must be imported using an import URL following the schema `github.com/GuanceCloud/dd-trace-go/contrib/<package path>/v2`.
 
 Second, there are a few tags that should be found in all integration spans:
 
@@ -40,7 +40,7 @@ All integrations are housed in this directory as a submodule. Each submodule sho
 
 1. A central file with the name `<integration_name>.go`.
 2. A testing file with the name `<integration_name>_test.go`.
-3. `example_test.go` that serves as public godoc documentation with an example of how to initialize and use the integration for godocs. A good overview can be seen on our [godoc](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/contrib) page.
+3. `example_test.go` that serves as public godoc documentation with an example of how to initialize and use the integration for godocs. A good overview can be seen on our [godoc](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/contrib) page.
 4. [OPTIONAL] `orchestrion.yml` file to define auto-instrumentation behavior where supported.
 
 Any code that might be shared across multiple contribs lives in [instrumentation](../instrumentation/).

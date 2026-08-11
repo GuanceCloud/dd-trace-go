@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
 )
 
 func TestCanCollect(t *testing.T) {

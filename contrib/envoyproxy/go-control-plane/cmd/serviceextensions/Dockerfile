@@ -25,7 +25,7 @@ RUN go build -tags=appsec -o ./contrib/envoyproxy/go-control-plane/cmd/serviceex
 FROM alpine:3.24.1
 
 # Set opencontainers labels for Github container registry
-LABEL org.opencontainers.image.source=https://github.com/DataDog/dd-trace-go/tree/main/contrib/envoyproxy/go-control-plane/cmd/serviceextensions
+LABEL org.opencontainers.image.source=https://github.com/GuanceCloud/dd-trace-go/tree/main/contrib/envoyproxy/go-control-plane/cmd/serviceextensions
 LABEL org.opencontainers.image.description="An Envoy External Processor service with Datadog App & API Protection support"
 LABEL org.opencontainers.image.licenses=Apache-2.0
 

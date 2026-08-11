@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/v2/contrib/aws/datadog-lambda-go/test/integration_tests/error
+module github.com/GuanceCloud/dd-trace-go/v2/contrib/aws/datadog-lambda-go/test/integration_tests/error
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.1-ext
 	github.com/aws/aws-lambda-go v1.46.0
 )
 
@@ -18,12 +18,12 @@ require (
 	github.com/DataDog/datadog-agent/pkg/trace/stats v0.79.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/trace/traceutil v0.79.0 // indirect
 	github.com/DataDog/datadog-go/v5 v5.8.3 // indirect
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5 // indirect
 	github.com/DataDog/go-libddwaf/v5 v5.0.0 // indirect
 	github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20260217080614-b0f4edc38a6d // indirect
 	github.com/DataDog/go-sqllexer v0.2.1 // indirect
 	github.com/DataDog/go-tuf v1.1.1-0.5.2 // indirect
 	github.com/DataDog/sketches-go v1.4.8 // indirect
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.5 // indirect
@@ -102,6 +102,6 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2 => ../../..
+replace github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 => ../../..
 
-replace github.com/DataDog/dd-trace-go/v2 => ../../../../../..
+replace github.com/GuanceCloud/dd-trace-go/v2 => ../../../../../..

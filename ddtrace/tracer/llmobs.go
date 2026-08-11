@@ -9,7 +9,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
 )
 
 var (

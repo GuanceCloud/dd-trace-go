@@ -53,7 +53,7 @@ func TestSegmentPrefixTrie_PathSegments(t *testing.T) {
 		input    string
 		expected bool
 	}{
-		{"github.com/DataDog/dd-trace-go", true},
+		{"github.com/GuanceCloud/dd-trace-go", true},
 		{"github.com/DataDog", true},
 		{"github.com/gorilla/mux", true},
 		{"cloud.google.com/go/storage", true},

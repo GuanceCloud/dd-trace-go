@@ -10,7 +10,7 @@ package fasthttp
 import (
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/harness"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/harness"
 )
 
 func Test(t *testing.T) {

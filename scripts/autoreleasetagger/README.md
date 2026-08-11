@@ -54,7 +54,7 @@ Usage of ./autoreleasetagger:
   -root string
     	Path to the root directory (defaults to current directory) (default ".")
   -version string
-    	Target release version (e.g. v2.9.0-rc.2)
+	Target release version (e.g. v2.9.0-rc.2 or v2.10.1-ext)
 ```
 
 
@@ -134,7 +134,7 @@ The `error` field uses a fixed vocabulary:
 | `dirty_tree` | The working tree has uncommitted changes or staged modifications. `details.modified_files` lists the affected paths. | Abort and alert. A clean checkout should never be dirty before the tool runs. |
 | `tags_exist` | One or more target tags already exist — locally or on the remote — pointing at a **different** commit than HEAD. `details.conflicts` lists `{tag, commit, source}` triples where `source` is `"local"` or `"remote"`. | Alert the release manager. Manual investigation required before retrying (delete the conflicting tags or investigate the diverged commit). |
 | `multi_commit_violation` | The tool produced more than one commit — invariant violated. This is a bug in the tool, not a recoverable state. | Abort immediately and file a bug. Do not retry until fixed. |
-| `invalid_version` | The `--version` argument does not match `v<MAJOR>.<MINOR>.<PATCH>(-rc.<N>)?`. | Abort and alert. The pipeline should not have constructed a bad version string. |
+| `invalid_version` | The `--version` argument is not an upstream release/RC or a GuanceCloud `-ext` release. | Abort and alert. The pipeline should not have constructed a bad version string. |
 | `invalid_branch` | The current branch is not a `release-v<MAJOR>.<MINOR>.x` branch, the checkout is in detached HEAD state, or the version's `MAJOR.MINOR` does not match the branch. | Abort and alert. Check out the correct release branch by name (`git checkout release-v<MAJOR>.<MINOR>.x`) before retrying. |
 | `internal` | An unexpected internal error (wraps any error that does not carry a structured code). | Abort and alert. |
 

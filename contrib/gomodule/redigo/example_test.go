@@ -10,9 +10,9 @@ import (
 	"log"
 	"time"
 
-	redigotrace "github.com/DataDog/dd-trace-go/contrib/gomodule/redigo/v2"
+	redigotrace "github.com/GuanceCloud/dd-trace-go/contrib/gomodule/redigo/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/gomodule/redigo/redis"
 )

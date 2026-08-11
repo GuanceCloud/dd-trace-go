@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,7 +43,7 @@ func resetSourceCacheTestState(t *testing.T) {
 	resetCIVisibilityStateForTesting()
 	utils.AddCITagsMap(map[string]string{
 		constants.CIWorkspacePath:  sourcePathRepositoryRoot(t),
-		constants.GitRepositoryURL: "https://github.com/DataDog/dd-trace-go.git",
+		constants.GitRepositoryURL: "https://github.com/GuanceCloud/dd-trace-go.git",
 	})
 	t.Cleanup(resetCIVisibilityStateForTesting)
 }

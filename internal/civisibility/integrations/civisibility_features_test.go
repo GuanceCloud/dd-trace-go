@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	civisibilitynet "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	civisibilitynet "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
 )
 
 func TestSearchCommitsResponseMissingCommitsPreservesLocalOrder(t *testing.T) {

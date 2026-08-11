@@ -21,12 +21,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	civisibilityutils "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	civisibilityutils "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/telemetrytest"
 )
 
 func TestClientAgentModeUDSSettingsEndpoint(t *testing.T) {
@@ -241,7 +241,7 @@ func TestClientAgentModeUDSCoverageReportEndpoint(t *testing.T) {
 		require.Equal(t, FormatLCOV, event["format"])
 		require.Equal(t, "main", event[constants.GitBranch])
 		require.Equal(t, "1234567890abcdef1234567890abcdef12345678", event[constants.GitCommitSHA])
-		require.Equal(t, "https://github.com/DataDog/dd-trace-go.git", event[constants.GitRepositoryURL])
+		require.Equal(t, "https://github.com/GuanceCloud/dd-trace-go.git", event[constants.GitRepositoryURL])
 		require.Equal(t, ContentTypeOctetStream, parts["coverage"].contentType)
 		require.Equal(t, "coverage.gz", parts["coverage"].fileName)
 		require.Equal(t, lcovReport, gunzipCoverageReportPart(t, parts["coverage"].body))
@@ -365,7 +365,7 @@ func setCiVisibilityUDSAgentEnv(path, socketURL string) {
 	os.Setenv("DD_TRACE_AGENT_URL", socketURL)
 	os.Setenv("DD_SERVICE", "uds-service")
 	os.Setenv("DD_ENV", "uds-env")
-	os.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/DataDog/dd-trace-go.git")
+	os.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/GuanceCloud/dd-trace-go.git")
 	os.Setenv("DD_GIT_COMMIT_SHA", "1234567890abcdef1234567890abcdef12345678")
 	os.Setenv("DD_GIT_COMMIT_MESSAGE", "fix uds client")
 	os.Setenv("DD_GIT_BRANCH", "main")

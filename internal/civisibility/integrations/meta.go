@@ -5,7 +5,7 @@
 
 package integrations
 
-import "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+import "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 // ciVisibilityMetaValueMaxChars is the maximum number of characters allowed in
 // CI Visibility event meta values.

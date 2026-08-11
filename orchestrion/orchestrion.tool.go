@@ -8,5 +8,5 @@
 package orchestrion
 
 import (
-	_ "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting" // integration
+	_ "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting" // integration
 )

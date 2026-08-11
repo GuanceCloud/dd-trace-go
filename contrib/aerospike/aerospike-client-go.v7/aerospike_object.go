@@ -10,7 +10,7 @@ package aerospike
 import (
 	as "github.com/aerospike/aerospike-client-go/v7"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 // PutObject invokes and traces Client.PutObject.

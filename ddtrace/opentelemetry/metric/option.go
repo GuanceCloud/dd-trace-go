@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
 )
 
 // config holds the configuration for the MeterProvider

@@ -9,11 +9,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/DataDog/orchestrion/runtime/built"
+	"github.com/GuanceCloud/orchestrion/runtime/built"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/agent"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/agent"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
 )
 
 // TestCasePreBootstrap is an optional interface for test cases that need to

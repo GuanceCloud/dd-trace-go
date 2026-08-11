@@ -9,10 +9,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/appsec"
-	"github.com/DataDog/dd-trace-go/v2/appsec/events"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/appsec/events"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/trace"
 
 	"github.com/labstack/echo/v5"
 )

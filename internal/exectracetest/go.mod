@@ -1,10 +1,10 @@
-module github.com/DataDog/dd-trace-go/internal/exectracetest/v2
+module github.com/GuanceCloud/dd-trace-go/internal/exectracetest/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/database/sql/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6
 	github.com/mattn/go-sqlite3 v1.14.22
 	golang.org/x/exp v0.0.0-20260209203927-2842357ff358
@@ -76,7 +76,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/contrib/database/sql/v2 => ../../contrib/database/sql
-
-replace github.com/DataDog/dd-trace-go/v2 => ../..

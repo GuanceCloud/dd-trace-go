@@ -98,7 +98,7 @@ func groupByPackage(res AuditResult) map[string][]pkgRow {
 
 // shortPkg strips the dd-trace-go module prefix for readable rendering.
 func shortPkg(path string) string {
-	const prefix = "github.com/DataDog/dd-trace-go/v2/"
+	const prefix = "github.com/GuanceCloud/dd-trace-go/v2/"
 	return strings.TrimPrefix(path, prefix)
 }
 

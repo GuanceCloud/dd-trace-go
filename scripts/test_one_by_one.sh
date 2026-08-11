@@ -78,7 +78,7 @@ fi
 
 if [[ -n "$lint" ]]; then
   echo "Running Linter"
-  goimports -e -l -local github.com/DataDog/dd-trace-go/v2 .
+  goimports -e -l -local github.com/GuanceCloud/dd-trace-go/v2 .
 fi
 
 if [[ "$INTEGRATION" != "" ]]; then
@@ -129,7 +129,7 @@ if [[ "$contrib" != "" ]]; then
       cd - > /dev/null
       continue
     fi
-    pkg_id="${pkgs[0]#github.com/DataDog/dd-trace-go/v2}"
+    pkg_id="${pkgs[0]#github.com/GuanceCloud/dd-trace-go/v2}"
     pkg_id="${pkg_id//\//_}"
     nice -n20 gotestsum --junitfile "./gotestsum-report.$pkg_id.xml" -- -race -v -coverprofile="contrib_coverage.$pkg_id.txt" -covermode=atomic "${pkgs[@]}"
     cd - > /dev/null

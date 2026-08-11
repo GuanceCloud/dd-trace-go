@@ -3,10 +3,10 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-package mcpgo // import "github.com/DataDog/dd-trace-go/contrib/mark3labs/mcp-go/v2"
+package mcpgo // import "github.com/GuanceCloud/dd-trace-go/contrib/mark3labs/mcp-go/v2"
 
 import (
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var instr *instrumentation.Instrumentation

@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/aws/aws-lambda-go/events"
 
-	ddlambda "github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2"
+	ddlambda "github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2"
 )
 
 var exampleSQSExtractor = func(ctx context.Context, ev json.RawMessage) map[string]string {

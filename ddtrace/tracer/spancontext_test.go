@@ -16,15 +16,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/processtags"
-	"github.com/DataDog/dd-trace-go/v2/internal/samplernames"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry/telemetrytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/processtags"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/samplernames"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/telemetrytest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,21 +81,21 @@ below.
 	internal/runtime/maps.(*Iter).Next(0x1400009dca0?)
 			/Users/felix.geisendoerfer/.local/share/mise/installs/go/1.24.2/src/internal/runtime/maps/table.go:683 +0x94
 	gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.(*span).EncodeMsg(0x14000140140, 0x14000c1c000)
-			/Users/felix.geisendoerfer/go/src/github.com/DataDog/dd-trace-go/ddtrace/tracer/span_msgp.go:392 +0x2e8
+			/Users/felix.geisendoerfer/go/src/github.com/GuanceCloud/dd-trace-go/ddtrace/tracer/span_msgp.go:392 +0x2e8
 	gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.spanList.EncodeMsg({0x140003e0320, 0x1, 0x18?}, 0x14000c1c000)
-			/Users/felix.geisendoerfer/go/src/github.com/DataDog/dd-trace-go/ddtrace/tracer/span_msgp.go:596 +0x80
+			/Users/felix.geisendoerfer/go/src/github.com/GuanceCloud/dd-trace-go/ddtrace/tracer/span_msgp.go:596 +0x80
 	github.com/tinylib/msgp/msgp.Encode({0x1031ebd00?, 0x14000294d48?}, {0x1031ec060?, 0x1400000e090?})
 			/Users/felix.geisendoerfer/go/pkg/mod/github.com/tinylib/msgp@v1.2.5/msgp/write.go:156 +0x60
 	gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.(*payload).push(0x14000294d20, {0x140003e0320, 0x1, 0xa})
-			/Users/felix.geisendoerfer/go/src/github.com/DataDog/dd-trace-go/ddtrace/tracer/payload.go:76 +0x98
+			/Users/felix.geisendoerfer/go/src/github.com/GuanceCloud/dd-trace-go/ddtrace/tracer/payload.go:76 +0x98
 	gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.(*agentTraceWriter).add(0x140003e0000, {0x140003e0320?, 0x0?, 0x0?})
-			/Users/felix.geisendoerfer/go/src/github.com/DataDog/dd-trace-go/ddtrace/tracer/writer.go:69 +0x28
+			/Users/felix.geisendoerfer/go/src/github.com/GuanceCloud/dd-trace-go/ddtrace/tracer/writer.go:69 +0x28
 	gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.(*tracer).worker(0x140000c40d0, 0x1400012b2d0)
-			/Users/felix.geisendoerfer/go/src/github.com/DataDog/dd-trace-go/ddtrace/tracer/tracer.go:457 +0x154
+			/Users/felix.geisendoerfer/go/src/github.com/GuanceCloud/dd-trace-go/ddtrace/tracer/tracer.go:457 +0x154
 	gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.newTracer.func2()
-			/Users/felix.geisendoerfer/go/src/github.com/DataDog/dd-trace-go/ddtrace/tracer/tracer.go:412 +0xa8
+			/Users/felix.geisendoerfer/go/src/github.com/GuanceCloud/dd-trace-go/ddtrace/tracer/tracer.go:412 +0xa8
 	created by gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer.newTracer in goroutine 326
-			/Users/felix.geisendoerfer/go/src/github.com/DataDog/dd-trace-go/ddtrace/tracer/tracer.go:404 +0x2b4
+			/Users/felix.geisendoerfer/go/src/github.com/GuanceCloud/dd-trace-go/ddtrace/tracer/tracer.go:404 +0x2b4
 */
 func TestIncident37240DoubleFinish(t *testing.T) {
 	t.Run("with link", func(_ *testing.T) {

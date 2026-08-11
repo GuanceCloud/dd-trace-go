@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/testutils"
 
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
@@ -64,7 +64,7 @@ func TestClientEvalSha(t *testing.T) {
 	assert.Equal(float64(0), span.Tag(ext.RedisDatabaseIndex))
 }
 
-// https://github.com/DataDog/dd-trace-go/issues/387
+// https://github.com/GuanceCloud/dd-trace-go/issues/387
 func TestIssue387(_ *testing.T) {
 	opts := &redis.Options{Addr: "127.0.0.1:6379"}
 	client := NewClient(opts, WithService("my-redis"))

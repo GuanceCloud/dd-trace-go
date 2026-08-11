@@ -7,7 +7,7 @@
 // loaded from YAML configuration files
 package stableconfig
 
-import "github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 
 // stableConfig represents a configuration loaded from a YAML source file.
 type stableConfig struct {

@@ -1,7 +1,7 @@
 # Instrumentation Telemetry Client Architecture
 
 This documentation details the current architecture of the Instrumentation Telemetry Client of dd-trace-go and was are its capabilities.
-For an API documentation, please refer to the [api.go](https://github.com/DataDog/dd-trace-go/blob/main/internal/telemetry/api.go) file content.
+For an API documentation, please refer to the [api.go](https://github.com/GuanceCloud/dd-trace-go/blob/main/internal/telemetry/api.go) file content.
 
 Please, make sure to read the [Specification Documentation](https://github.com/DataDog/instrumentation-telemetry-api-docs/tree/main) before reading this document.
 

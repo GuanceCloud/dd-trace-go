@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	gotesting "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
+	gotesting "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
 )
 
 // TestSubtestManagement exercises multiple subtests so the Datadog Go testing

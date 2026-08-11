@@ -9,10 +9,10 @@ import (
 	"net"
 	"strconv"
 
-	gocontrolplane "github.com/DataDog/dd-trace-go/contrib/envoyproxy/go-control-plane/v2"
+	gocontrolplane "github.com/GuanceCloud/dd-trace-go/contrib/envoyproxy/go-control-plane/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
 )
 
 // IntEnv returns the parsed int value of an environment variable, or

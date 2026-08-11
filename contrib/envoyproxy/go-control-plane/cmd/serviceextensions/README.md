@@ -7,7 +7,7 @@
 ### From Release
 
 This package provides a docker image to be used with Google Cloud Service Extensions.
-The images are published at each release of the tracer and can be found in [the repo registry](https://github.com/DataDog/dd-trace-go/pkgs/container/dd-trace-go%2Fservice-extensions-callout).
+The images are published at each release of the tracer and can be found in [the repo registry](https://github.com/GuanceCloud/dd-trace-go/pkgs/container/dd-trace-go%2Fservice-extensions-callout).
 
 ### Build image
 

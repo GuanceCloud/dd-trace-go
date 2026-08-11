@@ -3,10 +3,10 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2025 Datadog, Inc.
 
-package gosdk // import "github.com/DataDog/dd-trace-go/contrib/modelcontextprotocol/go-sdk"
+package gosdk // import "github.com/GuanceCloud/dd-trace-go/contrib/modelcontextprotocol/go-sdk"
 
 import (
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var instr *instrumentation.Instrumentation

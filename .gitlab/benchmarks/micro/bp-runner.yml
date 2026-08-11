@@ -16,7 +16,7 @@ experiments:
         how_to_fetch_release: |
           echo "Cloning repository $BRANCH at commit $COMMIT_SHA into $CODE_SRC..."
           if [ ! -d "$CODE_SRC" ]; then
-            git clone --branch $BRANCH https://github.com/DataDog/dd-trace-go "$CODE_SRC"
+            git clone --branch $BRANCH https://github.com/GuanceCloud/dd-trace-go "$CODE_SRC"
             cd "$CODE_SRC" && git checkout $COMMIT_SHA
 
             # Download module dependencies required by `go test -bench`

@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/extension"
-	"github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/extension"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"github.com/stretchr/testify/assert"
 )

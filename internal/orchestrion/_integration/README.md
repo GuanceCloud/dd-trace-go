@@ -35,14 +35,14 @@ $ export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE='/var/run/docker.sock'
 
 First, `cd` into the _integration directory: `cd internal/orchestrion/_integration`. From there, you can locally run this test suite using the following commands:
 ```console
-$ go run github.com/DataDog/orchestrion go test ./...
+$ go run github.com/GuanceCloud/orchestrion go test ./...
 ```
 Run a specific integration test (for example, gorilla_mux):
 ```console
-$ go run github.com/DataDog/orchestrion go test ./gorilla_mux/...
+$ go run github.com/GuanceCloud/orchestrion go test ./gorilla_mux/...
 ```
 
-[1]: https://github.com/DataDog/orchestrion
+[1]: https://github.com/GuanceCloud/orchestrion
 [2]: ./orchestrion.tool.go
 [3]: https://golang.testcontainers.org/
 [4]: https://github.com/abiosoft/colima

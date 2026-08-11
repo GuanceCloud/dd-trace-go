@@ -8,8 +8,8 @@ package graphql
 import (
 	"math"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	instrgraphql "github.com/DataDog/dd-trace-go/v2/instrumentation/graphql"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	instrgraphql "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/graphql"
 )
 
 const defaultServiceName = "graphql.server"

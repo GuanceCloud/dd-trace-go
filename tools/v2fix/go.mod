@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/tools/v2fix
+module github.com/GuanceCloud/dd-trace-go/tools/v2fix
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.3.0-rc.2
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	golang.org/x/tools v0.44.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.74.7-rc.2
 )

@@ -8,7 +8,7 @@ package pg
 import (
 	"math"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 type config struct {

@@ -8,8 +8,8 @@ package chi
 import (
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/emitter/httpsec"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/trace"
 
 	"github.com/go-chi/chi"
 )

@@ -8,13 +8,13 @@ package namingschematest
 import (
 	"testing"
 
-	buntdbtrace "github.com/DataDog/dd-trace-go/contrib/tidwall/buntdb/v2"
-	"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
+	buntdbtrace "github.com/GuanceCloud/dd-trace-go/contrib/tidwall/buntdb/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 func buntDBGenSpans() harness.GenSpansFn {

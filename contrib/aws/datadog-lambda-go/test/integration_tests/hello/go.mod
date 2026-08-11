@@ -3,14 +3,14 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-module github.com/DataDog/dd-trace-go/v2/contrib/aws/datadog-lambda-go/test/integration_tests/hello
+module github.com/GuanceCloud/dd-trace-go/v2/contrib/aws/datadog-lambda-go/test/integration_tests/hello
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.10.0-rc.5
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/aws/aws-lambda-go v1.46.0
 )
 
@@ -108,8 +108,8 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2 => ../../..
+replace github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 => ../../..
 
-replace github.com/DataDog/dd-trace-go/v2 => ../../../../../..
+replace github.com/GuanceCloud/dd-trace-go/v2 => ../../../../../..
 
-replace github.com/DataDog/dd-trace-go/contrib/net/http/v2 => ../../../../../net/http
+replace github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 => ../../../../../net/http

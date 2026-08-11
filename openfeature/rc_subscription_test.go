@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	internalffe "github.com/DataDog/dd-trace-go/v2/internal/openfeature"
-	"github.com/DataDog/dd-trace-go/v2/internal/remoteconfig"
+	internalffe "github.com/GuanceCloud/dd-trace-go/v2/internal/openfeature"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/remoteconfig"
 )
 
 func TestAttachProviderNotSubscribed(t *testing.T) {

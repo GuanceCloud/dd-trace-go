@@ -29,7 +29,7 @@
 // register it with the OpenFeature SDK:
 //
 //		import (
-//		    ddopenfeature "github.com/DataDog/dd-trace-go/v2/openfeature"
+//		    ddopenfeature "github.com/GuanceCloud/dd-trace-go/v2/openfeature"
 //		    of "github.com/open-feature/go-sdk/openfeature"
 //		)
 //
@@ -294,8 +294,8 @@
 //	    "context"
 //	    "log"
 //
-//	    "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-//	    ddopenfeature "github.com/DataDog/dd-trace-go/v2/openfeature"
+//	    "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+//	    ddopenfeature "github.com/GuanceCloud/dd-trace-go/v2/openfeature"
 //	    of "github.com/open-feature/go-sdk/openfeature"
 //	)
 //

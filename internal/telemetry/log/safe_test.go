@@ -31,7 +31,7 @@ func TestNewSafeError(t *testing.T) {
 		{
 			name:     "custom error type",
 			err:      &customError{msg: "secret info"},
-			wantType: "github.com/DataDog/dd-trace-go/v2/internal/telemetry/log.customError",
+			wantType: "github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry/log.customError",
 		},
 	}
 

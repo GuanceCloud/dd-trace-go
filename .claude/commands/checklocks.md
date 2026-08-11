@@ -8,7 +8,7 @@ Analyze a Go struct's mutex usage, propose checklocks annotations and runtime as
 - `MyType` — type in the current working directory's package
 - `MyType.MyMethod` — specific method of a type
 - `./path/to/package.MyType` — package-qualified type (relative path)
-- `github.com/DataDog/dd-trace-go/v2/path.MyType` — full import path
+- `github.com/GuanceCloud/dd-trace-go/v2/path.MyType` — full import path
 
 If no argument is given, ask the user which struct to analyze.
 
@@ -376,7 +376,7 @@ sc.hasBaggage = 1 // +checklocksignore - Initialization time, not shared yet.
 
 If `assert.*` calls were added and the file doesn't already import the assert package, add:
 ```go
-"github.com/DataDog/dd-trace-go/v2/internal/locking/assert"
+"github.com/GuanceCloud/dd-trace-go/v2/internal/locking/assert"
 ```
 
 ### 4g: Format

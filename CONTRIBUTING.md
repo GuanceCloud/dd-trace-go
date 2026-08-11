@@ -2,7 +2,7 @@
 
 Thanks for your interest in contributing! This is an open source project, so we appreciate community contributions.
 
-Pull requests for bug fixes are welcome, but before submitting new features or changes to current functionalities [open an issue](https://github.com/DataDog/dd-trace-go/issues/new)
+Pull requests for bug fixes are welcome, but before submitting new features or changes to current functionalities [open an issue](https://github.com/GuanceCloud/dd-trace-go/issues/new)
 and discuss your ideas or propose the changes you wish to make. After a resolution is reached a PR can be submitted for review. PRs created before a decision has been reached may be closed.
 
 For commit messages, try to use the same conventions as most Go projects, for example:
@@ -82,7 +82,7 @@ Sometimes a pull request's checks will show failures that aren't related to its 
 1. Look through the GitHub Action logs for an obvious cause
 2. Retry the test a few times to see if it flakes
 3. For internal contributors, ask the #dd-trace-go channel for help
-4. If you are not an internal contributor, [open an issue](https://github.com/DataDog/dd-trace-go/issues/new/choose) or ping @DataDog/apm-go
+4. If you are not an internal contributor, [open an issue](https://github.com/GuanceCloud/dd-trace-go/issues/new/choose) or ping @DataDog/apm-go
 
 ### Running CI Checks Locally
 
@@ -231,7 +231,7 @@ The script provides:
 
 ## Style Guidelines
 
-A set of [Style guidelines](https://github.com/DataDog/dd-trace-go/wiki/Style-guidelines) was added to our Wiki. Please spend some time browsing it.
+A set of [Style guidelines](https://github.com/GuanceCloud/dd-trace-go/wiki/Style-guidelines) was added to our Wiki. Please spend some time browsing it.
 It will help tremendously in avoiding comments and speeding up the PR process.
 
 ### Comments
@@ -291,7 +291,7 @@ When possible, prioritize creating or using internal implementations for repetit
 ### Favor string concatenation and string builders over fmt.Sprintf and its variants
 
 [fmt.Sprintf](https://pkg.go.dev/fmt#Sprintf) can introduce unnecessary overhead when building a string. Favor [string builders](https://pkg.go.dev/strings#Builder), or simple string concatenation, `a + "b" + c` over `fmt.Sprintf` when possible, especially in hot paths.
-Sample PR: <https://github.com/DataDog/dd-trace-go/pull/3365>
+Sample PR: <https://github.com/GuanceCloud/dd-trace-go/pull/3365>
 
 ### Integrations
 
@@ -349,7 +349,7 @@ Additionally, multiple CI jobs include a [step](./.github/actions/supported_conf
 
 When adding a new dependency, especially for `contrib/` packages, prefer the minimum secure versions of any modules rather than the latest versions. This is to avoid forcing upgrades on downstream users for modules such as `google.golang.org/grpc` which often introduce breaking changes within minor versions.
 
-This repository used to omit many dependencies from the `go.mod` file due to concerns around version compatibility [(ref)](https://github.com/DataDog/dd-trace-go/issues/810). As such, you may have configured git to ignore changes to `go.mod` and `go.sum`. To undo this, run
+This repository used to omit many dependencies from the `go.mod` file due to concerns around version compatibility [(ref)](https://github.com/GuanceCloud/dd-trace-go/issues/810). As such, you may have configured git to ignore changes to `go.mod` and `go.sum`. To undo this, run
 
 ```shell
 git update-index --no-assume-unchanged go.*

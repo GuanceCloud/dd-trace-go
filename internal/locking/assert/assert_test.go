@@ -8,7 +8,7 @@ package assert
 import (
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
 )
 
 func TestLockAssertions(t *testing.T) {

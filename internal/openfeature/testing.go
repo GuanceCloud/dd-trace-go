@@ -5,7 +5,7 @@
 
 package openfeature
 
-import "github.com/DataDog/dd-trace-go/v2/internal/remoteconfig"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal/remoteconfig"
 
 // ResetForTest resets the global rcState for test isolation.
 func ResetForTest() {

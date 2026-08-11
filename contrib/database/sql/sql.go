@@ -24,10 +24,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	sqlinternal "github.com/DataDog/dd-trace-go/contrib/database/sql/v2/internal"
+	sqlinternal "github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2/internal"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
 )
 
 const componentName = instrumentation.PackageDatabaseSQL

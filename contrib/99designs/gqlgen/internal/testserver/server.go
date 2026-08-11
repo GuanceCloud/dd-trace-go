@@ -15,7 +15,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 
-	"github.com/DataDog/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver/graph"
+	"github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver/graph"
 )
 
 func New(t *testing.T, tracer graphql.HandlerExtension) (*handler.Server, *client.Client) {

@@ -11,15 +11,15 @@ import (
 	"net/http"
 	"testing"
 
-	twitchtvtrace "github.com/DataDog/dd-trace-go/contrib/twitchtv/twirp/v2"
-	"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
+	twitchtvtrace "github.com/GuanceCloud/dd-trace-go/contrib/twitchtv/twirp/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twitchtv/twirp"
 	"github.com/twitchtv/twirp/example"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var twitchTVTwirp = harness.TestCase{

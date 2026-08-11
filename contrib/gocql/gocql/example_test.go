@@ -11,10 +11,10 @@ import (
 
 	"github.com/gocql/gocql"
 
-	gocqltrace "github.com/DataDog/dd-trace-go/contrib/gocql/gocql/v2"
+	gocqltrace "github.com/GuanceCloud/dd-trace-go/contrib/gocql/gocql/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func ExampleNewCluster() {

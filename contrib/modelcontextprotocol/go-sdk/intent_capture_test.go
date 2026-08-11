@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	instrmcp "github.com/DataDog/dd-trace-go/v2/instrumentation/mcp"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/testutils/testtracer"
+	instrmcp "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/mcp"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/testutils/testtracer"
 )
 
 func TestIntentCapture(t *testing.T) {

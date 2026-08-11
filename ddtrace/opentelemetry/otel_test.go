@@ -19,7 +19,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
 
-	ddbaggage "github.com/DataDog/dd-trace-go/v2/ddtrace/baggage"
+	ddbaggage "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/baggage"
 )
 
 func TestHttpDistributedTrace(t *testing.T) {

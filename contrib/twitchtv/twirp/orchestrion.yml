@@ -5,7 +5,7 @@
 ---
 # yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
 meta:
-  name: github.com/DataDog/dd-trace-go/contrib/twitchtv/twirp/v2
+  name: github.com/GuanceCloud/dd-trace-go/contrib/twitchtv/twirp/v2
   description: |-
     A simple RPC framework with protobuf service definitions.
 
@@ -29,7 +29,7 @@ aspects:
       - wrap-expression:
           imports:
             twirp: github.com/twitchtv/twirp
-            twirptrace: github.com/DataDog/dd-trace-go/contrib/twitchtv/twirp/v2
+            twirptrace: github.com/GuanceCloud/dd-trace-go/contrib/twitchtv/twirp/v2
           template: |-
             {{- .AST.Type -}}{
               {{- $hasField := false -}}

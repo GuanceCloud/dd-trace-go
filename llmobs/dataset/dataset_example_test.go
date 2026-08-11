@@ -9,8 +9,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/llmobs/dataset"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/llmobs/dataset"
 )
 
 func ExampleCreate() {

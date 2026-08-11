@@ -17,19 +17,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/orchestrion/runtime/built"
+	"github.com/GuanceCloud/orchestrion/runtime/built"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	gotesting "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
-	civisibilitynet "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/civisibilitytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	gotesting "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
+	civisibilitynet "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/civisibilitytest"
 )
 
 const (
 	scenarioEnv           = "PARALLEL_TESTING_RETRIES_SCENARIO"
 	externalMockServerEnv = "PARALLEL_TESTING_RETRIES_EXTERNAL_MOCK_SERVER"
 
-	moduleName = "github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/parallel_testing_retries"
+	moduleName = "github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/parallel_testing_retries"
 	suiteName  = "parallel_testing_retries_test.go"
 
 	parallelPanic = "testing: t.Parallel called multiple times"

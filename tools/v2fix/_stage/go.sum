@@ -18,10 +18,10 @@ github.com/DataDog/datadog-agent/pkg/trace/traceutil v0.79.0 h1:NM/Fw/ku/Hjj26l8
 github.com/DataDog/datadog-agent/pkg/trace/traceutil v0.79.0/go.mod h1:+LtS5cUALIDB7lT3G3w/pfpHSgxPQ/7z1Ub2UT/BW5s=
 github.com/DataDog/datadog-go/v5 v5.8.3 h1:s58CUJ9s8lezjhTNJO/SxkPBv2qZjS3ktpRSqGF5n0s=
 github.com/DataDog/datadog-go/v5 v5.8.3/go.mod h1:K9kcYBlxkcPP8tvvjZZKs/m1edNAUFzBbdpTUKfCsuw=
-github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2 v2.3.0-rc.2 h1:xw3hOkYNpkbLR+9ZL9gy7b4UpLAbbI8qbhVoTsZBQvs=
-github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2 v2.3.0-rc.2/go.mod h1:Yfrm8yh1Nsnod9EVsSlwx5MBJ9uB6B4gjz6bE8A6Fc8=
-github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.3.0-rc.2 h1:zXRv46eiKvATggiQbpclFeTVh/t/fnMtDGMb+m0q65Y=
-github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.3.0-rc.2/go.mod h1:Djb2nb7QCZ89v8RmmQA7V6ZgTGyJZ6NJSozK4Ybmjvo=
+github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2 v2.3.0-rc.2 h1:xw3hOkYNpkbLR+9ZL9gy7b4UpLAbbI8qbhVoTsZBQvs=
+github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2 v2.3.0-rc.2/go.mod h1:Yfrm8yh1Nsnod9EVsSlwx5MBJ9uB6B4gjz6bE8A6Fc8=
+github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.3.0-rc.2 h1:zXRv46eiKvATggiQbpclFeTVh/t/fnMtDGMb+m0q65Y=
+github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.3.0-rc.2/go.mod h1:Djb2nb7QCZ89v8RmmQA7V6ZgTGyJZ6NJSozK4Ybmjvo=
 github.com/DataDog/go-libddwaf/v5 v5.0.0 h1:uPQfIVPH9T8jLSplAdfETAHwL3iRLabP6JxRTH8NL7Y=
 github.com/DataDog/go-libddwaf/v5 v5.0.0/go.mod h1:/UzdsIsO8qk8fmbqNnk6Na7MsaNvU2R7SlBRHEgSIOQ=
 github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20260217080614-b0f4edc38a6d h1:cH9Bm0tJ8FEQbA4FRi0iRm7Zr/5Lata/Or31c+Dth0E=

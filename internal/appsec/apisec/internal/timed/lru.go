@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/apisec/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/apisec/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // capacity is the maximum number of items that may be temporarily present in a

@@ -19,18 +19,18 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations"
-	gotesting "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations"
+	gotesting "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 const (
-	moduleUnderTest   = "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting/subtests"
+	moduleUnderTest   = "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting/subtests"
 	suiteUnderTest    = "fixtures_test.go"
 	parentTestName    = "TestSubtestManagement"
 	parallelToggleEnv = "SUBTEST_MATRIX_PARALLEL"

@@ -11,9 +11,9 @@ import (
 
 	of "github.com/open-feature/go-sdk/openfeature"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	iof "github.com/DataDog/dd-trace-go/v2/internal/openfeature"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	iof "github.com/GuanceCloud/dd-trace-go/v2/internal/openfeature"
 )
 
 type spanEnrichmentHook struct {
@@ -23,7 +23,7 @@ type spanEnrichmentHook struct {
 // check that we implement hook interface
 var _ of.Hook = (*spanEnrichmentHook)(nil)
 
-//go:linkname recordFFEEvaluation github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.recordFFEEvaluation
+//go:linkname recordFFEEvaluation github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.recordFFEEvaluation
 func recordFFEEvaluation(s *tracer.Span, eval *iof.FeatureFlagEvaluation)
 
 func newSpanEnrichmentHook() *spanEnrichmentHook {

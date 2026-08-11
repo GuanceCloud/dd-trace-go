@@ -17,7 +17,7 @@ import (
 	otlptrace "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/version"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 )
 
 func newBenchOTLPWriter(b *testing.B) *otlpTraceWriter {

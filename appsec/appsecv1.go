@@ -9,9 +9,9 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/emitter/usersec"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/emitter/usersec"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 // TrackUserLoginSuccessEvent sets a successful user login event, with the given

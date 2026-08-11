@@ -14,7 +14,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/DataDog/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver/graph/model"
+	"github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2/internal/testserver/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )

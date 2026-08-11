@@ -5,7 +5,7 @@
 
 package kgo
 
-import "github.com/DataDog/dd-trace-go/v2/instrumentation"
+import "github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 type config struct {
 	consumerServiceName string

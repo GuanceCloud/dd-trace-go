@@ -12,7 +12,7 @@ import (
 	"strings"
 	"unicode"
 
-	internal "github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/config"
+	internal "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/config"
 	"github.com/puzpuzpuz/xsync/v3"
 )
 

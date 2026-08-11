@@ -4,17 +4,17 @@
 // Copyright 2016 Datadog, Inc.
 
 // Package kubernetes provides functions to trace k8s.io/client-go (https://github.com/kubernetes/client-go).
-package kubernetes // import "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
+package kubernetes // import "github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 
 import (
 	"net/http"
 	"strings"
 
-	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+	httptrace "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var instr *instrumentation.Instrumentation

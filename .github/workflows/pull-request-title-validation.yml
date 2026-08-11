@@ -28,7 +28,7 @@ jobs:
             echo "::error ::❌ Pull request title does not follow Conventional Commits format."
             echo "Expected format: <type>(<optional scope>): <subject>"
             echo "Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
-            echo "See https://github.com/DataDog/dd-trace-go/blob/main/CONTRIBUTING.md#pull-request-naming for more details."
+            echo "See https://github.com/GuanceCloud/dd-trace-go/blob/main/CONTRIBUTING.md#pull-request-naming for more details."
             exit 1
           else
             echo "✅ PR title is valid."

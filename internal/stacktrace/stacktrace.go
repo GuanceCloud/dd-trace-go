@@ -15,8 +15,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 var (
@@ -26,12 +26,12 @@ var (
 
 	// internalPackagesPrefixes is the list of prefixes for internal packages that should be hidden in the stack trace
 	internalSymbolPrefixes = []string{
-		"github.com/DataDog/dd-trace-go/v2",
+		"github.com/GuanceCloud/dd-trace-go/v2",
 		"gopkg.in/DataDog/dd-trace-go.v1",
 		"github.com/DataDog/go-libddwaf",
 		"github.com/DataDog/datadog-agent",
 		"github.com/datadog/orchestrion",
-		"github.com/DataDog/orchestrion",
+		"github.com/GuanceCloud/orchestrion",
 	}
 
 	// knownThirdPartyLibraries contains third-party library patterns for stack frame classification.
@@ -189,12 +189,12 @@ func (q *queue[T]) Remove() T {
 //
 // Examples:
 //
-//	github.com/DataDog/dd-trace-go/v2/internal/stacktrace.(*Event).NewException
-//	  -> package: github.com/DataDog/dd-trace-go/v2/internal/stacktrace
+//	github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.(*Event).NewException
+//	  -> package: github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace
 //	  -> receiver: *Event
 //	  -> function: NewException
-//	github.com/DataDog/dd-trace-go/v2/internal/stacktrace.TestFunc.func1
-//	  -> package: github.com/DataDog/dd-trace-go/v2/internal/stacktrace
+//	github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.TestFunc.func1
+//	  -> package: github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace
 //	  -> receiver: ""
 //	  -> function: TestFunc.func1
 func parseSymbol(name string) symbol {
@@ -519,9 +519,9 @@ func (it *framesIterator) skipFrame(frame runtime.Frame) bool {
 	// Always skip internal stacktrace implementation methods (but not test functions)
 	funcName := frame.Function
 	if strings.HasPrefix(funcName,
-		"github.com/DataDog/dd-trace-go/v2/internal/stacktrace.(*framesIterator).") ||
+		"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.(*framesIterator).") ||
 		strings.Contains(funcName,
-			"github.com/DataDog/dd-trace-go/v2/internal/stacktrace.iterator") {
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.iterator") {
 		return true
 	}
 

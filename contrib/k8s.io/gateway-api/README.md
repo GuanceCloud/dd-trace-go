@@ -50,7 +50,7 @@ secondary server where Datadog's request mirror deployment processes the request
    options).
 
   ```bash
-  git clone https://github.com/DataDog/dd-trace-go.git
+  git clone https://github.com/GuanceCloud/dd-trace-go.git
   cd dd-trace-go
   go run ./contrib/k8s.io/gateway-api/cmd/patch-gateways
   ```

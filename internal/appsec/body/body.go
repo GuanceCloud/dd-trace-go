@@ -15,8 +15,8 @@ import (
 
 	"github.com/DataDog/go-libddwaf/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/appsec/body/json"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/appsec/body/json"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // IsBodySupported checks if the body should be analyzed based on content type

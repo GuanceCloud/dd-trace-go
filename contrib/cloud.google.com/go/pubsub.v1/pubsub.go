@@ -9,8 +9,8 @@ package pubsub
 import (
 	"context"
 
-	"github.com/DataDog/dd-trace-go/v2/contrib/cloud.google.com/go/pubsubtrace"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/contrib/cloud.google.com/go/pubsubtrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"cloud.google.com/go/pubsub"
 )

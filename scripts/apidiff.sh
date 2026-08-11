@@ -17,9 +17,9 @@ set -euo pipefail
 #   -h, --help            Show this help message
 #
 # Examples:
-#   scripts/apidiff.sh github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
-#   scripts/apidiff.sh --base-ref origin/main --exit-code github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
-#   scripts/apidiff.sh --incompatible-only --exit-code github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
+#   scripts/apidiff.sh github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
+#   scripts/apidiff.sh --base-ref origin/main --exit-code github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
+#   scripts/apidiff.sh --incompatible-only --exit-code github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
 
 usage() {
   cat << EOF
@@ -35,9 +35,9 @@ Options:
   -h, --help            Show this help message
 
 Examples:
-  $(basename "${BASH_SOURCE[0]}") github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
-  $(basename "${BASH_SOURCE[0]}") --base-ref origin/release/v2.9 --exit-code github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
-  $(basename "${BASH_SOURCE[0]}") --incompatible-only github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
+  $(basename "${BASH_SOURCE[0]}") github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
+  $(basename "${BASH_SOURCE[0]}") --base-ref origin/release/v2.9 --exit-code github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
+  $(basename "${BASH_SOURCE[0]}") --incompatible-only github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
 EOF
   exit 0
 }

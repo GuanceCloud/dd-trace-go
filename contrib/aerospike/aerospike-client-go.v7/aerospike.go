@@ -24,7 +24,7 @@
 //     map (set by `WithContext`) when available, otherwise from
 //     `context.Background()` — the tracer's GLS then provides same-goroutine
 //     parenting automatically.
-package aerospike // import "github.com/DataDog/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2"
+package aerospike // import "github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2"
 
 import (
 	"context"
@@ -32,9 +32,9 @@ import (
 
 	as "github.com/aerospike/aerospike-client-go/v7"
 
-	"github.com/DataDog/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2/internal/tracing"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2/internal/tracing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 // WrapClient wraps an aerospike.Client so that all requests are traced using

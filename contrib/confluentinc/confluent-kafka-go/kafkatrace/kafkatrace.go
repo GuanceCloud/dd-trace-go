@@ -6,11 +6,11 @@
 // Package kafkatrace provides common tracing functionality for different confluentinc/confluent-kafka-go versions.
 //
 // This package is not meant to be used directly (use instead
-// github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2 or
-// github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka.v2/v2)
+// github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2 or
+// github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka.v2/v2)
 package kafkatrace
 
-import "github.com/DataDog/dd-trace-go/v2/instrumentation"
+import "github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 type CKGoVersion int32
 

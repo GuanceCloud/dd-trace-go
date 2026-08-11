@@ -6,9 +6,9 @@
 package fiber_test
 
 import (
-	fibertrace "github.com/DataDog/dd-trace-go/contrib/gofiber/fiber.v2/v2"
+	fibertrace "github.com/GuanceCloud/dd-trace-go/contrib/gofiber/fiber.v2/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/gofiber/fiber/v2"
 )

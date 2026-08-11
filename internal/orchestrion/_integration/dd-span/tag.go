@@ -11,7 +11,7 @@ package ddspan
 import (
 	"errors"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/trace"
 )
 
 func (tc *TestCase) ExpectedTraces() trace.Traces {

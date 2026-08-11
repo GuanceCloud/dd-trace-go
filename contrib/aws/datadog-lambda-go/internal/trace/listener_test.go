@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/extension"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/extension"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
 )
 
 func TestSeparateVersionFromFunctionArnWithVersion(t *testing.T) {

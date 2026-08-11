@@ -8,13 +8,13 @@
 // you will be using, then continue using the package as you normally would.
 //
 // For more information on registering and why this needs to happen, please check the
-// github.com/DataDog/dd-trace-go/v2 package.
-package sqlx // import "github.com/DataDog/dd-trace-go/contrib/jmoiron/sqlx/v2"
+// github.com/GuanceCloud/dd-trace-go/v2 package.
+package sqlx // import "github.com/GuanceCloud/dd-trace-go/contrib/jmoiron/sqlx/v2"
 
 import (
-	sqltraced "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
+	sqltraced "github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"github.com/jmoiron/sqlx"
 )

@@ -8,7 +8,7 @@ package echo
 import (
 	"github.com/labstack/echo/v5"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 // OnAddRoute is used as [echo.Echo.OnAddRoute] value to automatically collect

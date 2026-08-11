@@ -17,7 +17,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v6/esapi"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 )
 
 type TestCaseV6 struct {

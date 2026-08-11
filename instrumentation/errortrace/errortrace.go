@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/stacktrace"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 // TracerError is an error type that holds stackframes from when the error was thrown.

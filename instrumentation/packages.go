@@ -10,7 +10,7 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
 )
 
 type Package string
@@ -178,7 +178,7 @@ var packages = map[Package]PackageInfo{
 		},
 	},
 	PackageAWSDatadogLambdaGo: {
-		TracedPackage: "github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go",
+		TracedPackage: "github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go",
 		EnvVarPrefix:  "LAMBDA",
 		naming: map[Component]componentNames{
 			ComponentDefault: {

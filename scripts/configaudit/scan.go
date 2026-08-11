@@ -35,11 +35,11 @@ type recognizers struct {
 func defaultRecognizers() recognizers {
 	return recognizers{
 		ByPath: map[string]map[string]bool{
-			"github.com/DataDog/dd-trace-go/v2/internal/env": {
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/env": {
 				"Get":    true,
 				"Lookup": true,
 			},
-			"github.com/DataDog/dd-trace-go/v2/internal": {
+			"github.com/GuanceCloud/dd-trace-go/v2/internal": {
 				"BoolEnv":             true,
 				"BoolEnvNoDefault":    true,
 				"IntEnv":              true,
@@ -47,7 +47,7 @@ func defaultRecognizers() recognizers {
 				"DurationEnv":         true,
 				"DurationEnvWithUnit": true,
 			},
-			"github.com/DataDog/dd-trace-go/v2/internal/stableconfig": {
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/stableconfig": {
 				"Bool":   true,
 				"String": true,
 				"Int":    true,

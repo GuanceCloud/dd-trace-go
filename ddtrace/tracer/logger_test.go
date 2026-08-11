@@ -8,8 +8,8 @@ package tracer_test
 import (
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 
 	"github.com/stretchr/testify/assert"
 )

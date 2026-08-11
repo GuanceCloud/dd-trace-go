@@ -6,7 +6,7 @@
 package httprouter
 
 import (
-	"github.com/DataDog/dd-trace-go/contrib/julienschmidt/httprouter/v2/internal/tracing"
+	"github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2/internal/tracing"
 )
 
 // RouterOption represents an option that can be passed to New.

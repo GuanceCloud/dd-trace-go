@@ -10,9 +10,9 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	instrmcp "github.com/DataDog/dd-trace-go/v2/instrumentation/mcp"
-	"github.com/DataDog/dd-trace-go/v2/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	instrmcp "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/mcp"
+	"github.com/GuanceCloud/dd-trace-go/v2/llmobs"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

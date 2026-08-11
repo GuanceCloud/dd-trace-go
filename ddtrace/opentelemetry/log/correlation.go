@@ -9,7 +9,7 @@ import (
 	"context"
 	"encoding/binary"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 	oteltrace "go.opentelemetry.io/otel/trace"
 )

@@ -5,7 +5,7 @@
 
 package tracer
 
-import "github.com/DataDog/dd-trace-go/v2/internal/log"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 
 var _ Tracer = (*NoopTracer)(nil)
 

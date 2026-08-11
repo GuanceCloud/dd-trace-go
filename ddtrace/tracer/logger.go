@@ -5,7 +5,7 @@
 
 package tracer
 
-import "github.com/DataDog/dd-trace-go/v2/internal/log"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 
 // Logger implementations are able to log given messages that the tracer or profiler might output.
 type Logger interface {

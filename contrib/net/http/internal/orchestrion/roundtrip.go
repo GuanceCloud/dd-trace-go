@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/wrap"
+	"github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/wrap"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/env"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/options"
 )
 
 func ObserveRoundTrip(req *http.Request) (*http.Request, wrap.AfterRoundTrip, error) {

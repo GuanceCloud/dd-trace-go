@@ -8,9 +8,9 @@ package kafkatrace
 import (
 	"context"
 
-	"github.com/DataDog/dd-trace-go/v2/datastreams"
-	"github.com/DataDog/dd-trace-go/v2/datastreams/options"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/datastreams"
+	"github.com/GuanceCloud/dd-trace-go/v2/datastreams/options"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func (tr *Tracer) TrackCommitOffsets(offsets []TopicPartition, err error) {

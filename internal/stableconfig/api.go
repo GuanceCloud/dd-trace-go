@@ -13,8 +13,8 @@ import (
 	"iter"
 	"strconv"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 // ConfigData holds configuration value with its origin and config ID

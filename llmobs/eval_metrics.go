@@ -8,8 +8,8 @@ package llmobs
 import (
 	"time"
 
-	illmobs "github.com/DataDog/dd-trace-go/v2/internal/llmobs"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	illmobs "github.com/GuanceCloud/dd-trace-go/v2/internal/llmobs"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // EvaluationValue represents the allowed types for evaluation metric values.

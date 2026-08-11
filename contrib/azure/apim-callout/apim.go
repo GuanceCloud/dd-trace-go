@@ -22,8 +22,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jellydator/ttlcache/v3"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
 )
 
 var instr *instrumentation.Instrumentation

@@ -19,8 +19,8 @@ import (
 
 	"github.com/tinylib/msgp/msgp"
 
-	civisibilitynet "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	ddenv "github.com/DataDog/dd-trace-go/v2/internal/env"
+	civisibilitynet "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	ddenv "github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 )
 
 // MockServerOption configures the CI Visibility mock server.
@@ -180,7 +180,7 @@ func StartMockServerWithOptions(opts ...MockServerOption) (*httptest.Server, *Pa
 		{key: "DD_CIVISIBILITY_AGENTLESS_ENABLED", value: "true"},
 		{key: "DD_CIVISIBILITY_AGENTLESS_URL", value: server.URL},
 		{key: "DD_API_KEY", value: "***"},
-		{key: "DD_GIT_REPOSITORY_URL", value: "https://github.com/DataDog/dd-trace-go.git"},
+		{key: "DD_GIT_REPOSITORY_URL", value: "https://github.com/GuanceCloud/dd-trace-go.git"},
 		{key: "DD_GIT_COMMIT_SHA", value: "1234567890abcdef1234567890abcdef12345678"},
 		{key: "DD_GIT_BRANCH", value: "main"},
 	}, cfg.env...))

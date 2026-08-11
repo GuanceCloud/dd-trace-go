@@ -8,8 +8,8 @@ package logs
 import (
 	"sync"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // Constants defining the payload size limits for agentless mode.

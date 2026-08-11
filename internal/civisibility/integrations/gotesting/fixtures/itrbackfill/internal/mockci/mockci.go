@@ -20,9 +20,9 @@ import (
 
 	"github.com/tinylib/msgp/msgp"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/filebitmap"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 )
 
 // SkippableTest describes one backend ITR candidate returned by the mock.
@@ -113,7 +113,7 @@ func Start(settings net.SettingsResponseData, tests []SkippableTest, coverage ma
 		"DD_CIVISIBILITY_AGENTLESS_ENABLED": "true",
 		"DD_CIVISIBILITY_AGENTLESS_URL":     mock.server.URL,
 		"DD_API_KEY":                        "***",
-		"DD_GIT_REPOSITORY_URL":             "https://github.com/DataDog/dd-trace-go.git",
+		"DD_GIT_REPOSITORY_URL":             "https://github.com/GuanceCloud/dd-trace-go.git",
 		"DD_GIT_COMMIT_SHA":                 "1234567890abcdef1234567890abcdef12345678",
 		"DD_GIT_BRANCH":                     "main",
 	})

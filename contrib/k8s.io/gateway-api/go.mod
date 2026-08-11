@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/contrib/k8s.io/gateway-api/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/gateway-api/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/stretchr/testify v1.11.1
 	k8s.io/api v0.35.1
 	k8s.io/apimachinery v0.35.3
@@ -100,5 +100,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

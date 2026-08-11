@@ -54,8 +54,8 @@ func runGoroutineLeakProgram(t *testing.T, withExperiment bool) profileMeta {
 	for _, cmd := range []*exec.Cmd{
 		exec.Command("go", "mod", "init", "goroutineleak_test_app"),
 		exec.Command("go", "mod", "edit",
-			"-require=github.com/DataDog/dd-trace-go/v2@v2.0.0",
-			"-replace=github.com/DataDog/dd-trace-go/v2@v2.0.0="+repoRoot,
+			"-require=github.com/GuanceCloud/dd-trace-go/v2@v2.0.0",
+			"-replace=github.com/GuanceCloud/dd-trace-go/v2@v2.0.0="+repoRoot,
 		),
 		exec.Command("go", "mod", "tidy"),
 	} {
@@ -106,7 +106,7 @@ const goroutineLeakSource = `package main
 import (
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/profiler"
+	"github.com/GuanceCloud/dd-trace-go/v2/profiler"
 )
 
 func main() {

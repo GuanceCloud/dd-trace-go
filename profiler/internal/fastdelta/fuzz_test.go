@@ -9,7 +9,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/profiler/internal/fastdelta"
+	"github.com/GuanceCloud/dd-trace-go/v2/profiler/internal/fastdelta"
 )
 
 // FuzzDelta looks for inputs to delta which cause crashes. This is to account

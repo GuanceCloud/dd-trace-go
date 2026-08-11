@@ -5,7 +5,7 @@
 ---
 # yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
 meta:
-  name: github.com/DataDog/dd-trace-go/contrib/log/slog/v2
+  name: github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2
   description: |-
     Package slog provides structured logging, in which log records include a message, a severity level, and various
     other attributes expressed as key-value pairs.
@@ -23,9 +23,9 @@ aspects:
           # We need to use go:linkname to refer to a number of declarations in order to avoid creating
           # circular dependencies, as these features have transitive dependencies on `log/slog`...
           links:
-            - github.com/DataDog/dd-trace-go/contrib/log/slog/v2
+            - github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2
           template: |-
-            //go:linkname __dd_slogtrace_WrapHandler github.com/DataDog/dd-trace-go/contrib/log/slog/v2.WrapHandler
+            //go:linkname __dd_slogtrace_WrapHandler github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2.WrapHandler
             func __dd_slogtrace_WrapHandler(Handler) Handler
       - prepend-statements:
           template: |-
@@ -40,9 +40,9 @@ aspects:
     advice:
       - inject-declarations:
           links:
-            - github.com/DataDog/dd-trace-go/contrib/log/slog/v2
+            - github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2
           template: |-
-            //go:linkname __dd_slogtrace_IsAlreadyWrapped github.com/DataDog/dd-trace-go/contrib/log/slog/v2.IsAlreadyWrapped
+            //go:linkname __dd_slogtrace_IsAlreadyWrapped github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2.IsAlreadyWrapped
             func __dd_slogtrace_IsAlreadyWrapped(Handler) bool
       - prepend-statements:
           template: |-

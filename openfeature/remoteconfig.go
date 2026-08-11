@@ -13,9 +13,9 @@ import (
 
 	rc "github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	internalffe "github.com/DataDog/dd-trace-go/v2/internal/openfeature"
-	"github.com/DataDog/dd-trace-go/v2/internal/remoteconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	internalffe "github.com/GuanceCloud/dd-trace-go/v2/internal/openfeature"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/remoteconfig"
 )
 
 func startWithRemoteConfig(config ProviderConfig) (*DatadogProvider, error) {

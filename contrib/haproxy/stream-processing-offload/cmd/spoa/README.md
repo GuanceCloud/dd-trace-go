@@ -6,7 +6,7 @@
 
 ### From Release
 
-The images are published at each release of the tracer and can be found in [the repo registry](https://github.com/DataDog/dd-trace-go/pkgs/container/dd-trace-go%2Fhaproxy-spoa).
+The images are published at each release of the tracer and can be found in [the repo registry](https://github.com/GuanceCloud/dd-trace-go/pkgs/container/dd-trace-go%2Fhaproxy-spoa).
 
 ### Build image
 

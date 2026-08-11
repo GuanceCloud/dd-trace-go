@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/stableconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/stableconfig"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/hostname"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/hostname"
 )
 
 var (

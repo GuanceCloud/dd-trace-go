@@ -6,7 +6,7 @@
 package env
 
 import (
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 )
 
 // Get is a wrapper around os.Getenv that validates the environment variable

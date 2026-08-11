@@ -9,7 +9,7 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var instr *instrumentation.Instrumentation

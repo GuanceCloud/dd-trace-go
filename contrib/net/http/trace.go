@@ -3,14 +3,14 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016 Datadog, Inc.
 
-package http // import "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+package http // import "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2"
 
 import (
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/contrib/net/http/v2/internal/wrap"
+	"github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2/internal/wrap"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace"
 )
 
 // ServeConfig specifies the tracing configuration when using TraceAndServe.

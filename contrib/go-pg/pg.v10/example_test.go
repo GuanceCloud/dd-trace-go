@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-pg/pg/v10"
 
-	pgtrace "github.com/DataDog/dd-trace-go/contrib/go-pg/pg.v10/v2"
+	pgtrace "github.com/GuanceCloud/dd-trace-go/contrib/go-pg/pg.v10/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func Example() {

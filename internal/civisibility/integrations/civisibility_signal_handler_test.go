@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility"
 
 	"github.com/stretchr/testify/require"
 )

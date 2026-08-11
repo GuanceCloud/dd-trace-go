@@ -23,9 +23,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/bazel"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/bazel"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 )
 
 func TestReadCacheScopeIdentitySelectionAndTTL(t *testing.T) {
@@ -868,7 +868,7 @@ func newReadCacheTestClient(ciTags map[string]string) *client {
 		baseURL:       "https://api.example.com/path?token=secret",
 		environment:   "test",
 		serviceName:   "service",
-		repositoryURL: "https://github.com/DataDog/dd-trace-go.git",
+		repositoryURL: "https://github.com/GuanceCloud/dd-trace-go.git",
 		commitSha:     "1234567890abcdef1234567890abcdef12345678",
 		branchName:    "main",
 		testConfigurations: testConfigurations{

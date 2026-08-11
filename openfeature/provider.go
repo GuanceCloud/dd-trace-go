@@ -14,8 +14,8 @@ import (
 
 	"github.com/open-feature/go-sdk/openfeature"
 
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 var _ openfeature.FeatureProvider = (*DatadogProvider)(nil)

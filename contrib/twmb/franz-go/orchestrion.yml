@@ -5,7 +5,7 @@
 ---
 # yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
 meta:
-  name: github.com/DataDog/dd-trace-go/contrib/twmb/franz-go/v2
+  name: github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2
   description: Franz-Go Kafka client library for Go.
 
 aspects:
@@ -17,5 +17,5 @@ aspects:
           type: github.com/twmb/franz-go/pkg/kgo.Opt
           values:
             - imports:
-                kgotrace: github.com/DataDog/dd-trace-go/contrib/twmb/franz-go/v2
+                kgotrace: github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2
               template: kgotrace.WithTracing()

@@ -14,8 +14,8 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	instrmcp "github.com/DataDog/dd-trace-go/v2/instrumentation/mcp"
-	"github.com/DataDog/dd-trace-go/v2/llmobs"
+	instrmcp "github.com/GuanceCloud/dd-trace-go/v2/instrumentation/mcp"
+	"github.com/GuanceCloud/dd-trace-go/v2/llmobs"
 )
 
 func telemetrySchema() *jsonschema.Schema {

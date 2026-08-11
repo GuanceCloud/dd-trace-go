@@ -9,9 +9,9 @@
 
 package all
 
-//go:generate go run github.com/DataDog/dd-trace-go/v2/internal/orchestrion/generator
+//go:generate go run github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/generator
 
-// Importing "github.com/DataDog/dd-trace-go/v2/orchestrion/all" in an
+// Importing "github.com/GuanceCloud/dd-trace-go/v2/orchestrion/all" in an
 // `orchestrion.tool.go` file causes the package to use _all_ available
 // integrations of `dd-trace-go`.
 // This makes it easy to ensure all available features of DataDog are enabled in
@@ -20,55 +20,55 @@ package all
 // your application. If that is a problem, you should instead manually import
 // only the specific integrations that are useful to your application.
 import (
-	_ "github.com/DataDog/orchestrion"
+	_ "github.com/GuanceCloud/orchestrion"
 
-	_ "github.com/DataDog/dd-trace-go/contrib/99designs/gqlgen/v2"                         // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/IBM/sarama/v2"                               // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/Shopify/sarama/v2"                           // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2"         // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/aws"                    // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws"                       // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/cloud.google.com/go/pubsub.v1/v2"            // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/cloud.google.com/go/pubsub.v2/v2"            // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka.v2/v2" // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2"    // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"                             // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/elastic/go-elasticsearch.v6/v2"              // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/gin-gonic/gin/v2"                            // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/go-chi/chi.v5/v2"                            // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/go-chi/chi/v2"                               // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/go-redis/redis.v7/v2"                        // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/go-redis/redis.v8/v2"                        // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/go-redis/redis/v2"                           // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/go.mongodb.org/mongo-driver.v2/v2/mongo"     // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/go.mongodb.org/mongo-driver/v2/mongo"        // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/gocql/gocql/v2"                              // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/gofiber/fiber.v2/v2"                         // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/gomodule/redigo/v2"                          // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/google.golang.org/grpc/v2"                   // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/gorilla/mux/v2"                              // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/gorm.io/gorm.v1/v2"                          // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/graph-gophers/graphql-go/v2"                 // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/graphql-go/graphql/v2"                       // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/hashicorp/vault/v2"                          // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/jackc/pgx.v5/v2"                             // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/julienschmidt/httprouter/v2"                 // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"              // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2"                         // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/labstack/echo.v5/v2"                         // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/log/slog/v2"                                 // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/net/http/v2"                                 // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/redis/go-redis.v9/v2"                        // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/redis/rueidis/v2"                            // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/rs/zerolog/v2"                               // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/segmentio/kafka-go/v2"                       // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/sirupsen/logrus/v2"                          // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/twitchtv/twirp/v2"                           // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/twmb/franz-go/v2"                            // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2"                      // integration
-	_ "github.com/DataDog/dd-trace-go/contrib/valyala/fasthttp/v2"                         // integration
-	_ "github.com/DataDog/dd-trace-go/v2/contrib/os"                                       // integration
-	_ "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"                                   // integration
-	_ "github.com/DataDog/dd-trace-go/v2/orchestrion"                                      // integration
-	_ "github.com/DataDog/dd-trace-go/v2/profiler"                                         // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2"                         // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2"                               // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2"                           // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2"         // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/aws"                    // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2/aws"                       // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/cloud.google.com/go/pubsub.v1/v2"            // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/cloud.google.com/go/pubsub.v2/v2"            // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka.v2/v2" // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2"    // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2"                             // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/elastic/go-elasticsearch.v6/v2"              // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/gin-gonic/gin/v2"                            // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi.v5/v2"                            // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2"                               // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v7/v2"                        // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v8/v2"                        // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis/v2"                           // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/go.mongodb.org/mongo-driver.v2/v2/mongo"     // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/go.mongodb.org/mongo-driver/v2/mongo"        // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/gocql/gocql/v2"                              // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/gofiber/fiber.v2/v2"                         // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/gomodule/redigo/v2"                          // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/grpc/v2"                   // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2"                              // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/gorm.io/gorm.v1/v2"                          // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/graph-gophers/graphql-go/v2"                 // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/graphql-go/graphql/v2"                       // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/hashicorp/vault/v2"                          // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/jackc/pgx.v5/v2"                             // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2"                 // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"              // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v4/v2"                         // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v5/v2"                         // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/log/slog/v2"                                 // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2"                                 // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/redis/go-redis.v9/v2"                        // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/redis/rueidis/v2"                            // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/rs/zerolog/v2"                               // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/segmentio/kafka-go/v2"                       // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/sirupsen/logrus/v2"                          // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/twitchtv/twirp/v2"                           // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2"                            // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/valkey-io/valkey-go/v2"                      // integration
+	_ "github.com/GuanceCloud/dd-trace-go/contrib/valyala/fasthttp/v2"                         // integration
+	_ "github.com/GuanceCloud/dd-trace-go/v2/contrib/os"                                       // integration
+	_ "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"                                   // integration
+	_ "github.com/GuanceCloud/dd-trace-go/v2/orchestrion"                                      // integration
+	_ "github.com/GuanceCloud/dd-trace-go/v2/profiler"                                         // integration
 )

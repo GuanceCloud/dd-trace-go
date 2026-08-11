@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/proxy"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/proxy"
 
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/negasus/haproxy-spoe-go/request"

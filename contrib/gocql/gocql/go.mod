@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/contrib/gocql/gocql/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/gocql/gocql/v2
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/gocql/gocql v1.7.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/mod v0.35.0
@@ -82,5 +82,3 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

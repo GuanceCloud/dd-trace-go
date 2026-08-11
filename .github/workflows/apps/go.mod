@@ -1,9 +1,9 @@
-module github.com/DataDog/dd-trace-go/.github/workflows/apps
+module github.com/GuanceCloud/dd-trace-go/.github/workflows/apps
 
 go 1.25.0
 
 require (
-	github.com/DataDog/dd-trace-go/v2 v2.4.0-dev
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	golang.org/x/mod v0.35.0
 )
 
@@ -74,4 +74,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/DataDog/dd-trace-go/v2 => ../../..
+replace github.com/GuanceCloud/dd-trace-go/v2 => ../../..

@@ -37,9 +37,9 @@ import (
 // additional logic to be in place. See:
 //
 // • https://github.com/golang/go/blob/go1.16/src/net/http/client.go#L136-L138
-// • https://github.com/DataDog/dd-trace-go/pull/475
-// • https://github.com/DataDog/dd-trace-go/pull/549
-// • https://github.com/DataDog/dd-trace-go/pull/976
+// • https://github.com/GuanceCloud/dd-trace-go/pull/475
+// • https://github.com/GuanceCloud/dd-trace-go/pull/549
+// • https://github.com/GuanceCloud/dd-trace-go/pull/976
 type payloadV04 struct {
 	// header specifies the first few bytes in the msgpack stream
 	// indicating the type of array (fixarray, array16 or array32)

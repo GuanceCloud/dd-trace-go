@@ -1,6 +1,6 @@
 name: Orchestrion
 on:
-  workflow_call: # From github.com/DataDog/orchestrion
+  workflow_call: # From github.com/GuanceCloud/orchestrion
     inputs:
       orchestrion-version:
         description: Orchestrion version to use for integration testing
@@ -170,7 +170,7 @@ jobs:
         # the local checkout of orchestrion to the `go.work` so that its own
         # `go` directive is correctly managed.
         run: |-
-          go mod edit -replace="github.com/DataDog/orchestrion=${{ github.workspace }}/orchestrion"
+          go mod edit -replace="github.com/GuanceCloud/orchestrion=${{ github.workspace }}/orchestrion"
           go mod tidy
         working-directory: ${{ github.workspace }}/dd-trace-go/internal/orchestrion/_integration
         env:
@@ -178,7 +178,7 @@ jobs:
       # We install the binary to the GOBIN, so it's easy to use
       - name: Install orchestrion binary
         if: '!inputs.collect-coverage'
-        run: go install "github.com/DataDog/orchestrion"
+        run: go install "github.com/GuanceCloud/orchestrion"
         working-directory: ${{ github.workspace }}/dd-trace-go/internal/orchestrion/_integration
       - name: Build orchestrion binary
         if: inputs.collect-coverage
@@ -189,7 +189,7 @@ jobs:
             bin="${bin}.exe"
           fi
           mkdir -p "$(dirname "${bin}")"
-          go build -cover -covermode=atomic -coverpkg="github.com/DataDog/orchestrion/..." "-o=${bin}" "github.com/DataDog/orchestrion"
+          go build -cover -covermode=atomic -coverpkg="github.com/GuanceCloud/orchestrion/..." "-o=${bin}" "github.com/GuanceCloud/orchestrion"
           echo "GOCOVERDIR=$(mktemp -d)" >> "${GITHUB_ENV}"
         working-directory: ${{ github.workspace }}/dd-trace-go/internal/orchestrion/_integration
 

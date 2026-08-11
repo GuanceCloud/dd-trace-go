@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	grpctrace "github.com/DataDog/dd-trace-go/contrib/google.golang.org/grpc/v2"
-	"github.com/DataDog/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
-	"github.com/DataDog/dd-trace-go/instrumentation/testutils/grpc/v2/fixturepb"
+	grpctrace "github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/grpc/v2"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/internal/namingschematest/v2/harness"
+	"github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/grpc/v2/fixturepb"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -20,10 +20,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DataDog/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2/internal/logger"
 	"github.com/aws/aws-lambda-go/lambdacontext"
 
-	ddtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	ddtracer "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 type ddTraceContext string

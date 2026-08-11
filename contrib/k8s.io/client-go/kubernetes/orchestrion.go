@@ -5,7 +5,7 @@
 
 //go:build tools
 
-package kubernetes // import "github.com/DataDog/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
+package kubernetes // import "github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/client-go/v2/kubernetes"
 
 // This package is imported by code injected by `orchestrion.tool.go` but is otherwise not part of
 // the dependency closure of the package. This ensures the `go mod tidy` closure contains everything

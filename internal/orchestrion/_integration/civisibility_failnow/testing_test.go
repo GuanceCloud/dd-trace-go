@@ -9,11 +9,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DataDog/orchestrion/runtime/built"
+	"github.com/GuanceCloud/orchestrion/runtime/built"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/civisibilitytest"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/civisibilitytest"
 )
 
 var ciVisibilityPayloads *civisibilitytest.Payloads

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/otelmetricsinstall"
+	internalconfig "github.com/GuanceCloud/dd-trace-go/v2/internal/config"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/otelmetricsinstall"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

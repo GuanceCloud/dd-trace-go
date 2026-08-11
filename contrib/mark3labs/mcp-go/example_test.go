@@ -8,11 +8,11 @@ package mcpgo_test
 import (
 	"context"
 
-	mcpgotrace "github.com/DataDog/dd-trace-go/contrib/mark3labs/mcp-go/v2"
+	mcpgotrace "github.com/GuanceCloud/dd-trace-go/contrib/mark3labs/mcp-go/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func Example() {

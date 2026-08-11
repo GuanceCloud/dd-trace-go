@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // BenchmarkSpanLifecycle measures root span lifecycle throughput where all 6 hot-path
@@ -21,7 +21,7 @@ import (
 // Child spans skip 4 of 6 optimizations (sampling priority inherited from parent),
 // so all sub-benchmarks focus on root spans to maximize signal.
 func BenchmarkSpanLifecycle(b *testing.B) {
-	b.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/DataDog/dd-trace-go")
+	b.Setenv("DD_GIT_REPOSITORY_URL", "https://github.com/GuanceCloud/dd-trace-go")
 	b.Setenv("DD_GIT_COMMIT_SHA", "abc123def456789abc123def456789abc123def4")
 
 	tracer, _, _, stop, err := startTestTracer(b,

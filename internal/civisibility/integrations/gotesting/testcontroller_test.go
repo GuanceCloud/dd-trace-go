@@ -22,14 +22,14 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/internal"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils/net"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils/net"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 var currentM *testing.M
@@ -123,7 +123,7 @@ func runFlakyTestRetriesTests(m *testing.M) {
 	// mock the settings api to enable automatic test retries
 	server := setUpHTTPServer(true, true, false, &net.KnownTestsResponseData{
 		Tests: net.KnownTestsResponseDataModules{
-			"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
 				"reflections_test.go": []string{
 					"TestGetFieldPointerFrom",
 					"TestGetInternalTestArray",
@@ -172,7 +172,7 @@ func runFlakyTestRetriesTests(m *testing.M) {
 	// 3 tests from testify_test.go and testify_test.go/MySuite
 
 	// check spans by resource name
-	checkSpansByResourceName(finishedSpans, "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
+	checkSpansByResourceName(finishedSpans, "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
 	checkSpansByResourceName(finishedSpans, "reflections_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go/MySuite", 1)
@@ -297,7 +297,7 @@ func runFlakyTestRetriesWithTransientSettingsFailureTests(m *testing.M) {
 	// Backend mock identical to the standard flaky-test-retries scenario.
 	backend := setUpHTTPServer(true, true, false, &net.KnownTestsResponseData{
 		Tests: net.KnownTestsResponseDataModules{
-			"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
 				"reflections_test.go": []string{
 					"TestGetFieldPointerFrom",
 					"TestGetInternalTestArray",
@@ -375,7 +375,7 @@ func runEarlyFlakyTestDetectionTests(m *testing.M) {
 	// mock the settings api to enable automatic test retries
 	server := setUpHTTPServer(false, true, true, &net.KnownTestsResponseData{
 		Tests: net.KnownTestsResponseDataModules{
-			"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
 				"reflections_test.go": []string{
 					"TestGetFieldPointerFrom",
 					"TestGetInternalTestArray",
@@ -422,7 +422,7 @@ func runEarlyFlakyTestDetectionTests(m *testing.M) {
 	// 33 tests from testify_test.go and testify_test.go/MySuite
 
 	// check spans by resource name
-	checkSpansByResourceName(finishedSpans, "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
+	checkSpansByResourceName(finishedSpans, "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
 	checkSpansByResourceName(finishedSpans, "reflections_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go/MySuite", 1)
@@ -510,7 +510,7 @@ func runParallelEarlyFlakyTestDetectionTests(m *testing.M) {
 	// mock the settings api to enable automatic test retries
 	server := setUpHTTPServer(false, true, true, &net.KnownTestsResponseData{
 		Tests: net.KnownTestsResponseDataModules{
-			"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
 				"reflections_test.go": []string{
 					"TestGetFieldPointerFrom",
 					"TestGetInternalTestArray",
@@ -562,7 +562,7 @@ func runParallelEarlyFlakyTestDetectionTests(m *testing.M) {
 	// 2 normal spans from testify_test.go and testify_test.go/MySuite
 
 	// check spans by resource name
-	checkSpansByResourceName(finishedSpans, "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
+	checkSpansByResourceName(finishedSpans, "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
 	checkSpansByResourceName(finishedSpans, "reflections_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go/MySuite", 0)
@@ -617,7 +617,7 @@ func runFlakyTestRetriesWithEarlyFlakyTestDetectionTests(m *testing.M, impactedT
 	// mock the settings api to enable automatic test retries
 	server := setUpHTTPServer(true, true, true, &net.KnownTestsResponseData{
 		Tests: net.KnownTestsResponseDataModules{
-			"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting": net.KnownTestsResponseDataSuites{
 				"reflections_test.go": []string{
 					"TestGetFieldPointerFrom",
 					"TestGetInternalTestArray",
@@ -703,7 +703,7 @@ func runFlakyTestRetriesWithEarlyFlakyTestDetectionTests(m *testing.M, impactedT
 	// 3 tests from testify_test.go and testify_test.go/MySuite
 
 	// check spans by resource name
-	checkSpansByResourceName(finishedSpans, "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
+	checkSpansByResourceName(finishedSpans, "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
 	checkSpansByResourceName(finishedSpans, "reflections_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go/MySuite", 1)
@@ -860,7 +860,7 @@ func runIntelligentTestRunnerTests(m *testing.M) {
 	// 3 tests from testify_test.go and testify_test.go/MySuite
 
 	// check spans by resource name
-	checkSpansByResourceName(finishedSpans, "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
+	checkSpansByResourceName(finishedSpans, "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
 	checkSpansByResourceName(finishedSpans, "reflections_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go/MySuite", 1)
@@ -979,7 +979,7 @@ func checkIntelligentTestRunnerWithMissingBackendCoverage(finishedSpans []*mockt
 	// Missing aggregate backend coverage disables coverage backfill only. ITR
 	// skipping still follows the backend skippable-test list, matching the Java
 	// reference implementation.
-	checkSpansByResourceName(finishedSpans, "github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
+	checkSpansByResourceName(finishedSpans, "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting", 1)
 	checkSpansByResourceName(finishedSpans, "reflections_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go", 1)
 	checkSpansByResourceName(finishedSpans, "testify_test.go/MySuite", 1)
@@ -1063,7 +1063,7 @@ func runTestManagementTests(m *testing.M) {
 	server := setUpHTTPServer(false, false, false, nil, false, nil, true,
 		&net.TestManagementTestsResponseDataModules{
 			Modules: map[string]net.TestManagementTestsResponseDataSuites{
-				"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting": {
+				"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting": {
 					Suites: map[string]net.TestManagementTestsResponseDataTests{
 						"reflections_test.go": {
 							Tests: map[string]net.TestManagementTestsResponseDataTestProperties{

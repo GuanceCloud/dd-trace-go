@@ -4,11 +4,11 @@ This document outlines migrating from an older version of the Datadog tracer (v1
 
 Datadog's v2 version of the Go tracer provides a significant refactor of our API, moving away from interfaces to provide flexibility in future works, isolating our integrations to prevent false-positives from security scanners, and enforcing proper library patterns to prevent misuse. This update is the result of continuous feedback from customers, the community, as well as our extensive internal usage, introducing better maintainability, simplified APIs, and unlocking performance benefits.
 
-As is common and recommended in the Go community, the best way to approach migrating to this new API is by using the [gradual code repair](https://talks.golang.org/2016/refactor.article) method. We have done the same internally and it has worked just great! For this exact reason we have provided a new, [semver](https://semver.org/) friendly import path to help with using both tracers in parallel, without conflict, for the duration of the migration. This new path is `github.com/DataDog/dd-trace-go/v2`.
+As is common and recommended in the Go community, the best way to approach migrating to this new API is by using the [gradual code repair](https://talks.golang.org/2016/refactor.article) method. We have done the same internally and it has worked just great! For this exact reason we have provided a new, [semver](https://semver.org/) friendly import path to help with using both tracers in parallel, without conflict, for the duration of the migration. This new path is `github.com/GuanceCloud/dd-trace-go/v2`.
 
 We have also provided a new migration tool `v2fix` to help with the most essential changes made in v2, which you can read about [here](./tools/v2fix/README.md).
 
-Our [godoc page](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/ddtrace) should be helpful during this process. We also have the [official documentation](https://docs.datadoghq.com/tracing/setup/go/), which contains a couple of examples.
+Our [godoc page](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/ddtrace) should be helpful during this process. We also have the [official documentation](https://docs.datadoghq.com/tracing/setup/go/), which contains a couple of examples.
 
 Please follow this guide for migrating from v1 to v2 and creating new services using v2 directly. This document will further outline some _before_ and _after_ examples.
 
@@ -23,7 +23,7 @@ import "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 Becomes:
 
 ```go
-import "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+import "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 ```
 
 It is important to run `go mod tidy` after changing any import.
@@ -50,10 +50,10 @@ import "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 Becomes:
 
 ```go
-import "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+import "github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2"
 ```
 
-If you are unsure of which import URL to use, please refer to our [godoc](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/contrib), which will include example code for each contrib.
+If you are unsure of which import URL to use, please refer to our [godoc](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/contrib), which will include example code for each contrib.
 
 ## Spans
 
@@ -104,7 +104,7 @@ func main() {
 Becomes:
 
 ```go
-import "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+import "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 
 func main() {
   tracer.Start()
@@ -228,7 +228,7 @@ Also, `ext.SamplingPriority` tag is deprecated. Use `ext.ManualKeep` and `ext.Ma
 
 ## Contrib API
 
-A support package to create contribs without depending on internal packages is available in `instrumentation`. Please refer to [`instrumentation` godoc page](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/instrumentation) and existing contribs for more detail.
+A support package to create contribs without depending on internal packages is available in `instrumentation`. Please refer to [`instrumentation` godoc page](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/instrumentation) and existing contribs for more detail.
 
 ## Updated User Monitoring SDK for `appsec`
 
@@ -252,7 +252,7 @@ The API Security sampler now takes decisions specific to a given endpoint (metho
 
 ## Opentracing deprecation
 
-`opentracer` is in "Maintenance" mode and limited support was offered in `v1`. We recommend to use OpenTelemetry or ddtrace/tracer directly. For additional details, please see our [Support Policy](https://github.com/DataDog/dd-trace-go?tab=readme-ov-file#go-support-policy).
+`opentracer` is in "Maintenance" mode and limited support was offered in `v1`. We recommend to use OpenTelemetry or ddtrace/tracer directly. For additional details, please see our [Support Policy](https://github.com/GuanceCloud/dd-trace-go?tab=readme-ov-file#go-support-policy).
 
 ## SQLCommentInjectionMode deprecation for DBM
 
@@ -276,5 +276,5 @@ DBMPropagationModeFull // DBMPropagationModeFull represents the dbm propagation 
 
 ## Further reading 
 
-* package level documentation of the [`tracer` package](https://pkg.go.dev/github.com/DataDog/dd-trace-go/v2/ddtrace/tracer) for a better overview.
+* package level documentation of the [`tracer` package](https://pkg.go.dev/github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer) for a better overview.
 * [official documentation](https://docs.datadoghq.com/tracing/setup/go/)

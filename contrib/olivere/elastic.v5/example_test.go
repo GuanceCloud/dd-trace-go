@@ -10,9 +10,9 @@ import (
 
 	"gopkg.in/olivere/elastic.v5"
 
-	elastictrace "github.com/DataDog/dd-trace-go/contrib/olivere/elastic.v5/v2"
+	elastictrace "github.com/GuanceCloud/dd-trace-go/contrib/olivere/elastic.v5/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 // To start tracing elastic.v5 requests, create a new TracedHTTPClient that you will

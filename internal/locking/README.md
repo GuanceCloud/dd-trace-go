@@ -23,7 +23,7 @@ The package uses build tags to switch between two implementations:
 ### Basic Usage (Drop-in Replacement)
 
 ```go
-import "github.com/DataDog/dd-trace-go/v2/internal/locking"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
 
 type SafeCounter struct {
     mu    locking.Mutex
@@ -97,7 +97,7 @@ This approach works consistently without external dependencies in default and de
 #### Runtime Assertion Examples
 
 ```go
-import "github.com/DataDog/dd-trace-go/v2/internal/locking/assert"
+import "github.com/GuanceCloud/dd-trace-go/v2/internal/locking/assert"
 
 type SafeCounter struct {
     mu    locking.Mutex

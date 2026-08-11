@@ -12,7 +12,7 @@ import (
 
 	of "github.com/open-feature/go-sdk/openfeature"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
 )
 
 // exposureHook implements the OpenFeature Hook interface to track feature flag exposures.

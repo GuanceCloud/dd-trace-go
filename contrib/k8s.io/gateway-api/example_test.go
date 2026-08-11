@@ -8,9 +8,9 @@ package gatewayapi_test
 import (
 	"net/http"
 
-	gatewayapi "github.com/DataDog/dd-trace-go/contrib/k8s.io/gateway-api/v2"
+	gatewayapi "github.com/GuanceCloud/dd-trace-go/contrib/k8s.io/gateway-api/v2"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func Example() {

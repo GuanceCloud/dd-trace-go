@@ -147,7 +147,7 @@ func TestRawStackEquivalence(t *testing.T) {
 	for _, frame := range symbolicatedStack {
 		if frame.Function == "TestRawStackEquivalence" {
 			require.Contains(t, frame.File, "stacktrace_test.go")
-			require.Equal(t, "github.com/DataDog/dd-trace-go/v2/internal/stacktrace", frame.Namespace)
+			require.Equal(t, "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace", frame.Namespace)
 			found = true
 			break
 		}
@@ -165,23 +165,23 @@ func TestParseSymbol(t *testing.T) {
 		name, symbol string
 		expected     symbol
 	}{
-		{"method-receiver-pointer", "github.com/DataDog/dd-trace-go/v2/internal/stacktrace.(*Test).Method", symbol{
-			"github.com/DataDog/dd-trace-go/v2/internal/stacktrace",
+		{"method-receiver-pointer", "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.(*Test).Method", symbol{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace",
 			"*Test",
 			"Method",
 		}},
-		{"method-receiver", "github.com/DataDog/dd-trace-go/v2/internal/stacktrace.(Test).Method", symbol{
-			"github.com/DataDog/dd-trace-go/v2/internal/stacktrace",
+		{"method-receiver", "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.(Test).Method", symbol{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace",
 			"Test",
 			"Method",
 		}},
-		{"sample", "github.com/DataDog/dd-trace-go/v2/internal/stacktrace.TestGetPackageFromSymbol", symbol{
-			"github.com/DataDog/dd-trace-go/v2/internal/stacktrace",
+		{"sample", "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.TestGetPackageFromSymbol", symbol{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace",
 			"",
 			"TestGetPackageFromSymbol",
 		}},
-		{"lambda", "github.com/DataDog/dd-trace-go/v2/internal/stacktrace.TestGetPackageFromSymbol.func1", symbol{
-			"github.com/DataDog/dd-trace-go/v2/internal/stacktrace",
+		{"lambda", "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.TestGetPackageFromSymbol.func1", symbol{
+			"github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace",
 			"",
 			"TestGetPackageFromSymbol.func1",
 		}},
@@ -321,7 +321,7 @@ func TestShouldRedactSymbol_DatadogFrames(t *testing.T) {
 	}{
 		{
 			name:     "dd-trace-go v2",
-			function: "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.StartSpan",
+			function: "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer.StartSpan",
 			expected: false, // Should NOT redact
 		},
 		{
@@ -481,8 +481,8 @@ func TestIsStandardLibraryPackage(t *testing.T) {
 		{"third-party github test", "github.com/user/repo.test", false},
 		{"third-party gopkg.in", "gopkg.in/yaml.v3", false},
 		{"third-party gopkg.in test", "gopkg.in/yaml.v3.test", false},
-		{"datadog repo", "github.com/DataDog/dd-trace-go/v2/internal/stacktrace", false},
-		{"datadog repo test", "github.com/DataDog/dd-trace-go/v2/internal/stacktrace.test", false},
+		{"datadog repo", "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace", false},
+		{"datadog repo test", "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace.test", false},
 	}
 
 	for _, tt := range tests {
@@ -824,7 +824,7 @@ func TestStackTraceRealCapture(t *testing.T) {
 		// Check that internal frames are preserved (not redacted)
 		hasInternalFrames := false
 		for _, frame := range stack {
-			if strings.Contains(frame.Namespace, "github.com/DataDog/dd-trace-go/v2/internal/stacktrace") {
+			if strings.Contains(frame.Namespace, "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace") {
 				hasInternalFrames = true
 				assert.NotEqual(t, redactedPlaceholder, frame.Function, "Internal frames should not be redacted")
 				assert.NotEqual(t, redactedPlaceholder, frame.File, "Internal frame files should not be redacted")
@@ -845,11 +845,11 @@ func TestStackTraceRealCapture(t *testing.T) {
 		t.Logf("CaptureWithRedaction result (%d frames):\n%s", len(redactionStack), redactionFormatted)
 
 		// SkipAndCapture should filter out internal DD frames
-		assert.NotContains(t, skipFormatted, "github.com/DataDog/dd-trace-go/v2/internal/stacktrace",
+		assert.NotContains(t, skipFormatted, "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace",
 			"SkipAndCapture should filter out internal frames")
 
 		// CaptureWithRedaction should keep internal DD frames
-		assert.Contains(t, redactionFormatted, "github.com/DataDog/dd-trace-go/v2/internal/stacktrace",
+		assert.Contains(t, redactionFormatted, "github.com/GuanceCloud/dd-trace-go/v2/internal/stacktrace",
 			"CaptureWithRedaction should keep internal frames")
 
 		// CaptureWithRedaction should have more detailed stack

@@ -1,4 +1,4 @@
-module github.com/DataDog/dd-trace-go/contrib/database/sql/v2
+module github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2
 
 go 1.25.0
 
@@ -6,7 +6,7 @@ godebug x509negativeserial=1
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.8.3
-	github.com/DataDog/dd-trace-go/v2 v2.10.0-rc.5
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
 	github.com/denisenkom/go-mssqldb v0.11.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/lib/pq v1.11.1
@@ -101,5 +101,3 @@ require (
 	modernc.org/strutil v1.2.0 // indirect
 	modernc.org/token v1.1.0 // indirect
 )
-
-replace github.com/DataDog/dd-trace-go/v2 => ../../..

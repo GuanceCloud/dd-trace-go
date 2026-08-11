@@ -5,7 +5,7 @@
 ---
 # yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
 meta:
-  name: github.com/DataDog/dd-trace-go/v2/internal/orchestrion
+  name: github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion
   description: Operations that interact with Go's runtime system.
   caveats: |-
     This configuration introduces a way to access the Goroutine Local Storage (GLS), which is not
@@ -63,11 +63,11 @@ aspects:
   - id: dyngo operation GLS field
     tracer-internal: true
     join-point:
-      struct-definition: github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo.operation
+      struct-definition: github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo.operation
     advice:
       - add-struct-field:
           name: __dd_glsPop
-          type: github.com/DataDog/dd-trace-go/v2/internal/orchestrion.GLSPopperCell
+          type: github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion.GLSPopperCell
 
   # RegisterOperation: push the operation onto the GLS and capture a
   # goroutine-scoped popper (first registration wins).
@@ -75,14 +75,14 @@ aspects:
     tracer-internal: true
     join-point:
       all-of:
-        - import-path: github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo
+        - import-path: github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo
         - function-body:
             function:
               - name: RegisterOperation
     advice:
       - prepend-statements:
           imports:
-            orchestrion: github.com/DataDog/dd-trace-go/v2/internal/orchestrion
+            orchestrion: github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion
           template: |-
             {{- $ctx := .Function.Argument 0 -}}
             {{- $op := .Function.Argument 1 -}}
@@ -99,14 +99,14 @@ aspects:
     tracer-internal: true
     join-point:
       all-of:
-        - import-path: github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo
+        - import-path: github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo
         - function-body:
             function:
               - name: FromContext
     advice:
       - prepend-statements:
           imports:
-            orchestrion: github.com/DataDog/dd-trace-go/v2/internal/orchestrion
+            orchestrion: github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion
           template: |-
             {{- $ctx := .Function.Argument 0 -}}
             // Wrap unconditionally: AppSec calls FromContext(nil) from
@@ -125,14 +125,14 @@ aspects:
     tracer-internal: true
     join-point:
       all-of:
-        - import-path: github.com/DataDog/dd-trace-go/v2/instrumentation/appsec/dyngo
+        - import-path: github.com/GuanceCloud/dd-trace-go/v2/instrumentation/appsec/dyngo
         - function-body:
             function:
               - name: FinishOperation
     advice:
       - prepend-statements:
           imports:
-            orchestrion: github.com/DataDog/dd-trace-go/v2/internal/orchestrion
+            orchestrion: github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion
           template: |-
             {{- $op := .Function.Argument 0 -}}
             defer func() {

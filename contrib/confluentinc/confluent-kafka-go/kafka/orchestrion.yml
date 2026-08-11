@@ -5,7 +5,7 @@
 ---
 # yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
 meta:
-  name: github.com/DataDog/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2
+  name: github.com/GuanceCloud/dd-trace-go/contrib/confluentinc/confluent-kafka-go/kafka/v2
   description: confluent-kafka-go is a Go library for Apache Kafka
 
 aspects:
@@ -24,8 +24,8 @@ aspects:
           type: "*ConfigMap"
       - inject-declarations:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
-            instrumentation: github.com/DataDog/dd-trace-go/v2/instrumentation
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            instrumentation: github.com/GuanceCloud/dd-trace-go/v2/instrumentation
           lang: go1.18
           template: |-
             const __dd_ckgoVersion = kafkatrace.CKGoVersion1
@@ -233,7 +233,7 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
           template: |-
             {{- $conf := .Function.Argument 0 -}}
             {{- $c := .Function.Result 0 -}}
@@ -254,7 +254,7 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
           template: |-
             {{- $c := .Function.Receiver -}}
             __dd_initConsumer({{ $c }})
@@ -274,7 +274,7 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
           template: |-
             {{- $c := .Function.Receiver -}}
             {{- $events := .Function.Result 0 -}}
@@ -293,7 +293,7 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
           template: |-
             {{- $c := .Function.Receiver -}}
             {{- $event := .Function.Result 0 -}}
@@ -323,7 +323,7 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
           template: |-
             {{- $c := .Function.Receiver -}}
             {{- $tps := .Function.Result 0 -}}
@@ -344,7 +344,7 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
           template: |-
             {{- $c := .Function.Receiver -}}
             {{- $tps := .Function.Result 0 -}}
@@ -365,7 +365,7 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
           template: |-
             {{- $c := .Function.Receiver -}}
             {{- $tps := .Function.Result 0 -}}
@@ -447,8 +447,8 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            kafkatrace: github.com/DataDog/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
-            tracer: github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
+            kafkatrace: github.com/GuanceCloud/dd-trace-go/v2/contrib/confluentinc/confluent-kafka-go/kafkatrace
+            tracer: github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
           template: |-
             {{- $p := .Function.Receiver -}}
             {{- $msg := .Function.Argument 0 -}}

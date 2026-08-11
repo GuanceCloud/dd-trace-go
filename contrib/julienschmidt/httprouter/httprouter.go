@@ -4,16 +4,16 @@
 // Copyright 2016 Datadog, Inc.
 
 // Package httprouter provides functions to trace the [github.com/julienschmidt/httprouter] package.
-package httprouter // import "github.com/DataDog/dd-trace-go/contrib/julienschmidt/httprouter/v2"
+package httprouter // import "github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2"
 
 import (
 	"net/http"
 
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 
 	"github.com/julienschmidt/httprouter"
 
-	"github.com/DataDog/dd-trace-go/contrib/julienschmidt/httprouter/v2/internal/tracing"
+	"github.com/GuanceCloud/dd-trace-go/contrib/julienschmidt/httprouter/v2/internal/tracing"
 )
 
 var instr *instrumentation.Instrumentation

@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/civisibility/constants"
-	civisibilityutils "github.com/DataDog/dd-trace-go/v2/internal/civisibility/utils"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/constants"
+	civisibilityutils "github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/utils"
 )
 
 func TestWriteLCOVReportFromProfile(t *testing.T) {

@@ -25,17 +25,17 @@ import (
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
-	"github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal"
-	eventBridgeTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/eventbridge"
-	kinesisTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/kinesis"
-	sfnTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sfn"
-	snsTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sns"
-	"github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/spanpointers"
-	sqsTracer "github.com/DataDog/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sqs"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal"
+	eventBridgeTracer "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/eventbridge"
+	kinesisTracer "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/kinesis"
+	sfnTracer "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sfn"
+	snsTracer "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sns"
+	"github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/spanpointers"
+	sqsTracer "github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2/internal/sqs"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 const componentName = "aws/aws-sdk-go-v2/aws"

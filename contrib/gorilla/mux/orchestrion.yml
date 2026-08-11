@@ -5,7 +5,7 @@
 ---
 # yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
 meta:
-  name: github.com/DataDog/dd-trace-go/contrib/gorilla/mux/v2
+  name: github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2
   description: Package gorilla/mux implements a request router and dispatcher for matching incoming requests to their respective handler.
 
 aspects:
@@ -20,9 +20,9 @@ aspects:
       - inject-declarations:
           imports:
             http: net/http
-            instrumentation: github.com/DataDog/dd-trace-go/v2/instrumentation
+            instrumentation: github.com/GuanceCloud/dd-trace-go/v2/instrumentation
             sync: sync
-            tracer: github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
+            tracer: github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
           lang: go1.18 # some parts of our codebase use generics, so ensure we can build if using old versions of gorilla/mux (e.g. if using a replace).
           template: |-
             var __dd_instr *instrumentation.Instrumentation
@@ -64,14 +64,14 @@ aspects:
     advice:
       - prepend-statements:
           imports:
-            ext: github.com/DataDog/dd-trace-go/v2/ddtrace/ext
+            ext: github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext
             http: net/http
-            httptrace: github.com/DataDog/dd-trace-go/contrib/net/http/v2
-            instrhttptrace: github.com/DataDog/dd-trace-go/v2/instrumentation/httptrace
-            instrumentation: github.com/DataDog/dd-trace-go/v2/instrumentation
+            httptrace: github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2
+            instrhttptrace: github.com/GuanceCloud/dd-trace-go/v2/instrumentation/httptrace
+            instrumentation: github.com/GuanceCloud/dd-trace-go/v2/instrumentation
             math: math
-            options: github.com/DataDog/dd-trace-go/v2/instrumentation/options
-            tracer: github.com/DataDog/dd-trace-go/v2/ddtrace/tracer
+            options: github.com/GuanceCloud/dd-trace-go/v2/instrumentation/options
+            tracer: github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer
             sync: sync
           lang: go1.18 # some parts of our codebase use generics, so ensure we can build if using old versions of gorilla/mux (e.g. if using a replace).
           template: |-

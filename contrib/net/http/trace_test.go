@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/mocktracer"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/mocktracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
 )
 
 func TestTraceAndServe(t *testing.T) {
@@ -476,7 +476,7 @@ func TestTraceAndServeHost(t *testing.T) {
 
 // TestUnwrap tests the implementation of the rwUnwrapper interface, which is used internally
 // by the standard library: https://github.com/golang/go/blob/6d89b38ed86e0bfa0ddaba08dc4071e6bb300eea/src/net/http/responsecontroller.go#L42-L44
-// See also: https://github.com/DataDog/dd-trace-go/issues/2674
+// See also: https://github.com/GuanceCloud/dd-trace-go/issues/2674
 func TestUnwrap(t *testing.T) {
 	h := WrapHandler(deadlineHandler, "service-name", "resource-name")
 	srv := httptest.NewServer(h)

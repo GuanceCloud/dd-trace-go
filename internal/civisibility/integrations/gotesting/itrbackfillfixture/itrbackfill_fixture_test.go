@@ -85,7 +85,7 @@ func TestITRCoverageBackfillOrchestrionFixture(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var profile string
 			args := []string{
-				"go", "run", "-mod=readonly", "github.com/DataDog/orchestrion",
+				"go", "run", "-mod=readonly", "github.com/GuanceCloud/orchestrion",
 				"go", "test", "-mod=readonly", "./...",
 				"-cover", "-covermode=" + test.coverMode, "-coverpkg", "./...",
 				"-count=1",
@@ -261,7 +261,7 @@ func assertOrchestrionFixtureDoesNotUseManualRunM(t *testing.T, fixtureDir strin
 			t.Fatalf("Orchestrion fixture must use testing.M.Run instrumentation, not gotesting.RunM: %s", path)
 		}
 		if filepath.Base(path) != "orchestrion.tool.go" &&
-			strings.Contains(source, "\"github.com/DataDog/dd-trace-go/v2/internal/civisibility/integrations/gotesting\"") {
+			strings.Contains(source, "\"github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/gotesting\"") {
 			t.Fatalf("Orchestrion runtime fixture files must not import gotesting directly: %s", path)
 		}
 		return nil

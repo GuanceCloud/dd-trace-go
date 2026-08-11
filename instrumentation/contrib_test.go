@@ -57,7 +57,7 @@ func testIntegrationEnabled(t *testing.T, contribPath string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf(`package %q is expected use instrumentation telemetry. For more info see https://github.com/DataDog/dd-trace-go/blob/main/contrib/README.md#instrumentation-telemetry`, contribPath)
+	return fmt.Errorf(`package %q is expected use instrumentation telemetry. For more info see https://github.com/GuanceCloud/dd-trace-go/blob/main/contrib/README.md#instrumentation-telemetry`, contribPath)
 }
 
 func parsePackages(root string) ([]contribPkg, error) {
@@ -137,7 +137,7 @@ func getModulePath(root string) string {
 }
 
 func hasInstrumentationImport(p contribPkg) bool {
-	return slices.Contains(p.Imports, "github.com/DataDog/dd-trace-go/v2/instrumentation")
+	return slices.Contains(p.Imports, "github.com/GuanceCloud/dd-trace-go/v2/instrumentation")
 }
 
 type contribPkg struct {
@@ -181,7 +181,7 @@ func TestNoSetTagServiceName(t *testing.T) {
 		extAlias := ""
 		for _, imp := range node.Imports {
 			importPath := strings.Trim(imp.Path.Value, `"`)
-			if importPath == "github.com/DataDog/dd-trace-go/v2/ddtrace/ext" {
+			if importPath == "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext" {
 				if imp.Name != nil {
 					extAlias = imp.Name.Name
 				} else {
@@ -274,7 +274,7 @@ func TestNoTracerServiceName(t *testing.T) {
 		tracerAlias := ""
 		for _, imp := range node.Imports {
 			importPath := strings.Trim(imp.Path.Value, `"`)
-			if importPath == "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer" {
+			if importPath == "github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer" {
 				if imp.Name != nil {
 					tracerAlias = imp.Name.Name
 				} else {

@@ -8,11 +8,11 @@ package integration_test
 import (
 	"testing"
 
-	"github.com/DataDog/orchestrion/runtime/built"
+	"github.com/GuanceCloud/orchestrion/runtime/built"
 	"github.com/stretchr/testify/require"
 )
 
-//go:generate go run github.com/DataDog/dd-trace-go/v2/internal/orchestrion/_integration/internal/generator
+//go:generate go run github.com/GuanceCloud/dd-trace-go/v2/internal/orchestrion/_integration/internal/generator
 
 func TestOrchestrionPresent(t *testing.T) {
 	require.True(t, built.WithOrchestrion, "this test was not built with orchestrion enabled")

@@ -8,11 +8,11 @@ package config
 import (
 	"strings"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/config/provider"
-	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	"github.com/DataDog/dd-trace-go/v2/internal/log"
-	"github.com/DataDog/dd-trace-go/v2/internal/normalizer"
-	"github.com/DataDog/dd-trace-go/v2/internal/telemetry"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/config/provider"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/globalconfig"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/log"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/normalizer"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/telemetry"
 )
 
 // parseHeaderAsTagsFromEnv reads DD_TRACE_HEADER_TAGS, splits it on commas, and

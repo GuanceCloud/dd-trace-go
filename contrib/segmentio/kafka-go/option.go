@@ -5,7 +5,7 @@
 
 package kafka
 
-import "github.com/DataDog/dd-trace-go/contrib/segmentio/kafka-go/v2/internal/tracing"
+import "github.com/GuanceCloud/dd-trace-go/contrib/segmentio/kafka-go/v2/internal/tracing"
 
 // Option describes options for the Kafka integration.
 type Option = tracing.Option

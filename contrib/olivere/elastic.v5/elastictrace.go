@@ -7,7 +7,7 @@
 //
 // Deprecated: https://github.com/olivere/elastic is deprecated. Please use the official Elasticsearch client for Go
 // at https://github.com/elastic/go-elasticsearch and use the corresponding integration. This integration will be removed in a future release.
-package elastic // import "github.com/DataDog/dd-trace-go/contrib/olivere/elastic/v2"
+package elastic // import "github.com/GuanceCloud/dd-trace-go/contrib/olivere/elastic/v2"
 
 import (
 	"bufio"
@@ -21,9 +21,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
-	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
-	"github.com/DataDog/dd-trace-go/v2/instrumentation"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/ext"
+	"github.com/GuanceCloud/dd-trace-go/v2/ddtrace/tracer"
+	"github.com/GuanceCloud/dd-trace-go/v2/instrumentation"
 )
 
 var instr *instrumentation.Instrumentation

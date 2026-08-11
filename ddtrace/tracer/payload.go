@@ -8,7 +8,7 @@ package tracer
 import (
 	"io"
 
-	"github.com/DataDog/dd-trace-go/v2/internal/locking"
+	"github.com/GuanceCloud/dd-trace-go/v2/internal/locking"
 )
 
 // payloadStats contains the statistics of a payload.
