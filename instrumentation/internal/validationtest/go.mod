@@ -3,9 +3,9 @@ module github.com/GuanceCloud/dd-trace-go/instrumentation/internal/validationtes
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/contrib/bradfitz/gomemcache/v2 v2.10.2-ext
-	github.com/GuanceCloud/dd-trace-go/contrib/miekg/dns/v2 v2.10.2-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/bradfitz/gomemcache/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/miekg/dns/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/bradfitz/gomemcache v0.0.0-20230611145640-acc696258285
 	github.com/miekg/dns v1.1.62
 	github.com/stretchr/testify v1.11.1
