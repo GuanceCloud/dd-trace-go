@@ -3,8 +3,8 @@ module github.com/GuanceCloud/dd-trace-go/internal/exectracetest/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2 v2.10.1-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/database/sql/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6
 	github.com/mattn/go-sqlite3 v1.14.22
 	golang.org/x/exp v0.0.0-20260209203927-2842357ff358
