@@ -6,7 +6,7 @@ godebug x509negativeserial=1
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.8.3
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/denisenkom/go-mssqldb v0.11.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/lib/pq v1.11.1
