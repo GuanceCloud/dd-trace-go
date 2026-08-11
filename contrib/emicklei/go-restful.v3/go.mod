@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/emicklei/go-restful.v3/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/emicklei/go-restful/v3 v3.12.2
 	github.com/stretchr/testify v1.11.1
 )
