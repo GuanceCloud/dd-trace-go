@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/v2/internal/civisibility/integrations/
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/GuanceCloud/orchestrion v1.11.1-ext
 )
 
