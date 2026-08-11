@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/gocql/gocql/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
 	github.com/gocql/gocql v1.7.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/mod v0.35.0
