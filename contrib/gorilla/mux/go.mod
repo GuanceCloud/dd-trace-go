@@ -3,8 +3,8 @@ module github.com/GuanceCloud/dd-trace-go/contrib/gorilla/mux/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.2-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/gorilla/mux v1.8.1
 	github.com/stretchr/testify v1.11.1
 )
