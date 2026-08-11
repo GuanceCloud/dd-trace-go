@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/go-chi/chi v1.5.4
 	github.com/stretchr/testify v1.11.1
 )
