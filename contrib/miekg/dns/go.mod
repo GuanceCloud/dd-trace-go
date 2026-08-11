@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/miekg/dns/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/miekg/dns v1.1.62
 	github.com/stretchr/testify v1.11.1
 )
