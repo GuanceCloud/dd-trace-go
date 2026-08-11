@@ -6,7 +6,6 @@ require (
 {{- range .Modules }}
 	{{ index . 0 }} {{ $.VersionTag }}
 {{- end }}
-	github.com/GuanceCloud/orchestrion {{ .OrchestrionLatest }}
 )
 
 {{/*

@@ -33,7 +33,6 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 
-	"github.com/GuanceCloud/dd-trace-go/v2/internal/env"
 	"github.com/GuanceCloud/dd-trace-go/v2/internal/version"
 
 	_ "embed" // For go:embed
@@ -59,24 +58,7 @@ func main() {
 	_, thisFile, _, _ := runtime.Caller(0)
 	rootDir := filepath.Join(thisFile, "..", "..", "..", "..")
 
-	var orchestrionVersion string
-
-	if v := env.Get("ORCHESTRION_VERSION"); v != "" {
-		orchestrionVersion = v
-	} else {
-		log.Println("Determining latest version of orchestrion...")
-		var buf bytes.Buffer
-		cmd := exec.Command("go", "list", "-m", "--versions", `-f={{ $v := "" }}{{ range .Versions }}{{ $v = . }}{{ end }}{{ $v }}`, "github.com/GuanceCloud/orchestrion")
-		cmd.Stdout = &buf
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			log.Fatalln(err)
-		}
-		orchestrionVersion = strings.TrimSpace(buf.String())
-	}
-
-	log.Println("Using orchestrion version:", orchestrionVersion)
-	modules, err := generateRootConfig(rootDir, orchestrionVersion)
+	modules, err := generateRootConfig(rootDir)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -86,7 +68,7 @@ func main() {
 	}
 }
 
-func generateRootConfig(rootDir string, orchestrionLatestVersion string) (map[string]string, error) {
+func generateRootConfig(rootDir string) (map[string]string, error) {
 	var (
 		paths   = []string{"github.com/GuanceCloud/dd-trace-go/v2/orchestrion"} // Allows access to the `/internal/` stuff such as CI Viz.
 		modules = make(map[string]string)
@@ -177,10 +159,9 @@ func generateRootConfig(rootDir string, orchestrionLatestVersion string) (map[st
 	}
 	var goMod bytes.Buffer
 	if err := goModTemplate.Execute(&goMod, map[string]any{
-		"GoVersion":         goVersion,
-		"OrchestrionLatest": orchestrionLatestVersion,
-		"Modules":           replaces,
-		"VersionTag":        version.Tag,
+		"GoVersion":  goVersion,
+		"Modules":    replaces,
+		"VersionTag": version.Tag,
 	}); err != nil {
 		return nil, fmt.Errorf("rendering go.mod from template: %w", err)
 	}

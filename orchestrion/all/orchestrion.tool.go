@@ -20,8 +20,6 @@ package all
 // your application. If that is a problem, you should instead manually import
 // only the specific integrations that are useful to your application.
 import (
-	_ "github.com/GuanceCloud/orchestrion"
-
 	_ "github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2"                         // integration
 	_ "github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2"                               // integration
 	_ "github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2"                           // integration
