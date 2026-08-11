@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/segmentio/kafka-go/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/segmentio/kafka-go v0.4.42
 	github.com/stretchr/testify v1.11.1
 )
