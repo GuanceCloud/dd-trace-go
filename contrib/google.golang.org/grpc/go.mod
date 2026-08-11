@@ -3,8 +3,8 @@ module github.com/GuanceCloud/dd-trace-go/contrib/google.golang.org/grpc/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/grpc/v2 v2.10.1-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/grpc/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
 	github.com/stretchr/testify v1.11.1
 	github.com/tinylib/msgp v1.6.3
 	google.golang.org/grpc v1.80.0
