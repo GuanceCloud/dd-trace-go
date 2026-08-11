@@ -3,8 +3,8 @@ module github.com/GuanceCloud/dd-trace-go/contrib/labstack/echo.v5/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.2-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/labstack/echo/v5 v5.1.0
 	github.com/stretchr/testify v1.11.1
 )
