@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/redis/rueidis/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/redis/rueidis v1.0.74
 	github.com/stretchr/testify v1.11.1
 )
