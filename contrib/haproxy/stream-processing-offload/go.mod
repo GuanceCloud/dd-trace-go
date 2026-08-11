@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/haproxy/stream-processing-offl
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/negasus/haproxy-spoe-go v1.0.7
 	github.com/stretchr/testify v1.11.1
