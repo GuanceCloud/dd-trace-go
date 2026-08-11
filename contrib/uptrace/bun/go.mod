@@ -5,7 +5,7 @@ go 1.25.0
 godebug x509negativeserial=1
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.1-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/lib/pq v1.11.1
 	github.com/microsoft/go-mssqldb v0.21.0
