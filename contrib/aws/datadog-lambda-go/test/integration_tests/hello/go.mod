@@ -8,9 +8,9 @@ module github.com/GuanceCloud/dd-trace-go/v2/contrib/aws/datadog-lambda-go/test/
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.2-ext
-	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.2-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext
 	github.com/aws/aws-lambda-go v1.46.0
 )
 
