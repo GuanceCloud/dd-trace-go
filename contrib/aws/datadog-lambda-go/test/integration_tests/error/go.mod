@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/v2/contrib/aws/datadog-lambda-go/test/
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.2-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/aws/datadog-lambda-go/v2 v2.10.3-ext
 	github.com/aws/aws-lambda-go v1.46.0
 )
 
@@ -23,7 +23,7 @@ require (
 	github.com/DataDog/go-sqllexer v0.2.1 // indirect
 	github.com/DataDog/go-tuf v1.1.1-0.5.2 // indirect
 	github.com/DataDog/sketches-go v1.4.8 // indirect
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext // indirect
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.5 // indirect
