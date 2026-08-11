@@ -28,10 +28,10 @@ github.com/DataDog/go-tuf v1.1.1-0.5.2 h1:YWvghV4ZvrQsPcUw8IOUMSDpqc3W5ruOIC+KJx
 github.com/DataDog/go-tuf v1.1.1-0.5.2/go.mod h1:zBcq6f654iVqmkk8n2Cx81E1JnNTMOAx1UEO/wZR+P0=
 github.com/DataDog/sketches-go v1.4.8 h1:pFk9BNn+Rzv8IMIoPUttoOpOr3bJOqU3P6EP5wK+Lv8=
 github.com/DataDog/sketches-go v1.4.8/go.mod h1:a/wjRUqzqtGS8qRHRPDCs4EAQfmvPDZGDlMIF5mxXOE=
-github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.2-ext h1:8OP1pbYNepgeFE/5Fgm6i+uRBEI1mtYt6bg3qL/b6wo=
-github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.2-ext/go.mod h1:Inejk3FEI5nO7NPmb1CkXmnmJwPECpbRf0k5AUawhxU=
-github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext h1:cNklWlQLr8zijM0NkLY4IgOPFES/TRPAFlfPATUVG8Y=
-github.com/GuanceCloud/dd-trace-go/v2 v2.10.2-ext/go.mod h1:voZcX6RbP9JJT60mRuNMSxRNpk+WDnf0Hou5wRHbkqQ=
+github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.3-ext h1:0Ri98PSPbVnjkCHhUOwsCHdhzepEEtdy5x0C9xYLv8M=
+github.com/GuanceCloud/dd-trace-go/contrib/net/http/v2 v2.10.3-ext/go.mod h1:POIrnNXVjUq7tetQwJAozihguBZ2iZv5cYe3etUP3Sw=
+github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext h1:JXObUqTE3mP7xzYEcs+858qq+31wygWGMqbFrJICgtk=
+github.com/GuanceCloud/dd-trace-go/v2 v2.10.3-ext/go.mod h1:voZcX6RbP9JJT60mRuNMSxRNpk+WDnf0Hou5wRHbkqQ=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/Microsoft/go-winio v0.5.0/go.mod h1:JPGBdM1cNvN/6ISo+n8V5iA4v8pBzdOpzfwIujj1a84=
