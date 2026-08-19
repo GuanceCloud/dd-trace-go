@@ -15,7 +15,7 @@ import (
 )
 
 func ExampleServer() {
-	tracer.Start()
+	tracer.Start(tracer.WithAgentAddr("127.0.0.1:9529"))
 	defer tracer.Stop()
 
 	httpServer := kratoshttp.NewServer(
@@ -31,7 +31,7 @@ func ExampleServer() {
 }
 
 func ExampleClient() {
-	tracer.Start()
+	tracer.Start(tracer.WithAgentAddr("127.0.0.1:9529"))
 	defer tracer.Stop()
 
 	httpClient, err := kratoshttp.NewClient(
