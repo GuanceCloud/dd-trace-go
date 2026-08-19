@@ -331,6 +331,7 @@ func generatedThirdPartyLibraries() []string {
 		"github.com/go-jose/go-jose/v4",
 		"github.com/go-kit/kit",
 		"github.com/go-kit/log",
+		"github.com/go-kratos/kratos/v3",
 		"github.com/go-ldap/ldap/v3",
 		"github.com/go-logfmt/logfmt",
 		"github.com/go-logr/logr",

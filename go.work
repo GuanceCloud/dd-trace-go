@@ -33,6 +33,7 @@ use (
 	./contrib/go.mongodb.org/mongo-driver.v2
 	./contrib/gocql/gocql
 	./contrib/gofiber/fiber.v2
+	./contrib/go-kratos/kratos.v3
 	./contrib/gomodule/redigo
 	./contrib/google.golang.org/api
 	./contrib/google.golang.org/api/internal/gen_endpoints
