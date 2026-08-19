@@ -44,6 +44,7 @@ const (
 	PackageGoRedisV8            Package = "go-redis/redis.v8"
 	PackageGoCQL                Package = "gocql/gocql"
 	PackageGoFiberV2            Package = "gofiber/fiber.v2"
+	PackageGoKratosV3           Package = "go-kratos/kratos.v3"
 	PackageRedigo               Package = "gomodule/redigo"
 	PackageGoogleAPI            Package = "google.golang.org/api"
 	PackageGRPC                 Package = "google.golang.org/grpc"
@@ -505,6 +506,24 @@ var packages = map[Package]PackageInfo{
 				buildServiceNameV0: staticName("fiber"),
 				buildOpNameV0:      staticName("http.request"),
 				buildOpNameV1:      staticName("http.server.request"),
+			},
+		},
+	},
+	PackageGoKratosV3: {
+		TracedPackage: "github.com/go-kratos/kratos/v3",
+		EnvVarPrefix:  "KRATOS",
+		naming: map[Component]componentNames{
+			ComponentServer: {
+				useDDServiceV0:     true,
+				buildServiceNameV0: staticName("kratos"),
+				buildOpNameV0:      staticName("kratos.server.request"),
+				buildOpNameV1:      staticName("kratos.server.request"),
+			},
+			ComponentClient: {
+				useDDServiceV0:     false,
+				buildServiceNameV0: staticName("kratos.client"),
+				buildOpNameV0:      staticName("kratos.client.request"),
+				buildOpNameV1:      staticName("kratos.client.request"),
 			},
 		},
 	},
