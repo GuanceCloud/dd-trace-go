@@ -501,6 +501,7 @@ func generatedThirdPartyLibraries() []string {
 		"github.com/negasus/haproxy-spoe-go",
 		"github.com/niemeyer/pretty",
 		"github.com/nrwiersma/avro-benchmarks",
+		"github.com/nsqio/go-nsq",
 		"github.com/nxadm/tail",
 		"github.com/oklog/run",
 		"github.com/onsi/ginkgo",
