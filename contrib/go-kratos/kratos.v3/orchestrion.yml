@@ -1,0 +1,94 @@
+# Unless explicitly stated otherwise all files in this repository are licensed
+# under the Apache License Version 2.0.
+# This product includes software developed at Datadog (https://www.datadoghq.com/).
+# Copyright 2026 Datadog, Inc.
+---
+# yaml-language-server: $schema=https://datadoghq.dev/orchestrion/schema.json
+meta:
+  name: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+  description: Kratos v3 tracing integration.
+
+aspects:
+  - id: HTTPServer
+    join-point:
+      all-of:
+        - function-call: github.com/go-kratos/kratos/v3/transport/http.NewServer
+        - not:
+            import-path: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+    advice:
+      - wrap-expression:
+          imports:
+            kratoshttp: github.com/go-kratos/kratos/v3/transport/http
+            kratostrace: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+          template: |-
+            func() *kratoshttp.Server {
+              return kratostrace.OrchestrionNewHTTPServer(
+                {{- range $i, $a := .AST.Args -}}
+                  {{- if $i }}, {{ end -}}{{ $a }}
+                {{- end -}}
+                {{- if .AST.Ellipsis }}...{{ end -}}
+              )
+            }()
+
+  - id: HTTPClient
+    join-point:
+      all-of:
+        - function-call: github.com/go-kratos/kratos/v3/transport/http.NewClient
+        - not:
+            import-path: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+    advice:
+      - wrap-expression:
+          imports:
+            kratoshttp: github.com/go-kratos/kratos/v3/transport/http
+            kratostrace: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+          template: |-
+            func() (*kratoshttp.Client, error) {
+              return kratostrace.OrchestrionNewHTTPClient(
+                {{- range $i, $a := .AST.Args -}}
+                  {{- if $i }}, {{ end -}}{{ $a }}
+                {{- end -}}
+                {{- if .AST.Ellipsis }}...{{ end -}}
+              )
+            }()
+
+  - id: GRPCServer
+    join-point:
+      all-of:
+        - function-call: github.com/go-kratos/kratos/v3/transport/grpc.NewServer
+        - not:
+            import-path: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+    advice:
+      - wrap-expression:
+          imports:
+            kratosgrpc: github.com/go-kratos/kratos/v3/transport/grpc
+            kratostrace: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+          template: |-
+            func() *kratosgrpc.Server {
+              return kratostrace.OrchestrionNewGRPCServer(
+                {{- range $i, $a := .AST.Args -}}
+                  {{- if $i }}, {{ end -}}{{ $a }}
+                {{- end -}}
+                {{- if .AST.Ellipsis }}...{{ end -}}
+              )
+            }()
+
+  - id: GRPCClient
+    join-point:
+      all-of:
+        - function-call: github.com/go-kratos/kratos/v3/transport/grpc.NewClient
+        - not:
+            import-path: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+    advice:
+      - wrap-expression:
+          imports:
+            grpc: google.golang.org/grpc
+            kratostrace: github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
+          template: |-
+            func() (*grpc.ClientConn, error) {
+              return kratostrace.OrchestrionNewGRPCClient(
+                {{- range $i, $a := .AST.Args -}}
+                  {{- if $i }}, {{ end -}}{{ $a }}
+                {{- end -}}
+                {{- if .AST.Ellipsis }}...{{ end -}}
+              )
+            }()
