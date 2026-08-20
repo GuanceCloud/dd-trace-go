@@ -3,7 +3,7 @@ module github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2
 go 1.25.0
 
 require (
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.5-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.6-ext
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.82.1

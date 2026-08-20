@@ -18,7 +18,7 @@ require (
 	github.com/GuanceCloud/dd-trace-go/contrib/gin-gonic/gin/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi.v5/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2 v2.10.3-ext
-	github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2 v2.10.5-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2 v2.10.6-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v7/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v8/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis/v2 v2.10.3-ext
@@ -49,7 +49,7 @@ require (
 	github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/valyala/fasthttp/v2 v2.10.3-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.5-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.6-ext
 )
 
 require (
