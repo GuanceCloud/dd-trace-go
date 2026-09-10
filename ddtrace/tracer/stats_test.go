@@ -548,7 +548,7 @@ func TestShouldObfuscate(t *testing.T) {
 			c := newConcentrator(cfg, bucketSize, &statsd.NoOpClientDirect{})
 			defer func(oldVersion int) { tracerObfuscationVersion = oldVersion }(tracerObfuscationVersion)
 			tracerObfuscationVersion = params.tracerVersion
-			assert.Equal(t, params.expectedShouldObfuscate, c.sender.shouldObfuscate())
+			assert.Equal(t, params.expectedShouldObfuscate, c.sender.shouldObfuscate(c.cfg.agent.load()))
 		})
 	}
 }

@@ -76,7 +76,7 @@ type concentrator struct {
 // payload is sent, and the obfuscation/peer-tags policy for that destination.
 type statsSender interface {
 	send(csp *pb.ClientStatsPayload, retries int, interval time.Duration) error
-	shouldObfuscate() bool
+	shouldObfuscate(agentFeatures) bool
 	// peerTags returns the peer tags to use for a stat span, given the
 	// agent-advertised peer tags.
 	peerTags(agentPeerTags []string) []string
@@ -93,9 +93,9 @@ type ddStatsSender struct {
 	cfg *config
 }
 
-func (s *ddStatsSender) shouldObfuscate() bool {
+func (s *ddStatsSender) shouldObfuscate(agentInfo agentFeatures) bool {
 	// Obfuscate if agent reports an obfuscation version AND our version is at least as new.
-	agentObfVersion := s.cfg.agent.load().obfuscationVersion
+	agentObfVersion := agentInfo.obfuscationVersion
 	return agentObfVersion > 0 && agentObfVersion <= tracerObfuscationVersion
 }
 
@@ -108,11 +108,12 @@ func (s *ddStatsSender) httpRouteFallback() bool {
 }
 
 func (s *ddStatsSender) send(csp *pb.ClientStatsPayload, retries int, interval time.Duration) error {
+	agentInfo := s.cfg.agent.load()
 	obfVersion := 0
-	if s.shouldObfuscate() {
+	if s.shouldObfuscate(agentInfo) {
 		obfVersion = tracerObfuscationVersion
 	} else {
-		log.Debug("Stats Obfuscation was skipped, agent will obfuscate (tracer %d, agent %d)", tracerObfuscationVersion, s.cfg.agent.load().obfuscationVersion)
+		log.Debug("Stats Obfuscation was skipped, agent will obfuscate (tracer %d, agent %d)", tracerObfuscationVersion, agentInfo.obfuscationVersion)
 	}
 	return sendWithRetry(retries, interval, func() error {
 		return s.cfg.ddTransport.sendStats(csp, obfVersion)
@@ -124,7 +125,7 @@ type otlpStatsSender struct {
 	exporter *otlpMetricsExporter
 }
 
-func (s *otlpStatsSender) shouldObfuscate() bool {
+func (s *otlpStatsSender) shouldObfuscate(agentFeatures) bool {
 	// There is no Datadog Agent downstream of an OTLP concentrator to apply
 	// obfuscation, so the tracer must always obfuscate locally.
 	return true
@@ -268,7 +269,7 @@ func (c *concentrator) runIngester() {
 func (c *concentrator) newTracerStatSpan(s *Span, obfuscator *obfuscate.Obfuscator) (*tracerStatSpan, bool) {
 	agentInfo := c.cfg.agent.load()
 	resource := s.resource
-	if c.sender.shouldObfuscate() {
+	if c.sender.shouldObfuscate(agentInfo) {
 		resource = obfuscatedResource(obfuscator, s.spanType, s.resource)
 		c.spanConcentrator.SetObfuscationEnabled(true, agentInfo.HasFlag("big_resource"))
 	} else {

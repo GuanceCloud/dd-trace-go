@@ -88,6 +88,13 @@ func Run(t *testing.T, tc TestCase) {
 	)
 	require.NoError(t, err)
 
+	if pb, ok := tc.(TestCasePreBootstrap); ok {
+		pb.PreBootstrap(ctx, t)
+		if t.Skipped() {
+			return
+		}
+	}
+
 	t.Log("Running setup")
 	tc.Setup(ctx, t)
 

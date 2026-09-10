@@ -82,7 +82,8 @@ func handleV1Traces(r io.Reader) []*agenttest.Span {
 	if err != nil {
 		return spans
 	}
-	p := &payloadV1{buf: body}
+	p := newPayloadV1()
+	p.buf = body
 	if _, err := p.decodeBuffer(); err != nil {
 		return spans
 	}
