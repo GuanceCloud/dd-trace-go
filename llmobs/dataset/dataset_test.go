@@ -617,8 +617,7 @@ func TestDatasetPull(t *testing.T) {
 			}
 		})
 		coll.HandleFunc("/api/v2/llm-obs/v1/", func(w http.ResponseWriter, r *http.Request) {
-			// Records are fetched from the v2 endpoint, which returns a flat
-			// record shape (no "attributes" wrapper) and no per-record version.
+			// The v2 endpoint returns JSON:API records with fields under "attributes".
 			if r.Method != http.MethodGet || !strings.Contains(r.URL.Path, "/records") {
 				w.WriteHeader(http.StatusNotFound)
 				return
@@ -628,8 +627,11 @@ func TestDatasetPull(t *testing.T) {
 				"data": [
 					{
 						"id": "record-1",
-						"input": "This is a simple string input, not a map",
-						"expected_output": "Some output"
+						"type": "datasets",
+						"attributes": {
+							"input": "This is a simple string input, not a map",
+							"expected_output": "Some output"
+						}
 					}
 				],
 				"meta": {}
@@ -700,8 +702,7 @@ func TestDatasetPull(t *testing.T) {
 			}
 		})
 		coll.HandleFunc("/api/v2/llm-obs/v1/", func(w http.ResponseWriter, r *http.Request) {
-			// Records are fetched from the v2 endpoint, which returns a flat
-			// record shape (no "attributes" wrapper) and no per-record version.
+			// The v2 endpoint returns JSON:API records with fields under "attributes".
 			if r.Method != http.MethodGet || !strings.Contains(r.URL.Path, "/records") {
 				w.WriteHeader(http.StatusNotFound)
 				return
@@ -711,9 +712,14 @@ func TestDatasetPull(t *testing.T) {
 				"data": [
 					{
 						"id": "record-1",
-						"input": {"question": "What is AI?"},
-						"expected_output": "Artificial Intelligence",
-						"metadata": "simple string metadata from UI"
+						"type": "datasets",
+						"attributes": {
+							"input": {
+								"question": "What is AI?"
+							},
+							"expected_output": "Artificial Intelligence",
+							"metadata": "simple string metadata from UI"
+						}
 					}
 				],
 				"meta": {}
@@ -791,8 +797,7 @@ func TestDatasetPull(t *testing.T) {
 			}
 		})
 		coll.HandleFunc("/api/v2/llm-obs/v1/", func(w http.ResponseWriter, r *http.Request) {
-			// Records are fetched from the v2 endpoint, which returns a flat
-			// record shape (no "attributes" wrapper) and no per-record version.
+			// The v2 endpoint returns JSON:API records with fields under "attributes".
 			if r.Method != http.MethodGet || !strings.Contains(r.URL.Path, "/records") {
 				w.WriteHeader(http.StatusNotFound)
 				return
@@ -808,15 +813,25 @@ func TestDatasetPull(t *testing.T) {
 					"data": [
 						{
 							"id": "record-1",
-							"input": {"question": "Q1"},
-							"expected_output": "A1",
-							"metadata": {}
+							"type": "datasets",
+							"attributes": {
+								"input": {
+									"question": "Q1"
+								},
+								"expected_output": "A1",
+								"metadata": {}
+							}
 						},
 						{
 							"id": "record-2",
-							"input": {"question": "Q2"},
-							"expected_output": "A2",
-							"metadata": {}
+							"type": "datasets",
+							"attributes": {
+								"input": {
+									"question": "Q2"
+								},
+								"expected_output": "A2",
+								"metadata": {}
+							}
 						}
 					],
 					"meta": {
@@ -829,9 +844,14 @@ func TestDatasetPull(t *testing.T) {
 					"data": [
 						{
 							"id": "record-3",
-							"input": {"question": "Q3"},
-							"expected_output": "A3",
-							"metadata": {}
+							"type": "datasets",
+							"attributes": {
+								"input": {
+									"question": "Q3"
+								},
+								"expected_output": "A3",
+								"metadata": {}
+							}
 						}
 					],
 					"meta": {
@@ -844,9 +864,14 @@ func TestDatasetPull(t *testing.T) {
 					"data": [
 						{
 							"id": "record-4",
-							"input": {"question": "Q4"},
-							"expected_output": "A4",
-							"metadata": {}
+							"type": "datasets",
+							"attributes": {
+								"input": {
+									"question": "Q4"
+								},
+								"expected_output": "A4",
+								"metadata": {}
+							}
 						}
 					],
 					"meta": {}
@@ -932,7 +957,16 @@ func TestDatasetPull(t *testing.T) {
 			capturedHeaders = r.Header.Clone()
 			rawJSON := `{
 				"data": [
-					{"id":"record-1","input":{"q":"v2 record"},"expected_output":"ans"}
+					{
+						"id": "record-1",
+						"type": "datasets",
+						"attributes": {
+							"input": {
+								"q": "v2 record"
+							},
+							"expected_output": "ans"
+						}
+					}
 				],
 				"meta": {}
 			}`
@@ -1276,25 +1310,29 @@ func registerMockHandlers(coll *llmobstest.Collector) {
 	coll.HandleFunc("/api/v2/llm-obs/v1/", handleMockDatasetRecordsV2)
 }
 
-// handleMockDatasetRecordsV2 serves the v2 dataset-records endpoint. The v2 wire
-// format is a flat record object (id, input, expected_output, metadata) with no
-// "attributes" wrapper and no per-record version field.
+// handleMockDatasetRecordsV2 serves JSON:API records from the v2 endpoint.
 func handleMockDatasetRecordsV2(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || !strings.Contains(r.URL.Path, "/records") {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	recordsResponse := llmobstransport.GetDatasetRecordsResponseV2{
-		Data: []llmobstransport.DatasetRecordItemV2{
+	recordsResponse := llmobstransport.GetDatasetRecordsResponse{
+		Data: []llmobstransport.ResponseData[llmobstransport.DatasetRecordView]{
 			{
-				ID:             "record-1",
-				Input:          map[string]any{"question": "What is AI?"},
-				ExpectedOutput: "Artificial Intelligence",
+				ID:   "record-1",
+				Type: "datasets",
+				Attributes: llmobstransport.DatasetRecordView{
+					Input:          map[string]any{"question": "What is AI?"},
+					ExpectedOutput: "Artificial Intelligence",
+				},
 			},
 			{
-				ID:             "record-2",
-				Input:          map[string]any{"question": "What is ML?"},
-				ExpectedOutput: "Machine Learning",
+				ID:   "record-2",
+				Type: "datasets",
+				Attributes: llmobstransport.DatasetRecordView{
+					Input:          map[string]any{"question": "What is ML?"},
+					ExpectedOutput: "Machine Learning",
+				},
 			},
 		},
 	}
