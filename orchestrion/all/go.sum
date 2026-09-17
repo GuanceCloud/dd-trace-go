@@ -63,10 +63,10 @@ github.com/DataDog/sketches-go v1.4.8 h1:pFk9BNn+Rzv8IMIoPUttoOpOr3bJOqU3P6EP5wK
 github.com/DataDog/sketches-go v1.4.8/go.mod h1:a/wjRUqzqtGS8qRHRPDCs4EAQfmvPDZGDlMIF5mxXOE=
 github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2 v2.10.3-ext h1:M/UD1Rxl1UJ/5v5jEQL+MUuF8ABRSrWbPrYObGEaXPI=
 github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2 v2.10.3-ext/go.mod h1:9kl0523WHGsIfqeFtpjs42lPcSfkbeSd3OVdM+eHmb0=
-github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.3-ext h1:kIJ08+aYbPE4N9tmLr+9P0R/2xI1abMUBJ6dySqWz94=
-github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.3-ext/go.mod h1:gGPDF/bfrfd6j0m/p2U5ILlsK3yU1vQnWQFF6nLX/bM=
-github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.3-ext h1:Lp1RnDcTSQ9dopOXH+ZpkcJHPt3thX9NdcUwXnzvBaI=
-github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.3-ext/go.mod h1:BKN8uD0+0s9PI19M/lWoR4iedxDOVNxZ7zQvEbS3+6U=
+github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.7-ext h1:A6rt9GNvSiZ75YajfYlBnHG1Ztbfxfo5kjk21lTcbdc=
+github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.7-ext/go.mod h1:VYd0MDzKZHZfz9+btMjzruMu4akPATm5z/w3Dg3dRos=
+github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.7-ext h1:Ii2HFuVsfMUJlinXpVRGg50JkqnBbNTCyD7KPYlDONo=
+github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.7-ext/go.mod h1:H9FDDT+nqvNG1qf9NuttuUtHP5dnqs3WSm/KfiIfwGM=
 github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2 v2.10.3-ext h1:VDJPR8I4xwk0cE1w/PkmdJssh/WKoUPW7hZQDrTVzRM=
 github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2 v2.10.3-ext/go.mod h1:Cj00+WehGGkWPtieMMk/Zox54hJNpe2mYyphH9pLF8A=
 github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2 v2.10.3-ext h1:xflTR4usWiLFmd+oqYhXJkOmZrYIDRJCMD2TGaphQ9o=
@@ -91,6 +91,8 @@ github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi.v5/v2 v2.10.3-ext h1:Fbu2J
 github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi.v5/v2 v2.10.3-ext/go.mod h1:6IHwN56nQqvOEQ1nfINQ/TS1dqB9jUEeJOYG08dD7yY=
 github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2 v2.10.3-ext h1:xWEYDeF9hYr8kuvtp0alzMshNaVQVOs9c18/EhYETWU=
 github.com/GuanceCloud/dd-trace-go/contrib/go-chi/chi/v2 v2.10.3-ext/go.mod h1:iZCBe5vpwGEAng0zhYjN/e+60ai7vqVcQ+nu5YvEZq0=
+github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2 v2.10.6-ext h1:3V1jF0gAubwWn/zz2BmVzTnTlqjhQwIhEIx8PezEfA0=
+github.com/GuanceCloud/dd-trace-go/contrib/go-kratos/kratos.v3/v2 v2.10.6-ext/go.mod h1:Ybcyxrv+Ueb8HivkRYYRhpW8HnjzZzQyv6936wcNUVs=
 github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v7/v2 v2.10.3-ext h1:aGfh6AmFlh0GTFOKO3eOc2VyD50OD36a10bkFFwARUc=
 github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v7/v2 v2.10.3-ext/go.mod h1:WUwaQnG8fZCNP5UmpIIkZ/5wlayKstUZbkngRJn+kSE=
 github.com/GuanceCloud/dd-trace-go/contrib/go-redis/redis.v8/v2 v2.10.3-ext h1:so5QNG3bw0rxIo18D8GbMBzCJ57RHfkEj7L4UVLTzDk=
@@ -153,6 +155,8 @@ github.com/GuanceCloud/dd-trace-go/contrib/valyala/fasthttp/v2 v2.10.3-ext h1:JE
 github.com/GuanceCloud/dd-trace-go/contrib/valyala/fasthttp/v2 v2.10.3-ext/go.mod h1:QlI2I+m1lL4+KwVpl+Ymz9SPcNP+G/tK8s9iXa94ghU=
 github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/grpc/v2 v2.10.3-ext h1:0eM76hcXLSV960e0JTwvMax80myhjn3P4UtxFHPuRHc=
 github.com/GuanceCloud/dd-trace-go/instrumentation/testutils/grpc/v2 v2.10.3-ext/go.mod h1:MQZrWu1Pk6COW7F0p0vK4QX2hTe36n4H++AmqTLJ908=
+github.com/GuanceCloud/dd-trace-go/v2 v2.10.7-ext h1:qLc4vBBireIlswR3e7WFYJRBEZP7myFmNUSco/OQPm0=
+github.com/GuanceCloud/dd-trace-go/v2 v2.10.7-ext/go.mod h1:voZcX6RbP9JJT60mRuNMSxRNpk+WDnf0Hou5wRHbkqQ=
 github.com/IBM/sarama v1.44.0 h1:puNKqcScjSAgVLramjsuovZrS0nJZFVsrvuUymkWqhE=
 github.com/IBM/sarama v1.44.0/go.mod h1:MxQ9SvGfvKIorbk077Ff6DUnBlGpidiQOtU2vuBaxVw=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=

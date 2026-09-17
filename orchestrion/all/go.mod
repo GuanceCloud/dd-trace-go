@@ -4,8 +4,8 @@ go 1.25.0
 
 require (
 	github.com/GuanceCloud/dd-trace-go/contrib/99designs/gqlgen/v2 v2.10.3-ext
-	github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.3-ext
-	github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.3-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/IBM/sarama/v2 v2.10.7-ext
+	github.com/GuanceCloud/dd-trace-go/contrib/Shopify/sarama/v2 v2.10.7-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/aerospike/aerospike-client-go.v7/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go-v2/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/aws/aws-sdk-go/v2 v2.10.3-ext
@@ -49,7 +49,7 @@ require (
 	github.com/GuanceCloud/dd-trace-go/contrib/twmb/franz-go/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.10.3-ext
 	github.com/GuanceCloud/dd-trace-go/contrib/valyala/fasthttp/v2 v2.10.3-ext
-	github.com/GuanceCloud/dd-trace-go/v2 v2.10.6-ext
+	github.com/GuanceCloud/dd-trace-go/v2 v2.10.7-ext
 )
 
 require (
