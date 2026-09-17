@@ -305,24 +305,39 @@ func WrapAsyncProducer(saramaConfig *sarama.Config, p sarama.AsyncProducer, opts
 	}
 	go func() {
 		spans := make(map[uint64]*tracer.Span)
+		// Forward at most one pending message as a select case. A blocking send to
+		// p.Input would prevent this goroutine from draining p.Successes and p.Errors,
+		// which can deadlock Sarama while its input is backpressured.
+		var pendingMsg *sarama.ProducerMessage
+		var pendingSpan *tracer.Span
 		defer close(wrapped.input)
 		defer close(wrapped.successes)
 		defer close(wrapped.errors)
 		for {
+			var input <-chan *sarama.ProducerMessage
+			var producerInput chan<- *sarama.ProducerMessage
+			if pendingMsg == nil {
+				input = wrapped.input
+			} else {
+				producerInput = p.Input()
+			}
 			select {
-			case msg := <-wrapped.input:
-				span := startProducerSpan(cfg, saramaConfig.Version, msg)
+			case msg := <-input:
+				pendingMsg = msg
+				pendingSpan = startProducerSpan(cfg, saramaConfig.Version, msg)
 				setProduceCheckpoint(cfg.dataStreamsEnabled, cfg.ClusterID(), msg, saramaConfig.Version)
-				p.Input() <- msg
+			case producerInput <- pendingMsg:
 				if saramaConfig.Producer.Return.Successes {
-					spanID := span.Context().SpanID()
-					spans[spanID] = span
+					spanID := pendingSpan.Context().SpanID()
+					spans[spanID] = pendingSpan
 				} else {
 					// if returning successes isn't enabled, we just finish the
 					// span right away because there's no way to know when it will
 					// be done
-					span.Finish()
+					pendingSpan.Finish()
 				}
+				pendingMsg = nil
+				pendingSpan = nil
 			case msg, ok := <-p.Successes():
 				if !ok {
 					// producer was closed, so exit
