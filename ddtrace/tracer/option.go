@@ -33,9 +33,7 @@ import (
 	"github.com/DataDog/dd-trace-go/v2/internal"
 	appsecconfig "github.com/DataDog/dd-trace-go/v2/internal/appsec/config"
 	internalconfig "github.com/DataDog/dd-trace-go/v2/internal/config"
-	"github.com/DataDog/dd-trace-go/v2/internal/env"
 	"github.com/DataDog/dd-trace-go/v2/internal/globalconfig"
-	llmobsconfig "github.com/DataDog/dd-trace-go/v2/internal/llmobs/config"
 	"github.com/DataDog/dd-trace-go/v2/internal/locking"
 	"github.com/DataDog/dd-trace-go/v2/internal/log"
 	"github.com/DataDog/dd-trace-go/v2/internal/namingschema"
@@ -47,13 +45,6 @@ import (
 	"github.com/DataDog/dd-trace-go/v2/internal/version"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-)
-
-const (
-	envLLMObsEnabled          = "DD_LLMOBS_ENABLED"
-	envLLMObsMlApp            = "DD_LLMOBS_ML_APP"
-	envLLMObsAgentlessEnabled = "DD_LLMOBS_AGENTLESS_ENABLED"
-	envLLMObsProjectName      = "DD_LLMOBS_PROJECT_NAME"
 )
 
 var contribIntegrations = map[string]struct {
@@ -187,10 +178,14 @@ type config struct {
 	// (e.g. tracertest) should set this field.
 	agentTransport http.RoundTripper
 
-	// llmobsHTTPClient overrides c.llmobs.TracerConfig.HTTPClient after newConfig
-	// builds it (so it is not clobbered by the agentTransport-based c.httpClient).
+	// llmobsHTTPClient overrides the llmobsconfig.Config.TracerConfig.HTTPClient
+	// that tracer.Start builds when starting LLMObs (so it is not clobbered by the agentTransport-based c.httpClient).
 	// For test use only (via ddtrace/x/llmobstest).
 	llmobsHTTPClient *http.Client
+
+	// llmobsTestBaseURL overrides the transport base URL and bypasses
+	// agent-mode/agentless-mode selection. For use in tests only.
+	llmobsTestBaseURL string
 
 	// logger specifies the logger to use when printing errors. If not specified, the "log" package
 	// will be used.
@@ -207,9 +202,6 @@ type config struct {
 	// tracingAsTransport specifies whether the tracer is running in transport-only mode, where traces are only sent when other products request it.
 	tracingAsTransport bool
 
-	// llmobs contains the LLM Observability config
-	llmobs llmobsconfig.Config
-
 	// otelRuntimeMetricsShouldBeEnabled reports whether OTel runtime metrics
 	// should be started instead of the DD statsd runtime metrics paths.
 	otelRuntimeMetricsShouldBeEnabled bool
@@ -222,6 +214,7 @@ type StartOption func(*config)
 // and passed user opts.
 func newConfig(opts ...StartOption) (*config, error) {
 	c := new(config)
+	internalconfig.RecordProductStart(internalconfig.ProductTracer)
 	c.internalConfig = internalconfig.CreateNew()
 
 	c.sampler = NewAllSampler()
@@ -236,13 +229,6 @@ func newConfig(opts ...StartOption) (*config, error) {
 	}
 	namingschema.LoadFromEnv()
 
-	// LLM Observability config
-	c.llmobs = llmobsconfig.Config{
-		Enabled:          internal.BoolEnv(envLLMObsEnabled, false),
-		MLApp:            env.Get(envLLMObsMlApp),
-		AgentlessEnabled: llmobsAgentlessEnabledFromEnv(),
-		ProjectName:      env.Get(envLLMObsProjectName),
-	}
 	for _, fn := range opts {
 		if fn == nil {
 			continue
@@ -371,24 +357,6 @@ func newConfig(opts ...StartOption) (*config, error) {
 	if tracingEnabled, _, _ := stableconfig.Bool("DD_APM_TRACING_ENABLED", true); !tracingEnabled {
 		apmTracingDisabled(c)
 	}
-	// Update the llmobs config with stuff needed from the tracer.
-	c.llmobs.TracerConfig = llmobsconfig.TracerConfig{
-		DDTags:     c.internalConfig.GlobalTags(),
-		Env:        c.internalConfig.Env(),
-		Service:    c.internalConfig.ServiceName(),
-		Version:    c.internalConfig.Version(),
-		AgentURL:   c.internalConfig.AgentURL(),
-		APIKey:     c.internalConfig.APIKey(),
-		APPKey:     c.internalConfig.AppKey(),
-		HTTPClient: c.httpClient,
-		Site:       c.internalConfig.Site(),
-	}
-	c.llmobs.AgentFeatures = llmobsconfig.AgentFeatures{
-		EVPProxyV2: af.evpProxyV2,
-	}
-	if c.llmobsHTTPClient != nil {
-		c.llmobs.TracerConfig.HTTPClient = c.llmobsHTTPClient
-	}
 	// An override the user did not ask for must never be silent. This sits after
 	// apmTracingDisabled deliberately: tracingAsTransport is one of the
 	// exclusions in forcesStatsForV1Agent and is not set until just above, so
@@ -410,14 +378,6 @@ func computeOtelRuntimeMetricsShouldBeEnabled(c *config) bool {
 		(c.internalConfig.RuntimeMetricsV2Enabled() || c.internalConfig.RuntimeMetricsEnabled())
 }
 
-func llmobsAgentlessEnabledFromEnv() *bool {
-	v, ok := internal.BoolEnvNoDefault(envLLMObsAgentlessEnabled)
-	if !ok {
-		return nil
-	}
-	return &v
-}
-
 func apmTracingDisabled(c *config) {
 	// Enable tracing as transport layer mode
 	// This means to stop sending trace metrics, send one trace per minute and those force-kept by other products
@@ -434,9 +394,9 @@ func apmTracingDisabled(c *config) {
 }
 
 // traceTransportHeaders returns the headers to send with Datadog agent trace
-// transport requests. This does not depend on the
-// trace protocol, so callers that only need headers (e.g. the startup
-// diagnostics probe) can call this without an extra protocol lookup.
+// transport requests. This does not depend on the trace protocol, so callers
+// that only need headers (e.g. the startup diagnostics probe) can call this
+// without an extra protocol read.
 func traceTransportHeaders(cfg *internalconfig.Config) map[string]string {
 	headers := datadogHeaders()
 	if cfg.OTLPSpanMetricsEnabled() {
@@ -1056,8 +1016,7 @@ func WithAgentURL(agentURL string) StartOption {
 	return func(c *config) {
 		u, err := url.Parse(agentURL)
 		if err != nil {
-			var urlErr *url.Error
-			if errors.As(err, &urlErr) {
+			if urlErr, ok := errors.AsType[*url.Error](err); ok {
 				u, _ = url.Parse(urlErr.URL)
 				if u != nil {
 					urlErr.URL = u.Redacted()
@@ -1293,9 +1252,9 @@ func WithLogStartup(enabled bool) StartOption {
 }
 
 // WithProfilerCodeHotspots enables the code hotspots integration between the
-// tracer and profiler. This is done by automatically attaching pprof labels
-// called "span id" and "local root span id" when new spans are created. You
-// should not use these label names in your own code when this is enabled. The
+// tracer and profiler. This is done by automatically attaching a pprof label
+// called "span id" when new spans are created. You should not use this label
+// name in your own code when this is enabled. The
 // enabled value defaults to the value of the
 // DD_PROFILING_CODE_HOTSPOTS_COLLECTION_ENABLED env variable or true.
 func WithProfilerCodeHotspots(enabled bool) StartOption {
@@ -1423,9 +1382,7 @@ func WithStatsOriginCardinalityLimit(limit int) StartOption {
 	}
 }
 
-// WithDynamicInstrumentationEnabled enables or disables dynamic
-// instrumentation, allowing the tracer to place probes for the Live Debugger
-// and Dynamic Instrumentation products.
+// WithDynamicInstrumentationEnabled enables or explicitly disables dynamic instrumentation. (Default is false).
 func WithDynamicInstrumentationEnabled(enabled bool) StartOption {
 	return func(c *config) {
 		c.internalConfig.SetDynamicInstrumentationEnabled(enabled, telemetry.OriginCode, internalconfig.ProductTracer)
@@ -1439,6 +1396,39 @@ func Tag(k string, v any) StartSpanOption {
 			cfg.Tags = map[string]any{}
 		}
 		cfg.Tags[k] = v
+	}
+}
+
+// WithTags sets the given key/value pairs as tags on the started Span in a
+// single call. It clones tags at the moment WithTags is called: mutating
+// the map afterward does not change what gets applied, and the same map may
+// be safely reused (or mutated) by the caller once WithTags returns. It is
+// equivalent to calling Tag for every entry of tags, but avoids allocating
+// one closure per tag, which matters when a caller needs to set several
+// tags per span on a hot path (e.g. per-request contrib tags).
+//
+// When used together with WithStartSpanConfig, place WithTags (and any Tag
+// call) before WithStartSpanConfig in the option list: WithStartSpanConfig
+// aliases the base config's Tags map when no per-call tags have been set
+// yet, so a tag write after it would mutate the shared base config's map.
+func WithTags(tags map[string]any) StartSpanOption {
+	// Snapshot immediately, never nil even for a nil/empty input, so a
+	// later WithStartSpanConfig(base) in the same option list always sees a
+	// non-nil, distinct Tags map and merges into it (copy) instead of
+	// aliasing base's map — see
+	// TestWithStartSpanConfigAliasesCachedBaseWhenCalledFirst.
+	snapshot := make(map[string]any, len(tags))
+	maps.Copy(snapshot, tags)
+	return func(cfg *StartSpanConfig) {
+		if cfg.Tags == nil {
+			// Copy out of snapshot rather than aliasing it: the returned
+			// option is meant to be cached and applied to many spans, and
+			// cfg.Tags = snapshot would hand every span whose cfg.Tags
+			// started nil the same map, so a later Tag() on one span
+			// would leak into the others.
+			cfg.Tags = make(map[string]any, len(snapshot))
+		}
+		maps.Copy(cfg.Tags, snapshot)
 	}
 }
 
@@ -1598,7 +1588,7 @@ func WithTestDefaults(statsdClient any) StartOption {
 // This is equivalent to the DD_LLMOBS_ENABLED environment variable.
 func WithLLMObsEnabled(enabled bool) StartOption {
 	return func(c *config) {
-		c.llmobs.Enabled = enabled
+		c.internalConfig.SetLLMObsEnabled(enabled, telemetry.OriginCode, internalconfig.ProductTracer)
 	}
 }
 
@@ -1607,7 +1597,7 @@ func WithLLMObsEnabled(enabled bool) StartOption {
 // This is equivalent to the DD_LLMOBS_ML_APP environment variable.
 func WithLLMObsMLApp(mlApp string) StartOption {
 	return func(c *config) {
-		c.llmobs.MLApp = mlApp
+		c.internalConfig.SetLLMObsMLApp(mlApp, telemetry.OriginCode, internalconfig.ProductTracer)
 	}
 }
 
@@ -1616,7 +1606,7 @@ func WithLLMObsMLApp(mlApp string) StartOption {
 // This is equivalent to the DD_LLMOBS_PROJECT_NAME environment variable.
 func WithLLMObsProjectName(projectName string) StartOption {
 	return func(c *config) {
-		c.llmobs.ProjectName = projectName
+		c.internalConfig.SetLLMObsProjectName(projectName, telemetry.OriginCode, internalconfig.ProductTracer)
 	}
 }
 
@@ -1626,7 +1616,8 @@ func WithLLMObsProjectName(projectName string) StartOption {
 // This is equivalent to the DD_LLMOBS_AGENTLESS_ENABLED environment variable.
 func WithLLMObsAgentlessEnabled(agentlessEnabled bool) StartOption {
 	return func(c *config) {
-		c.llmobs.AgentlessEnabled = &agentlessEnabled
+		v := agentlessEnabled
+		c.internalConfig.SetLLMObsAgentlessEnabled(&v, telemetry.OriginCode, internalconfig.ProductTracer)
 	}
 }
 
@@ -1636,7 +1627,7 @@ func WithLLMObsAgentlessEnabled(agentlessEnabled bool) StartOption {
 // Linked with go:linkname from ddtrace/x/llmobstest.
 func withLLMObsInProcessTransport(testBaseURL string, rt http.RoundTripper) StartOption {
 	return func(c *config) {
-		c.llmobs.TestBaseURL = testBaseURL
+		c.llmobsTestBaseURL = testBaseURL
 		c.llmobsHTTPClient = &http.Client{Transport: rt}
 	}
 }

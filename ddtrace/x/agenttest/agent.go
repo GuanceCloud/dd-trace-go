@@ -16,8 +16,9 @@
 //	// ... create spans, flush ...
 //	span := agent.RequireSpan(t, agenttest.With().Operation("http.request"))
 //
-// By design, this API does not expose span slices or iterators. Order-dependent
-// assertions are a common source of test flakiness; any future iterator must
+// By design, the Agent interface does not expose span slices or iterators.
+// Order-dependent assertions are a common source of test flakiness; any
+// interface that enumerates spans, like the optional SpanLister, must
 // randomize its traversal order.
 package agenttest
 
@@ -25,6 +26,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -34,6 +37,13 @@ import (
 // TraceHandler decodes trace data from an io.Reader and returns the decoded spans.
 // Implementations handle a specific wire format (e.g. msgpack v0.4 or binary v1.0).
 type TraceHandler func(io.Reader) []*Span
+
+// statsPattern is the agent's client-side stats endpoint. New always registers
+// a no-op handler for it: SetInfoEndpoints lets a test advertise this path via
+// /info without a matching HandleTraces call, and the real agent's discovery
+// contract means "advertised" implies "reachable" — a test that advertises
+// stats support should not get spurious 404s when the tracer flushes stats.
+const statsPattern = "/v0.6/stats"
 
 // Info holds agent configuration returned to the tracer on flush responses,
 // such as per-service sampling rates.
@@ -69,6 +79,14 @@ type Agent interface {
 	// Transport returns an optimized transport for interacting with the agent.
 	Transport() http.RoundTripper
 
+	// SetInfoEndpoints overrides the endpoints /info advertises, independent of
+	// which HTTP patterns are actually registered via HandleTraces. By default,
+	// /info advertises every registered pattern, mirroring the real agent
+	// discovery contract. Tests can use this to advertise or withhold specific
+	// endpoints (e.g. /v0.6/stats, /v1.0/traces) to control agent-capability-
+	// driven tracer behavior (such as trace protocol selection) deterministically.
+	SetInfoEndpoints(endpoints []string)
+
 	// FindSpan returns the first collected span matching all provided conditions,
 	// or nil if none is found.
 	FindSpan(...*SpanMatch) *Span
@@ -79,12 +97,36 @@ type Agent interface {
 	CountSpans() int
 }
 
+// SpanLister is an optional interface that an Agent can implement to expose
+// every collected span. The agent returned by New implements it. A custom
+// agent passed to tracertest.Start keeps its spans private until it
+// implements SpanLister, so the Agent interface itself stays stable for
+// existing implementations.
+type SpanLister interface {
+	// Spans returns a copy of every collected span in randomized order.
+	// Randomized order exists to break order-dependent assertions, which are a
+	// common source of test flakiness. Match spans by their attributes, not by
+	// position. Each call returns a copy, so callers may mutate the span and
+	// its maps without changing the collected spans. Copying covers the span
+	// struct, the Meta, Metrics, and Tags maps, and Tags values of the JSON
+	// shapes that trace decoders produce: nested maps and slices. Tags values
+	// of any other reference type are shared with the collected span.
+	Spans() []*Span
+}
+
+var _ SpanLister = (*agent)(nil)
+
 type agent struct {
 	mu sync.Mutex
 
 	mux       *http.ServeMux
 	addr      string
 	endpoints []string
+
+	// infoEndpoints, when non-nil, overrides endpoints as the value /info
+	// advertises. nil means "advertise every registered pattern" (the default,
+	// matching the real agent discovery contract).
+	infoEndpoints []string
 
 	info  *Info
 	spans []*Span
@@ -99,7 +141,16 @@ func New() Agent {
 		info: newInfo(),
 	}
 	mux.HandleFunc("/info", a.handleInfo)
+	mux.HandleFunc(statsPattern, a.handleStats)
 	return a
+}
+
+// SetInfoEndpoints overrides the endpoints /info advertises, independent of
+// which HTTP patterns are actually registered via HandleTraces.
+func (a *agent) SetInfoEndpoints(endpoints []string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.infoEndpoints = endpoints
 }
 
 // Info returns the agent info configuration (e.g. sampling rates).
@@ -110,7 +161,9 @@ func (a *agent) Info() *Info {
 // HandleTraces registers a handler that decodes traces arriving at the given
 // HTTP pattern (e.g. "/v0.4/traces") and stores the resulting spans.
 func (a *agent) HandleTraces(pattern string, handler TraceHandler) {
+	a.mu.Lock()
 	a.endpoints = append(a.endpoints, pattern)
+	a.mu.Unlock()
 	a.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		spans := handler(r.Body)
 		a.mu.Lock()
@@ -123,8 +176,22 @@ func (a *agent) HandleTraces(pattern string, handler TraceHandler) {
 }
 
 func (a *agent) handleInfo(w http.ResponseWriter, _ *http.Request) {
+	a.mu.Lock()
+	endpoints := a.endpoints
+	if a.infoEndpoints != nil {
+		endpoints = a.infoEndpoints
+	}
+	a.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"endpoints": a.endpoints, "client_drop_p0s": true})
+	json.NewEncoder(w).Encode(map[string]any{"endpoints": endpoints, "client_drop_p0s": true})
+}
+
+// handleStats discards client-side stats payloads and returns 200 OK. It exists
+// so that advertising statsPattern via SetInfoEndpoints doesn't lead the tracer
+// into a route the mock never serves.
+func (a *agent) handleStats(w http.ResponseWriter, r *http.Request) {
+	io.Copy(io.Discard, r.Body)
+	w.WriteHeader(http.StatusOK)
 }
 
 // Addr returns the agent address to pass to the tracer via WithAgentAddr.
@@ -203,4 +270,83 @@ func (a *agent) CountSpans() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return len(a.spans)
+}
+
+// Spans returns a copy of every collected span in randomized order.
+// Randomized order exists to break order-dependent assertions, which are a
+// common source of test flakiness. Match spans by their attributes, not by
+// position. Each call returns a copy, so callers may mutate the span and its
+// maps without changing the collected spans. Copying covers the span struct,
+// the Meta, Metrics, and Tags maps, and Tags values of the JSON shapes that
+// trace decoders produce: nested maps and slices. Tags values of any other
+// reference type are shared with the collected span.
+func (a *agent) Spans() []*Span {
+	a.mu.Lock()
+	spans := make([]*Span, len(a.spans))
+	copy(spans, a.spans)
+	a.mu.Unlock()
+	for i, s := range spans {
+		spans[i] = cloneSpan(s)
+	}
+	rand.Shuffle(len(spans), func(i, j int) {
+		spans[i], spans[j] = spans[j], spans[i]
+	})
+	return spans
+}
+
+// cloneSpan returns a copy of s. Map and slice fields are cloned so that
+// mutating the copy never changes the collected span.
+func cloneSpan(s *Span) *Span {
+	if s == nil {
+		return nil
+	}
+	clone := &Span{
+		SpanID:    s.SpanID,
+		TraceID:   s.TraceID,
+		ParentID:  s.ParentID,
+		Service:   s.Service,
+		Operation: s.Operation,
+		Resource:  s.Resource,
+		Type:      s.Type,
+		Start:     s.Start,
+		Duration:  s.Duration,
+		Error:     s.Error,
+		Meta:      maps.Clone(s.Meta),
+		Metrics:   maps.Clone(s.Metrics),
+	}
+	if s.Tags != nil {
+		clone.Tags = make(map[string]any, len(s.Tags))
+		for k, v := range s.Tags {
+			clone.Tags[k] = cloneTagValue(v)
+		}
+	}
+	if s.Children != nil {
+		clone.Children = make([]*Span, len(s.Children))
+		for i, c := range s.Children {
+			clone.Children[i] = cloneSpan(c)
+		}
+	}
+	return clone
+}
+
+// cloneTagValue returns a copy of a Tags value. It recursively copies the
+// JSON shapes that trace decoders produce. Values of other reference types
+// are shared with the collected span.
+func cloneTagValue(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		c := make(map[string]any, len(t))
+		for k, vv := range t {
+			c[k] = cloneTagValue(vv)
+		}
+		return c
+	case []any:
+		c := make([]any, len(t))
+		for i, vv := range t {
+			c[i] = cloneTagValue(vv)
+		}
+		return c
+	default:
+		return v
+	}
 }
