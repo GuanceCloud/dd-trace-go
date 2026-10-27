@@ -553,6 +553,12 @@ func TestShouldObfuscate(t *testing.T) {
 	}
 }
 
+func TestOTLPStatsSenderPeerTags(t *testing.T) {
+	s := &otlpStatsSender{}
+	assert.Empty(t, s.peerTags([]string{"db.hostname"}))
+	assert.Empty(t, s.peerTags(nil))
+}
+
 func TestObfuscation(t *testing.T) {
 	bucketSize := int64(500_000)
 	s1 := Span{

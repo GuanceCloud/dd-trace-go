@@ -115,7 +115,7 @@ func TestDatasetCreation(t *testing.T) {
 		t.Setenv("DD_APP_KEY", "")
 
 		// Use agentless mode to trigger app key requirement.
-		// Note: coll.TracerOption() forces ResolvedAgentlessEnabled=false, so we
+		// Note: coll.TracerOption() forces AgentlessEnabled=false, so we
 		// intentionally skip it here to allow true agentless mode validation.
 		agent, err := tracertest.StartAgent(t)
 		require.NoError(t, err)
@@ -545,7 +545,7 @@ func TestDatasetPull(t *testing.T) {
 		t.Setenv("DD_APP_KEY", "")
 
 		// Use agentless mode to trigger app key requirement.
-		// Note: coll.TracerOption() forces ResolvedAgentlessEnabled=false, so we
+		// Note: coll.TracerOption() forces AgentlessEnabled=false, so we
 		// intentionally skip it here to allow true agentless mode validation.
 		agent, err := tracertest.StartAgent(t)
 		require.NoError(t, err)
@@ -714,9 +714,7 @@ func TestDatasetPull(t *testing.T) {
 						"id": "record-1",
 						"type": "datasets",
 						"attributes": {
-							"input": {
-								"question": "What is AI?"
-							},
+							"input": {"question": "What is AI?"},
 							"expected_output": "Artificial Intelligence",
 							"metadata": "simple string metadata from UI"
 						}
@@ -814,24 +812,12 @@ func TestDatasetPull(t *testing.T) {
 						{
 							"id": "record-1",
 							"type": "datasets",
-							"attributes": {
-								"input": {
-									"question": "Q1"
-								},
-								"expected_output": "A1",
-								"metadata": {}
-							}
+							"attributes": {"input": {"question": "Q1"}, "expected_output": "A1", "metadata": {}}
 						},
 						{
 							"id": "record-2",
 							"type": "datasets",
-							"attributes": {
-								"input": {
-									"question": "Q2"
-								},
-								"expected_output": "A2",
-								"metadata": {}
-							}
+							"attributes": {"input": {"question": "Q2"}, "expected_output": "A2", "metadata": {}}
 						}
 					],
 					"meta": {
@@ -845,13 +831,7 @@ func TestDatasetPull(t *testing.T) {
 						{
 							"id": "record-3",
 							"type": "datasets",
-							"attributes": {
-								"input": {
-									"question": "Q3"
-								},
-								"expected_output": "A3",
-								"metadata": {}
-							}
+							"attributes": {"input": {"question": "Q3"}, "expected_output": "A3", "metadata": {}}
 						}
 					],
 					"meta": {
@@ -865,13 +845,7 @@ func TestDatasetPull(t *testing.T) {
 						{
 							"id": "record-4",
 							"type": "datasets",
-							"attributes": {
-								"input": {
-									"question": "Q4"
-								},
-								"expected_output": "A4",
-								"metadata": {}
-							}
+							"attributes": {"input": {"question": "Q4"}, "expected_output": "A4", "metadata": {}}
 						}
 					],
 					"meta": {}
@@ -960,12 +934,7 @@ func TestDatasetPull(t *testing.T) {
 					{
 						"id": "record-1",
 						"type": "datasets",
-						"attributes": {
-							"input": {
-								"q": "v2 record"
-							},
-							"expected_output": "ans"
-						}
+						"attributes": {"input": {"q": "v2 record"}, "expected_output": "ans"}
 					}
 				],
 				"meta": {}
@@ -1106,7 +1075,7 @@ func TestDDAppKeyHeader(t *testing.T) {
 			createMockHandler()(w, r)
 		})
 
-		// Note: coll.TracerOption() sets testBaseURL which forces ResolvedAgentlessEnabled=false.
+		// Note: coll.TracerOption() sets testBaseURL which forces AgentlessEnabled=false.
 		// In the coll-based setup all requests go through the collector in agent mode.
 		_, err = tracertest.Start(t, agent,
 			tracer.WithLLMObsEnabled(true),
@@ -1310,36 +1279,42 @@ func registerMockHandlers(coll *llmobstest.Collector) {
 	coll.HandleFunc("/api/v2/llm-obs/v1/", handleMockDatasetRecordsV2)
 }
 
-// handleMockDatasetRecordsV2 serves JSON:API records from the v2 endpoint.
+// handleMockDatasetRecordsV2 serves the v2 dataset-records endpoint. Its wire
+// format is JSON:API: id at the top level of each item, record fields under
+// "attributes", and no per-record version field.
+//
+// The body is a literal rather than something marshalled from the transport's
+// own types. A fixture built from the types under test keeps passing when those
+// types stop matching the API, which is what hid this bug.
 func handleMockDatasetRecordsV2(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet || !strings.Contains(r.URL.Path, "/records") {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	recordsResponse := llmobstransport.GetDatasetRecordsResponse{
-		Data: []llmobstransport.ResponseData[llmobstransport.DatasetRecordView]{
+	const rawJSON = `{
+		"data": [
 			{
-				ID:   "record-1",
-				Type: "datasets",
-				Attributes: llmobstransport.DatasetRecordView{
-					Input:          map[string]any{"question": "What is AI?"},
-					ExpectedOutput: "Artificial Intelligence",
-				},
+				"id": "record-1",
+				"type": "datasets",
+				"attributes": {
+					"input": {"question": "What is AI?"},
+					"expected_output": "Artificial Intelligence"
+				}
 			},
 			{
-				ID:   "record-2",
-				Type: "datasets",
-				Attributes: llmobstransport.DatasetRecordView{
-					Input:          map[string]any{"question": "What is ML?"},
-					ExpectedOutput: "Machine Learning",
-				},
-			},
-		},
-	}
-	respData, _ := json.Marshal(recordsResponse)
+				"id": "record-2",
+				"type": "datasets",
+				"attributes": {
+					"input": {"question": "What is ML?"},
+					"expected_output": "Machine Learning"
+				}
+			}
+		],
+		"meta": {}
+	}`
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(respData)
+	w.Write([]byte(rawJSON))
 }
 
 // createMockHandler creates a mock handler for dataset-related requests
@@ -1581,17 +1556,31 @@ func handleMockDatasetBatchUpdate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Add inserted records (these get new IDs)
-	for i, insertRec := range attrs.InsertRecords {
-		newID := fmt.Sprintf("new-record-id-%d", i+1)
+	// Inserted records keep the id the client supplied, which is what the
+	// backend does with it.
+	for _, insertRec := range attrs.InsertRecords {
 		response.Data = append(response.Data, llmobstransport.ResponseData[llmobstransport.DatasetRecordView]{
-			ID:   newID,
+			ID:   insertRec.ID,
 			Type: "dataset_records",
 			Attributes: llmobstransport.DatasetRecordView{
-				ID:             newID,
+				ID:             insertRec.ID,
 				Input:          insertRec.Input,
 				ExpectedOutput: insertRec.ExpectedOutput,
 				Version:        2,
+			},
+		})
+	}
+
+	// Deletions come back as entries too, carrying the new version. Emitting
+	// them is what makes this mock able to reproduce a response longer than
+	// insert+update.
+	for _, deletedID := range attrs.DeleteRecords {
+		response.Data = append(response.Data, llmobstransport.ResponseData[llmobstransport.DatasetRecordView]{
+			ID:   deletedID,
+			Type: "dataset_records",
+			Attributes: llmobstransport.DatasetRecordView{
+				ID:      deletedID,
+				Version: 2,
 			},
 		})
 	}
@@ -1737,4 +1726,48 @@ func TestLargeDatasetPushChunking(t *testing.T) {
 		assert.LessOrEqual(t, size, batchUpdateThreshold,
 			"each batch_update request body (%d bytes) must be within the %d byte limit to avoid EVP proxy rejection", size, batchUpdateThreshold)
 	}
+}
+
+// A push that deletes and inserts in the same batch gets back one entry per
+// affected record, deletions included, so the response is longer than
+// insert+update. Counting it and requiring a match failed the push even though
+// the backend had applied it.
+func TestDatasetPushDeleteAndInsertTogether(t *testing.T) {
+	testTracer(t)
+	ctx := context.Background()
+
+	ds, err := Create(ctx, "test-dataset", []Record{
+		{Input: map[string]any{"question": "keep"}, ExpectedOutput: "1"},
+		{Input: map[string]any{"question": "drop"}, ExpectedOutput: "2"},
+	})
+	require.NoError(t, err)
+
+	ds.Delete(1)
+	ds.Append(Record{Input: map[string]any{"question": "added"}, ExpectedOutput: "3"})
+
+	require.NoError(t, ds.Push(ctx))
+	assert.Equal(t, 2, ds.Len())
+}
+
+// Records keep the id they were given locally, because Push sends it and the
+// backend persists it. Callers hold onto these ids to update or delete later,
+// so they have to stay valid across a push.
+func TestDatasetPushKeepsClientRecordIDs(t *testing.T) {
+	testTracer(t)
+	ctx := context.Background()
+
+	ds, err := Create(ctx, "test-dataset", nil)
+	require.NoError(t, err)
+
+	ds.Append(Record{Input: map[string]any{"question": "one"}, ExpectedOutput: "1"})
+	rec, ok := ds.Record(0)
+	require.True(t, ok)
+	idBefore := rec.ID()
+	require.NotEmpty(t, idBefore)
+
+	require.NoError(t, ds.Push(ctx))
+
+	rec, ok = ds.Record(0)
+	require.True(t, ok)
+	assert.Equal(t, idBefore, rec.ID(), "the record id must survive the push")
 }

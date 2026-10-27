@@ -54,6 +54,8 @@ type Product string
 const (
 	ProductTracer   Product = "tracer"
 	ProductProfiler Product = "profiler"
+	ProductAppsec   Product = "appsec"
+	ProductLLMObs   Product = "llmobs"
 )
 
 // programmaticOverride records which product claimed a field via programmatic API.
@@ -263,8 +265,45 @@ type Config struct {
 	ciVisibilityAgentlessURL string
 	// experimentalFlaggingProviderEnabled enables the experimental OpenFeature RC provider.
 	experimentalFlaggingProviderEnabled bool
+	// experimentalFlaggingProviderEnabledSet reports whether DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED
+	// was explicitly set, distinguishing an opted-in legacy customer from one who never set it.
+	experimentalFlaggingProviderEnabledSet bool
+	// featureFlagsEnabled is DD_FEATURE_FLAGS_ENABLED, the stable Feature Flagging kill switch.
+	// nil means not explicitly set.
+	featureFlagsEnabled *bool
+	// featureFlagsConfigurationSource is DD_FEATURE_FLAGS_CONFIGURATION_SOURCE, kept raw:
+	// trimming, casing and validity are resolved by openfeature.resolveSource, which needs
+	// to tell a blank value apart from an unrecognized one.
+	featureFlagsConfigurationSource string
+	// featureFlagsConfigurationSourceSet reports whether featureFlagsConfigurationSource was
+	// explicitly configured (any origin other than the default), regardless of whether the
+	// value itself is blank.
+	featureFlagsConfigurationSourceSet bool
+	// featureFlagsAgentlessBaseURL is DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_BASE_URL.
+	// SENSITIVE: may embed credentials; never log.
+	featureFlagsAgentlessBaseURL string
+	// featureFlagsAgentlessPollInterval is DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_POLL_INTERVAL_SECONDS.
+	// An out-of-range value falls back to the default instead of being clamped, so a
+	// misconfigured billed-polling interval surfaces rather than quietly becoming a valid one.
+	// See validateFeatureFlagsAgentlessPollInterval for the accepted range.
+	featureFlagsAgentlessPollInterval time.Duration
+	// featureFlagsAgentlessRequestTimeout is DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_REQUEST_TIMEOUT_SECONDS.
+	// Bounded from above as well as below: an unbounded value overflows once multiplied into
+	// a time.Duration, and http.Client reads the resulting negative timeout as "no timeout".
+	// See validateFeatureFlagsAgentlessRequestTimeout for the accepted range.
+	featureFlagsAgentlessRequestTimeout time.Duration
+	// flaggingProviderInitTimeout is DD_EXPERIMENTAL_FLAGGING_PROVIDER_INITIALIZATION_TIMEOUT_MS.
+	flaggingProviderInitTimeout time.Duration
 	// spanPoolEnabled enables the experimental span pool.
 	spanPoolEnabled bool
+	// llmObsEnabled controls if LLM Observability is enabled
+	llmObsEnabled bool
+	// llmObsMLApp is the ML App for LLM Observability
+	llmObsMLApp string
+	// llmObsProjectName is the project name for LLM Observability
+	llmObsProjectName string
+	// llmObsAgentlessEnabled controls if LLM Observability is enabled in agentless mode
+	llmObsAgentlessEnabled *bool
 }
 
 // checkProductConflict enforces the cross-product gate for programmatic API calls.
@@ -415,7 +454,7 @@ func loadConfig() *Config {
 		// therefore be absent.
 		if !v {
 			if _, statsOrigin := p.GetBoolWithOrigin("DD_TRACE_STATS_COMPUTATION_ENABLED", true); statsOrigin == telemetry.OriginDefault {
-				cfg.statsComputationEnabled = false
+				cfg.SetStatsComputationEnabled(false, telemetry.OriginCalculated)
 			}
 		}
 	}
@@ -429,12 +468,20 @@ func loadConfig() *Config {
 		p.GetMap("OTEL_EXPORTER_OTLP_METRICS_HEADERS", nil, internal.OtelTagsDelimeter),
 	)
 	cfg.otlpMetricsFlushInterval = resolveOTLPMetricsFlushInterval(env.Get("_DD_TRACE_STATS_INTERVAL"))
+	// The protocol is only consumed by the OTLP span metrics exporter. Values
+	// such as "grpc" are valid for other OpenTelemetry components, so only warn
+	// about them when this exporter is going to use the value.
+	warnOTLPProtocol := cfg.OTLPSpanMetricsEnabled()
+	// The signal-specific protocol takes precedence over the generic one, so
+	// the generic value never reaches the exporter when it is set; warn about
+	// it only when it is the effective protocol.
+	warnGeneric := warnOTLPProtocol && !p.IsSet("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL")
 	otlpProtocolFallback := p.GetString("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
-	if !validateOTLPProtocol(otlpProtocolFallback, "OTEL_EXPORTER_OTLP_PROTOCOL") {
+	if !validateOTLPProtocol(otlpProtocolFallback, "OTEL_EXPORTER_OTLP_PROTOCOL", warnGeneric) {
 		otlpProtocolFallback = "http/protobuf"
 	}
 	cfg.otlpMetricsProtocol = p.GetStringWithValidator("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", otlpProtocolFallback, func(v string) bool {
-		return validateOTLPProtocol(v, "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL")
+		return validateOTLPProtocol(v, "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", warnOTLPProtocol)
 	})
 	cfg.traceID128BitEnabled = p.GetBool("DD_TRACE_128_BIT_TRACEID_GENERATION_ENABLED", true)
 	cfg.httpClientTimeout = time.Duration(p.GetIntWithValidator("DD_TRACE_AGENT_TIMEOUT", 10, validateAgentTimeout)) * time.Second
@@ -444,8 +491,22 @@ func loadConfig() *Config {
 	cfg.propagationExtractFirst = p.GetBool("DD_TRACE_PROPAGATION_EXTRACT_FIRST", false)
 	cfg.appKey = p.GetString("DD_APP_KEY", "")
 	cfg.ciVisibilityAgentlessURL = p.GetString("DD_CIVISIBILITY_AGENTLESS_URL", "")
-	cfg.experimentalFlaggingProviderEnabled = p.GetBool("DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED", false)
+	legacyFlaggingProviderEnabled, legacyFlaggingProviderOrigin := p.GetBoolWithOrigin("DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED", false)
+	cfg.experimentalFlaggingProviderEnabled = legacyFlaggingProviderEnabled
+	cfg.experimentalFlaggingProviderEnabledSet = legacyFlaggingProviderOrigin != telemetry.OriginDefault
 	cfg.spanPoolEnabled = p.GetBool("DD_TRACER_EXPERIMENTAL_SPAN_POOL_ENABLED", false)
+
+	featureFlagsEnabled, featureFlagsEnabledOrigin := p.GetBoolWithOrigin("DD_FEATURE_FLAGS_ENABLED", true)
+	if featureFlagsEnabledOrigin != telemetry.OriginDefault {
+		cfg.featureFlagsEnabled = &featureFlagsEnabled
+	}
+	featureFlagsSource, featureFlagsSourceOrigin := p.GetStringWithOrigin("DD_FEATURE_FLAGS_CONFIGURATION_SOURCE", "agentless")
+	cfg.featureFlagsConfigurationSource = featureFlagsSource
+	cfg.featureFlagsConfigurationSourceSet = featureFlagsSourceOrigin != telemetry.OriginDefault
+	cfg.featureFlagsAgentlessBaseURL = p.GetString("DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_BASE_URL", "")
+	cfg.featureFlagsAgentlessPollInterval = time.Duration(p.GetIntWithValidator("DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_POLL_INTERVAL_SECONDS", 30, validateFeatureFlagsAgentlessPollInterval)) * time.Second
+	cfg.featureFlagsAgentlessRequestTimeout = time.Duration(p.GetIntWithValidator("DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_REQUEST_TIMEOUT_SECONDS", 5, validateFeatureFlagsAgentlessRequestTimeout)) * time.Second
+	cfg.flaggingProviderInitTimeout = time.Duration(p.GetIntWithValidator("DD_EXPERIMENTAL_FLAGGING_PROVIDER_INITIALIZATION_TIMEOUT_MS", 10000, validateFlaggingProviderInitTimeout)) * time.Millisecond
 
 	sampleRate, sampleRateOrigin := p.GetFloatWithValidatorOrigin("DD_TRACE_SAMPLE_RATE", math.NaN(), validateSampleRate)
 	cfg.globalSampleRate = newDynamicConfig("trace_sample_rate", sampleRate, sampleRateOrigin, equalFloat, nil)
@@ -530,6 +591,13 @@ func loadConfig() *Config {
 	cfg.spanSamplingRules = spanRules
 	cfg.spanSamplingRulesOrigin = spanOrigin
 	configtelemetry.ReportDefault("span_sample_rules", spanRules)
+
+	cfg.llmObsEnabled = p.GetBool("DD_LLMOBS_ENABLED", false)
+	cfg.llmObsMLApp = p.GetString("DD_LLMOBS_ML_APP", "")
+	cfg.llmObsProjectName = p.GetString("DD_LLMOBS_PROJECT_NAME", "")
+	if v, origin := p.GetBoolWithOrigin("DD_LLMOBS_AGENTLESS_ENABLED", false); origin != telemetry.OriginDefault {
+		cfg.llmObsAgentlessEnabled = &v
+	}
 
 	return cfg
 }
@@ -1880,10 +1948,65 @@ func (c *Config) CIVisibilityAgentlessURL() string {
 	return c.ciVisibilityAgentlessURL
 }
 
-func (c *Config) ExperimentalFlaggingProviderEnabled() bool {
+// ExperimentalFlaggingProviderEnabled returns DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED and
+// whether it was explicitly set, distinguishing an opted-in legacy customer from one who
+// never set it.
+func (c *Config) ExperimentalFlaggingProviderEnabled() (enabled, explicit bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.experimentalFlaggingProviderEnabled
+	return c.experimentalFlaggingProviderEnabled, c.experimentalFlaggingProviderEnabledSet
+}
+
+// FeatureFlagsEnabled returns DD_FEATURE_FLAGS_ENABLED and whether it was explicitly set.
+// enabled is only meaningful when explicit is true.
+func (c *Config) FeatureFlagsEnabled() (enabled, explicit bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.featureFlagsEnabled == nil {
+		return false, false
+	}
+	return *c.featureFlagsEnabled, true
+}
+
+// FeatureFlagsConfigurationSource returns DD_FEATURE_FLAGS_CONFIGURATION_SOURCE and whether
+// it was explicitly configured, regardless of whether the value itself is blank.
+func (c *Config) FeatureFlagsConfigurationSource() (source string, explicit bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.featureFlagsConfigurationSource, c.featureFlagsConfigurationSourceSet
+}
+
+// FeatureFlagsAgentlessBaseURL returns DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_BASE_URL.
+// SENSITIVE: may embed credentials; callers must never log this value.
+func (c *Config) FeatureFlagsAgentlessBaseURL() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.featureFlagsAgentlessBaseURL
+}
+
+// FeatureFlagsAgentlessPollInterval returns DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_POLL_INTERVAL_SECONDS,
+// or the default when the configured value was out of range. The value is always positive,
+// so callers need not guard a ticker against it.
+func (c *Config) FeatureFlagsAgentlessPollInterval() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.featureFlagsAgentlessPollInterval
+}
+
+// FeatureFlagsAgentlessRequestTimeout returns DD_FEATURE_FLAGS_CONFIGURATION_SOURCE_AGENTLESS_REQUEST_TIMEOUT_SECONDS,
+// or the default when the configured value was out of range. The value is always positive,
+// so it is safe to hand to http.Client, which treats a non-positive Timeout as no timeout.
+func (c *Config) FeatureFlagsAgentlessRequestTimeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.featureFlagsAgentlessRequestTimeout
+}
+
+// FlaggingProviderInitTimeout returns DD_EXPERIMENTAL_FLAGGING_PROVIDER_INITIALIZATION_TIMEOUT_MS.
+func (c *Config) FlaggingProviderInitTimeout() time.Duration {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.flaggingProviderInitTimeout
 }
 
 func (c *Config) SpanPoolEnabled() bool {
@@ -1900,4 +2023,82 @@ func (c *Config) SetSpanPoolEnabled(enabled bool, origin telemetry.Origin, produ
 	}
 	c.spanPoolEnabled = enabled
 	configtelemetry.Report("DD_TRACER_EXPERIMENTAL_SPAN_POOL_ENABLED", enabled, origin)
+}
+
+// LLMObsEnabled returns DD_LLMOBS_ENABLED.
+func (c *Config) LLMObsEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.llmObsEnabled
+}
+
+// SetLLMObsEnabled sets DD_LLMOBS_ENABLED.
+func (c *Config) SetLLMObsEnabled(enabled bool, origin telemetry.Origin, product ...Product) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.checkProductConflict("DD_LLMOBS_ENABLED", origin, enabled, product...) {
+		return
+	}
+	c.llmObsEnabled = enabled
+	configtelemetry.Report("DD_LLMOBS_ENABLED", enabled, origin)
+}
+
+// LLMObsMLApp returns DD_LLMOBS_ML_APP.
+func (c *Config) LLMObsMLApp() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.llmObsMLApp
+}
+
+// SetLLMObsMLApp sets DD_LLMOBS_ML_APP.
+func (c *Config) SetLLMObsMLApp(mlApp string, origin telemetry.Origin, product ...Product) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.checkProductConflict("DD_LLMOBS_ML_APP", origin, mlApp, product...) {
+		return
+	}
+	c.llmObsMLApp = mlApp
+	configtelemetry.Report("DD_LLMOBS_ML_APP", mlApp, origin)
+}
+
+// LLMObsProjectName returns DD_LLMOBS_PROJECT_NAME.
+func (c *Config) LLMObsProjectName() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.llmObsProjectName
+}
+
+// SetLLMObsProjectName sets DD_LLMOBS_PROJECT_NAME.
+func (c *Config) SetLLMObsProjectName(name string, origin telemetry.Origin, product ...Product) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.checkProductConflict("DD_LLMOBS_PROJECT_NAME", origin, name, product...) {
+		return
+	}
+	c.llmObsProjectName = name
+	configtelemetry.Report("DD_LLMOBS_PROJECT_NAME", name, origin)
+}
+
+// LLMObsAgentlessEnabled returns DD_LLMOBS_AGENTLESS_ENABLED. It returns nil
+// when unset, allowing callers to distinguish an explicit false from unset.
+func (c *Config) LLMObsAgentlessEnabled() *bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.llmObsAgentlessEnabled
+}
+
+// SetLLMObsAgentlessEnabled sets DD_LLMOBS_AGENTLESS_ENABLED. A nil value
+// indicates the setting is unset (tri-state).
+func (c *Config) SetLLMObsAgentlessEnabled(v *bool, origin telemetry.Origin, product ...Product) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	conflictValue := "unset"
+	if v != nil {
+		conflictValue = strconv.FormatBool(*v)
+	}
+	if c.checkProductConflict("DD_LLMOBS_AGENTLESS_ENABLED", origin, conflictValue, product...) {
+		return
+	}
+	c.llmObsAgentlessEnabled = v
+	configtelemetry.Report("DD_LLMOBS_AGENTLESS_ENABLED", conflictValue, origin)
 }

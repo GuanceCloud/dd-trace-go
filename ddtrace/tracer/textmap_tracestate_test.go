@@ -39,36 +39,38 @@ func TestTracestateSizeBounded(t *testing.T) {
 		assert.NotContains(t, stored, oversizedVendor)
 	})
 
-	t.Run("extract_bounds_oversized_member_under_total_cap", func(t *testing.T) {
-		t.Setenv(envPropagationStyle, "tracecontext")
-		tr, err := newTracer()
-		require.NoError(t, err)
-		defer tr.Stop()
+	for _, vendor := range []string{"vendor", "ot"} {
+		t.Run("extract_bounds_oversized_"+vendor+"_member_under_total_cap", func(t *testing.T) {
+			t.Setenv(envPropagationStyle, "tracecontext")
+			tr, err := newTracer()
+			require.NoError(t, err)
+			defer tr.Stop()
 
-		// The header's total size is well under tracestateMaxSize (4096), so
-		// only a per-member check -- not the whole-header check -- can catch
-		// this. This must be filtered at parse/store time, not only when the
-		// header is later recomposed for injection: other readers of the
-		// stored tag (e.g. a SpanLink built from a terminated/restarted
-		// extraction, or an inject that reuses a cached tracestate tag
-		// verbatim) never go through composeTracestate at all.
-		oversizedMember := "vendor=" + strings.Repeat("B", 520)
-		raw := "dd=s:2;o:rum," + oversizedMember + ",othervendor=t61rcWkgMzE"
-		require.Less(t, len(raw), tracestateMaxSize)
-		require.Greater(t, len(oversizedMember), tracestateMemberMaxSize)
+			// The header's total size is well under tracestateMaxSize (4096), so
+			// only a per-member check -- not the whole-header check -- can catch
+			// this. This must be filtered at parse/store time, not only when the
+			// header is later recomposed for injection: other readers of the
+			// stored tag (e.g. a SpanLink built from a terminated/restarted
+			// extraction, or an inject that reuses a cached tracestate tag
+			// verbatim) never go through composeTracestate at all.
+			oversizedMember := vendor + "=" + strings.Repeat("B", 520)
+			raw := "dd=s:2;o:rum," + oversizedMember + ",othervendor=t61rcWkgMzE"
+			require.Less(t, len(raw), tracestateMaxSize)
+			require.Greater(t, len(oversizedMember), tracestateMemberMaxSize)
 
-		headers := TextMapCarrier{
-			traceparentHeader: "00-00000000000000000000000000000004-2222222222222222-01",
-			tracestateHeader:  raw,
-		}
-		sctx, err := tr.Extract(headers)
-		require.NoError(t, err)
+			headers := TextMapCarrier{
+				traceparentHeader: "00-00000000000000000000000000000004-2222222222222222-01",
+				tracestateHeader:  raw,
+			}
+			sctx, err := tr.Extract(headers)
+			require.NoError(t, err)
 
-		stored := sctx.trace.propagatingTag(tracestateHeader)
-		assert.NotContains(t, stored, oversizedMember)
-		assert.Contains(t, stored, "dd=s:2;o:rum")
-		assert.Contains(t, stored, "othervendor=t61rcWkgMzE")
-	})
+			stored := sctx.trace.propagatingTag(tracestateHeader)
+			assert.NotContains(t, stored, oversizedMember)
+			assert.Contains(t, stored, "dd=s:2;o:rum")
+			assert.Contains(t, stored, "othervendor=t61rcWkgMzE")
+		})
+	}
 
 	t.Run("extract_keeps_valid_small_tracestate", func(t *testing.T) {
 		t.Setenv(envPropagationStyle, "tracecontext")

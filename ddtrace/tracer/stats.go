@@ -132,9 +132,8 @@ func (s *otlpStatsSender) shouldObfuscate(agentFeatures) bool {
 }
 
 func (s *otlpStatsSender) peerTags(_ []string) []string {
-	// Custom OTLP peer tags aren't implemented yet (spec: "Out of scope for
-	// SDK implementation"); suppress agent-advertised peer tags instead of
-	// leaving stale DD-agent state on an OTLP-routed concentrator.
+	// Custom OTLP peer tags are not exported; keep agent-specific grouping out
+	// of the Guance OTLP concentrator.
 	return []string{}
 }
 
