@@ -36,6 +36,9 @@ var (
 	activeProfiler *profiler
 	containerID    = internal.ContainerID() // replaced in tests
 	entityID       = internal.EntityID()    // replaced in tests
+
+	// errProfilerStopped suppresses collection errors caused by stopping the profiler.
+	errProfilerStopped = errors.New("profiler stopped")
 )
 
 // Start starts the profiler. If the profiler is already running, it will be
@@ -343,9 +346,12 @@ func (p *profiler) collect(ticker <-chan time.Time) {
 				}
 				profs, err := p.runProfile(t)
 				if err != nil {
-					log.Error("Error getting %s profile: %v; skipping.", t, err)
-					tags := append(p.cfg.tags.Slice(), t.Tag())
-					p.cfg.statsd.Count("datadog.profiling.go.collect_error", 1, tags, 1)
+					if err != errProfilerStopped {
+						log.Error("Error getting %s profile: %v; skipping.", t, err)
+						tags := append(p.cfg.tags.Slice(), t.Tag())
+						p.cfg.statsd.Count("datadog.profiling.go.collect_error", 1, tags, 1)
+					}
+					return
 				}
 				mu.Lock()
 				defer mu.Unlock()
@@ -479,11 +485,13 @@ func (p *profiler) outputDir(bat batch) error {
 }
 
 // interruptibleSleep sleeps for the given duration or until interrupted by the
-// p.exit channel being closed.
-func (p *profiler) interruptibleSleep(d time.Duration) {
+// p.exit channel being closed. It reports whether the sleep was interrupted.
+func (p *profiler) interruptibleSleep(d time.Duration) bool {
 	select {
 	case <-p.exit:
+		return true
 	case <-time.After(d):
+		return false
 	}
 }
 

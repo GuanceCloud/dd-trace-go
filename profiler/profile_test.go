@@ -412,6 +412,33 @@ func TestProfileTypeSoundness(t *testing.T) {
 	})
 }
 
+func TestMetricsProfileCollectionError(t *testing.T) {
+	for _, stopped := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stopped=%t", stopped), func(t *testing.T) {
+			p := &profiler{
+				cfg:  &config{},
+				met:  newMetrics(),
+				exit: make(chan struct{}),
+			}
+			// Force an invalid interval independently of the system clock's resolution.
+			p.met.reset(now().Add(time.Hour))
+			if stopped {
+				p.cfg.period = time.Hour
+				close(p.exit)
+			}
+			data, err := profileTypes[MetricsProfile].Collect(p)
+			require.Error(t, err)
+			assert.Empty(t, data)
+			if stopped {
+				assert.ErrorIs(t, err, errProfilerStopped)
+			} else {
+				assert.NotErrorIs(t, err, errProfilerStopped)
+				assert.Contains(t, err.Error(), "unexpected duration")
+			}
+		})
+	}
+}
+
 func requirePprofEqual(t *testing.T, a, b []byte) {
 	t.Helper()
 	pprofA, err := pprofile.ParseData(a)

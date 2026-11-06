@@ -264,11 +264,12 @@ func TestProfilerPassthrough(t *testing.T) {
 		t.Fatal("time expired")
 	}
 
-	assert := assert.New(t)
-	// should contain cpu.pprof, delta-heap.pprof
-	assert.Equal(2, len(bat.profiles))
-	assert.NotEmpty(bat.profiles[0].data)
-	assert.NotEmpty(bat.profiles[1].data)
+	var names []string
+	for _, profile := range bat.profiles {
+		names = append(names, profile.name)
+		assert.NotEmpty(t, profile.data, profile.name)
+	}
+	assert.ElementsMatch(t, []string{"cpu.pprof", "delta-heap.pprof", "metrics.json"}, names)
 }
 
 func unstartedProfiler(opts ...Option) (*profiler, error) {
@@ -408,6 +409,7 @@ func TestAllUploaded(t *testing.T) {
 			"delta-mutex.pprof",
 			"goroutines.pprof",
 			"goroutineswait.pprof",
+			"metrics.json",
 		}
 		if executionTraceEnabledDefault {
 			expected = append(expected, "go.trace")
@@ -733,4 +735,33 @@ func TestVersionResolution(t *testing.T) {
 		assert.Contains(t, data.tags, "Version:4.5.6")
 		assert.NotContains(t, data.tags, "version:7.8.9")
 	})
+}
+
+func TestShortMetricsProfile(t *testing.T) {
+	t.Setenv("DD_PROFILING_EXECUTION_TRACE_ENABLED", "false")
+	profiles := startTestProfiler(t, 1, WithPeriod(10*time.Millisecond), WithProfileTypes(MetricsProfile))
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+	for i := 0; i < 3; i++ {
+		select {
+		case p := <-profiles:
+			require.Contains(t, p.attachments, "metrics.json")
+			assert.True(t, json.Valid(p.attachments["metrics.json"]))
+		case <-timeout.C:
+			t.Fatal("timed out waiting for metrics profiles")
+		}
+	}
+}
+
+func TestMetricsProfileStopEarlyNoLog(t *testing.T) {
+	t.Setenv("DD_PROFILING_EXECUTION_TRACE_ENABLED", "false")
+	log.Flush()
+	rl := new(log.RecordLogger)
+	defer log.UseLogger(rl)()
+	startTestProfiler(t, 1, WithPeriod(2*time.Second), WithProfileTypes(MetricsProfile))
+	Stop()
+	log.Flush()
+	for _, msg := range rl.Logs() {
+		assert.NotContains(t, msg, "ERROR", "stopping the profiler must not log an error")
+	}
 }

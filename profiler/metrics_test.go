@@ -7,6 +7,7 @@ package profiler
 
 import (
 	"bytes"
+	"encoding/json"
 	"math"
 	"runtime"
 	"testing"
@@ -145,20 +146,55 @@ func TestMetricsReport(t *testing.T) {
 }
 
 func TestMetricsCollectFrequency(t *testing.T) {
-	now := now()
-	var err error
-	var buf bytes.Buffer
-	m := newTestMetrics(now)
+	for _, period := range []time.Duration{
+		-time.Second,
+		0,
+		10 * time.Millisecond,
+		262300304 * time.Nanosecond,
+		time.Second - 1,
+		time.Second,
+		1500 * time.Millisecond,
+	} {
+		t.Run(period.String(), func(t *testing.T) {
+			start := now()
+			m := newTestMetrics(start)
+			var buf bytes.Buffer
+			err := m.report(start.Add(period), &buf)
+			if period <= 0 {
+				assert.Error(t, err, "collection call times must be monotonically increasing")
+				assert.Empty(t, buf)
+				assert.Equal(t, start, m.collectedAt)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, json.Valid(buf.Bytes()), "metrics must be valid JSON")
+			assert.Equal(t, start.Add(period), m.collectedAt)
+		})
+	}
+}
 
-	err = m.report(now.Add(-time.Second), &buf)
-	assert.Error(t, err, "collection call times must be monotonically increasing")
-	assert.Empty(t, buf)
-
-	err = m.report(now.Add(time.Second-1), &buf)
-	assert.Error(t, err, "must be at least one second between collection calls")
-	assert.Empty(t, buf)
-
-	err = m.report(now.Add(time.Second), &buf)
-	assert.NoError(t, err, "one second between calls should work")
-	assert.NotEmpty(t, buf)
+func TestMetricsComputeFractionalPeriod(t *testing.T) {
+	prev := metricsSnapshot{}
+	curr := metricsSnapshot{MemStats: runtime.MemStats{
+		TotalAlloc:   300,
+		Mallocs:      30,
+		Frees:        15,
+		HeapAlloc:    150,
+		NumGC:        3,
+		PauseTotalNs: uint64(3 * time.Millisecond),
+	}}
+	for _, tc := range []struct {
+		period time.Duration
+		want   []float64
+	}{
+		{250 * time.Millisecond, []float64{1200, 120, 60, 600, 12, 0.012}},
+		{1500 * time.Millisecond, []float64{200, 20, 10, 100, 2, 0.002}},
+	} {
+		t.Run(tc.period.String(), func(t *testing.T) {
+			points := computeMetrics(&prev, &curr, tc.period, now())
+			for i, want := range tc.want {
+				assert.InDelta(t, want, points[i].value, 1e-12, points[i].metric)
+			}
+		})
+	}
 }
